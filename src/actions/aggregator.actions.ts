@@ -11,7 +11,7 @@ import * as cheerio from "cheerio";
 import { processMidRollImages } from "@/actions/ai-blog.actions";
 
 // Initialize Subsystems
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "sk-build-dummy" });
 const parser = new Parser();
 
 // Validation Schemas

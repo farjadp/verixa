@@ -8,7 +8,7 @@ import { zodResponseFormat } from "openai/helpers/zod";
 import { prisma } from "@/lib/prisma";
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || "sk-build-dummy",
 });
 
 // ZOD SCHEMAS FOR STRUCTURED OUTPUT

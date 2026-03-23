@@ -7,7 +7,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "sk-build-dummy" });
 
 // ----------------------------------------------------------------------------
 // ZOD STRUCTURES (Strict Output Enforcement)

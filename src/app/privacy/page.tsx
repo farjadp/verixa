@@ -704,11 +704,242 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
-          <div className="mt-16 text-center border-t border-gray-100 pt-16">
-             <span className="inline-flex items-center justify-center py-2 px-6 bg-[#0F2A44] text-white rounded-full text-sm font-bold tracking-widest shadow-xl">
-               PIPEDA COMPLIANCE COMPLETE
-             </span>
-             <p className="text-sm text-gray-500 mt-6 font-medium max-w-lg mx-auto">This Data Protection Policy comprehensively protects all operations natively occurring across the Verixa global architecture.</p>
+          {/* PART 3 START */}
+
+          <div className="mt-20 mb-8 flex items-center gap-4">
+            <h2 className="text-3xl font-black text-[#0F2A44] font-serif">Part 3 — User Rights, Cookies, Compliance & Legal</h2>
+            <div className="h-px bg-gray-200 flex-1"></div>
+          </div>
+
+          {/* 23. Individual Rights */}
+          <section className="space-y-6">
+            <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
+              <span className="text-[#2FA4A9]">23.</span> Individual Rights (Under PIPEDA)
+            </h2>
+            <p className="text-[15px] font-medium text-gray-600">Under PIPEDA, users have specific rights regarding their personal information.</p>
+            
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+              <div className="bg-white border rounded-2xl p-6 shadow-sm">
+                <h4 className="font-bold text-[#0F2A44] mb-3 flex items-center gap-2 border-b pb-2">
+                  <span className="text-[#2FA4A9]">23.1</span> Right of Access
+                </h4>
+                <ul className="text-[14px] list-disc pl-4 space-y-2 marker:text-[#2FA4A9] text-gray-600">
+                  <li>Request access to personal data</li>
+                  <li>Understand how data is used</li>
+                  <li>Know who data has been shared with</li>
+                </ul>
+                <p className="text-[10px] text-gray-400 mt-4">📌 Ref: PIPEDA Principle 9</p>
+              </div>
+
+              <div className="bg-white border rounded-2xl p-6 shadow-sm">
+                <h4 className="font-bold text-[#0F2A44] mb-3 flex items-center gap-2 border-b pb-2">
+                  <span className="text-[#2FA4A9]">23.2</span> Right to Correction
+                </h4>
+                <ul className="text-[14px] list-disc pl-4 space-y-2 marker:text-[#2FA4A9] text-gray-600 mb-3">
+                  <li>Inaccurate data</li>
+                  <li>Incomplete data</li>
+                  <li>Outdated data</li>
+                </ul>
+                <p className="text-xs font-medium text-gray-700 bg-gray-50 p-2 rounded">Verixa will update records where appropriate.</p>
+                <p className="text-[10px] text-gray-400 mt-3">📌 Ref: PIPEDA Principle 6</p>
+              </div>
+
+              <div className="bg-white border rounded-2xl p-6 shadow-sm">
+                <h4 className="font-bold text-[#0F2A44] mb-3 flex items-center gap-2 border-b pb-2">
+                  <span className="text-[#2FA4A9]">23.3</span> Withdraw Consent
+                </h4>
+                <p className="text-[13px] text-gray-600 mb-2">Users may withdraw consent anytime, subject to:</p>
+                <ul className="text-[13px] list-disc pl-4 space-y-1 marker:text-[#2FA4A9] text-gray-600 mb-3">
+                  <li>Legal obligations</li>
+                  <li>Active transactions (e.g., bookings)</li>
+                </ul>
+                <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">After withdrawal, some services may no longer be available.</p>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6 mt-4">
+              <div className="bg-gray-50 border border-gray-100 rounded-xl p-5">
+                <h4 className="font-bold text-[#0F2A44] mb-2 text-sm tracking-widest uppercase">23.4 Challenge Compliance</h4>
+                <p className="text-sm text-gray-600 mb-2">Users may file a complaint regarding misuse, privacy concerns, or improper handling.</p>
+                <p className="text-sm font-medium">Verixa will investigate and respond in a reasonable timeframe.</p>
+              </div>
+              <div className="bg-gray-50 border border-gray-100 rounded-xl p-5">
+                <h4 className="font-bold text-[#0F2A44] mb-2 text-sm tracking-widest uppercase">23.5 Escalation to Regulator</h4>
+                <p className="text-sm text-gray-600 mb-2">If not satisfied, users may contact the Office of the Privacy Commissioner of Canada (OPC):</p>
+                <a href="https://www.priv.gc.ca/" target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-[#2FA4A9] hover:underline">https://www.priv.gc.ca/</a>
+              </div>
+            </div>
+          </section>
+
+          <hr className="border-gray-100" />
+
+          {/* 24. Cookies */}
+          <section className="space-y-6">
+             <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
+              <span className="text-[#2FA4A9]">24.</span> Cookies & Tracking Technologies
+            </h2>
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="text-[15px] prose prose-gray">
+                <p>Verixa uses cookies and similar technologies to:</p>
+                <ul className="list-disc pl-4 marker:text-[#2FA4A9]">
+                  <li>Maintain sessions</li>
+                  <li>Improve performance</li>
+                  <li>Analyze usage</li>
+                  <li>Enhance user experience</li>
+                </ul>
+                
+                <h4 className="font-bold text-[#0F2A44] mt-6 mb-2">Legal Position</h4>
+                <ul className="list-disc pl-4 marker:text-[#2FA4A9]">
+                  <li>Compliant with PIPEDA consent principles</li>
+                  <li>Compliant with reasonable user expectations</li>
+                  <li>Users can disable cookies in browser settings or limit tracking.</li>
+                </ul>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-white p-4 border rounded-xl shadow-sm">
+                  <h5 className="font-bold text-[#0F2A44] text-sm">Essential Cookies</h5>
+                  <p className="text-xs text-gray-500 mt-1">Login sessions & Security</p>
+                </div>
+                <div className="bg-white p-4 border rounded-xl shadow-sm">
+                  <h5 className="font-bold text-[#0F2A44] text-sm">Analytics Cookies</h5>
+                  <p className="text-xs text-gray-500 mt-1">Usage tracking & Performance metrics</p>
+                </div>
+                <div className="bg-white p-4 border rounded-xl shadow-sm">
+                  <h5 className="font-bold text-[#0F2A44] text-sm">Functional Cookies</h5>
+                  <p className="text-xs text-gray-500 mt-1">Preferences & Saved settings</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <hr className="border-gray-100" />
+
+          {/* 25, 26, 27. Comms, Breach, Deletion */}
+          <div className="grid md:grid-cols-3 gap-6">
+            <section className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+              <h4 className="text-lg font-bold text-[#0F2A44] mb-3">25. Marketing Comms</h4>
+              <p className="text-[13px] text-gray-600 mb-2">We may send booking confirmations, reminders, and service updates.</p>
+              <ul className="text-[13px] list-disc pl-4 text-gray-600 mb-3 space-y-1">
+                <li><strong className="text-gray-800">Opt-in:</strong> Newsletters, edu content, platform updates.</li>
+                <li><strong className="text-gray-800">Opt-out:</strong> Unsubscribe anytime via email or settings.</li>
+              </ul>
+              <p className="text-[10px] text-gray-400 mt-4">📌 Ref: CASL Compliance</p>
+            </section>
+
+            <section className="bg-gray-50 p-6 rounded-2xl border border-gray-100 border-t-4 border-t-red-400">
+              <h4 className="text-lg font-bold text-[#0F2A44] mb-3">26. Data Breach Response</h4>
+              <p className="text-[13px] text-gray-600 mb-2">In the event of a breach, Verixa will:</p>
+              <ul className="text-[13px] list-disc pl-4 text-gray-600 space-y-1">
+                <li>Assess the risk of harm</li>
+                <li>Notify affected users if required</li>
+                <li>Report to Privacy Commissioner if necessary</li>
+              </ul>
+              <p className="text-[10px] text-gray-400 mt-4">📌 Ref: PIPEDA Breach Regulations</p>
+            </section>
+
+            <section className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+              <h4 className="text-lg font-bold text-[#0F2A44] mb-3">27. Account Closure</h4>
+              <p className="text-[13px] text-gray-600 mb-2">Users may request account deletion and data removal.</p>
+              <p className="text-[13px] font-medium text-gray-800 mb-2">Verixa may retain data for:</p>
+              <ul className="text-[13px] list-disc pl-4 text-gray-600 space-y-1">
+                <li>Legal compliance</li>
+                <li>Dispute resolution</li>
+                <li>Financial records</li>
+              </ul>
+            </section>
+          </div>
+
+          <hr className="border-gray-100" />
+
+          {/* 28, 29, 30. Automation, Disclaimer, Liability */}
+          <section className="space-y-8">
+            <div className="bg-white border p-6 rounded-2xl shadow-sm">
+              <h2 className="text-xl font-bold text-[#0F2A44] flex items-center gap-2 mb-3">
+                <span className="text-[#2FA4A9]">28.</span> Automated Decision-Making
+              </h2>
+              <p className="text-[14px] text-gray-600 mb-3">Verixa may use automated systems for ranking consultants, displaying search results, and visibility weighting.</p>
+              <div className="bg-amber-50 border border-amber-100 p-3 rounded-lg text-[13px] text-amber-900 font-medium">
+                <strong>Important:</strong> No legal or immigration decisions are made by Verixa. Automated systems do not replace professional judgment.
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-white border p-6 rounded-2xl shadow-sm">
+                 <h2 className="text-xl font-bold text-[#0F2A44] flex items-center gap-2 mb-3">
+                  <span className="text-[#2FA4A9]">29.</span> Prof. Services Disclaimer
+                </h2>
+                <ul className="text-[14px] list-disc pl-4 text-gray-600 space-y-2">
+                  <li>Connects users with licensed consultants.</li>
+                  <li>Does <strong>not</strong> provide immigration advice.</li>
+                  <li>Does <strong>not</strong> act as a legal representative.</li>
+                </ul>
+                <p className="text-[13px] font-bold mt-4 border-t pt-3">All services are provided by independent consultants.</p>
+              </div>
+
+              <div className="bg-white border p-6 rounded-2xl shadow-sm">
+                 <h2 className="text-xl font-bold text-[#0F2A44] flex items-center gap-2 mb-3">
+                  <span className="text-[#2FA4A9]">30.</span> Limitation of Liability
+                </h2>
+                <p className="text-[14px] text-gray-600 mb-3">Verixa takes reasonable steps to protect data, but no system is 100% secure. Users share information at their own risk.</p>
+                <p className="text-[13px] font-bold">Verixa is not responsible for:</p>
+                <ul className="text-[13px] list-disc pl-4 text-gray-600 mt-1">
+                  <li>Actions of third-party consultants</li>
+                  <li>External systems beyond our control</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <hr className="border-gray-100" />
+
+          {/* 31, 32, 33 */}
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <h4 className="font-bold text-[#0F2A44]">31. Children’s Privacy</h4>
+              <p className="text-[13px] text-gray-600">Verixa is not intended for individuals under 18. We do not knowingly collect personal information from minors.</p>
+            </div>
+            <div className="space-y-2">
+              <h4 className="font-bold text-[#0F2A44]">32. Policy Updates</h4>
+              <p className="text-[13px] text-gray-600">Verixa may update this policy periodically. Updated versions will be published, and users may be notified if changes are material.</p>
+            </div>
+            <div className="space-y-2">
+              <h4 className="font-bold text-[#0F2A44]">33. Contact Information</h4>
+              <p className="text-[13px] text-gray-600">For privacy-related inquiries:</p>
+              <ul className="text-[13px] list-disc pl-4 text-gray-600 space-y-1">
+                <li>Privacy Officer</li>
+                <li>Email: <em>legal@verixa.com</em></li>
+                <li>Platform contact form</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* FINAL POSITION & TRUST ENGINE */}
+          <div className="mt-20 lg:mt-24 space-y-10">
+            
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center justify-center p-4 bg-gray-50 rounded-full mb-2">
+                <ShieldCheck className="w-8 h-8 text-[#0F2A44]" />
+              </div>
+              <h3 className="text-2xl font-black text-[#0F2A44] uppercase tracking-widest">Final Legal Position</h3>
+              <p className="text-gray-600 font-medium max-w-2xl mx-auto">
+                Verixa operates under Canadian privacy law and formally commits to <strong>transparency</strong>, <strong>limited data use</strong>, <strong>user control</strong>, and <strong>responsible handling</strong>.
+              </p>
+            </div>
+
+            <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-[#0F2A44] via-[#163859] to-[#2FA4A9] p-10 lg:p-16 text-center shadow-2xl">
+              {/* Abstract decorative circles */}
+              <div className="absolute top-0 left-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+              <div className="absolute bottom-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+              
+              <h2 className="relative z-10 text-3xl md:text-5xl font-black text-white tracking-tight mb-6 drop-shadow-lg font-serif italic">
+                “Privacy is not a legal page.<br/>It is a trust engine.”
+              </h2>
+              <p className="relative z-10 text-teal-100/80 font-medium text-lg max-w-2xl mx-auto tracking-wide">
+                Verixa is engineered to protect your future. By establishing a zero-compromise approach to data governance, we convert absolute security into absolute confidence.
+              </p>
+            </div>
+
           </div>
 
         </div>

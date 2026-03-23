@@ -368,8 +368,10 @@ model SocialJob {
   blogPost        BlogPost     @relation(fields: [blogPostId], references: [id])
   linkedinCopy    String?
   twitterCopy     String?
-  instagramCopy   String?
-  status          String       @default("PENDING") // PENDING, POSTED, FAILED
+  telegramCopy    String?
+  hooks           String?      // JSON of 5 Hooks
+  ctas            String?      // JSON of 3 CTAs
+  status          String       @default("PENDING") // PENDING, GENERATING, REVIEW, APPROVED, POSTED, FAILED
   createdAt       DateTime     @default(now())
 }
 

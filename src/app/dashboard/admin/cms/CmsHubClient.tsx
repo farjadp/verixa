@@ -71,6 +71,14 @@ export default function CmsHubClient({ initialPosts }: { initialPosts: any[] }) 
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-500 transition-colors" />
               </Link>
+
+              <Link href="/dashboard/admin/social" className="w-full bg-[#FAFAFA] hover:bg-[#F3F0EA] border border-[#f5ecd8] p-4 rounded-xl flex items-center justify-between group transition-all">
+                <div>
+                  <h4 className="font-bold text-gray-900 flex items-center gap-2"><Share2 className="w-4 h-4 text-[#C29967]" /> Content Distribution Engine</h4>
+                  <p className="text-[11px] text-gray-500 mt-1">Multi-Format LinkedIn & X Optimizer.</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#C29967] transition-colors" />
+              </Link>
               
               <Link href="/dashboard/admin/blog/new" className="w-full bg-[#FAFAFA] hover:bg-[#F3F0EA] border border-[#f5ecd8] p-4 rounded-xl flex items-center justify-between group transition-all">
                 <div>

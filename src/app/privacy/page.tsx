@@ -1,4 +1,6 @@
 import { ShieldCheck, Scale, FileText } from "lucide-react";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 export const metadata = {
   title: "Privacy Policy | Verixa",
@@ -7,8 +9,9 @@ export const metadata = {
 
 export default function PrivacyPolicyPage() {
   return (
-    <main className="min-h-screen bg-[#F5F7FA] py-20 font-sans selection:bg-[#2FA4A9] selection:text-white">
-      
+    <main className="min-h-screen bg-[#F5F7FA] font-sans selection:bg-[#2FA4A9] selection:text-white">
+      <Header />
+      <div className="pt-32 pb-20">
       {/* HEADER SECTION */}
       <div className="max-w-4xl mx-auto px-6 lg:px-8 mb-16">
         <div className="flex items-center gap-3 text-[#2FA4A9] font-bold tracking-widest uppercase text-sm mb-4">
@@ -944,6 +947,8 @@ export default function PrivacyPolicyPage() {
 
         </div>
       </div>
+      </div>
+      <Footer />
     </main>
   );
 }

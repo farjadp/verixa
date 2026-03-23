@@ -1,4 +1,6 @@
 import { ShieldAlert } from "lucide-react";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 export const metadata = {
   title: "Terms of Service | Verixa",
@@ -6,8 +8,10 @@ export const metadata = {
 
 export default function TermsPage() {
   return (
-    <main className="min-h-screen bg-[#F5F7FA] py-20 font-sans">
-      <div className="max-w-4xl mx-auto px-6 lg:px-8 mb-16">
+    <main className="min-h-screen bg-[#F5F7FA] font-sans">
+      <Header />
+      <div className="pt-32 pb-20">
+        <div className="max-w-4xl mx-auto px-6 lg:px-8 mb-16">
         <div className="flex items-center gap-3 text-[#0F2A44] font-bold tracking-widest uppercase text-sm mb-4">
           <ShieldAlert className="w-5 h-5" />
           <span>Legal Infrastructure</span>
@@ -25,6 +29,8 @@ export default function TermsPage() {
           <p className="text-center font-bold text-gray-400">Section details pending legal review. Check back soon.</p>
         </div>
       </div>
+      </div>
+      <Footer />
     </main>
   );
 }

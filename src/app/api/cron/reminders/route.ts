@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/mailer';
 
+export const dynamic = 'force-dynamic';
+
 // Verify via Cron Secret (standard Vercel Cron setup)
 export async function GET(req: Request) {
   const authHeader = req.headers.get('authorization');

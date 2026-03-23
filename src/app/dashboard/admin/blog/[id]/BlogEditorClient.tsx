@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Save, Globe, EyeOff, LayoutTemplate } from "lucide-react";
 import Link from "next/link";
 import { createBlogPost, updateBlogPost } from "@/actions/blog.actions";
+import dynamic from "next/dynamic";
+
+const MDXEditor = dynamic(() => import("@/components/blog/MDXEditorComponent"), {
+  ssr: false,
+  loading: () => <div className="min-h-[500px] flex items-center justify-center bg-white border border-gray-200 rounded-xl text-gray-500 font-mono text-xs shadow-sm">Initialize Rich Text Engine...</div>
+});
 
 const CATEGORIES = [
   { value: "IMMIGRATION_GUIDES", label: "Immigration Guides" },
@@ -138,15 +144,11 @@ export default function BlogEditorClient({ initialPost, isNew }: { initialPost: 
              </div>
              
              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">Markdown Content (AEO Optimized)</label>
-                <p className="text-xs text-gray-600 mb-2 font-mono">Build with structural H2s, bullet lists, FAQ, and internal CTAs.</p>
-                <textarea 
-                  name="content"
-                  value={formData.content} 
-                  onChange={handleChange}
-                  rows={25}
-                  className="w-full bg-[#1A1A1A] border border-gray-800 rounded-lg p-4 text-gray-300 text-sm font-mono leading-relaxed focus:outline-none focus:border-[#C29967] transition-colors resize-y"
-                  placeholder="## What is an RCIC?&#10;&#10;An RCIC is a legally protected professional..."
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">Rich Content Editor</label>
+                <p className="text-xs text-gray-600 mb-2 font-mono">Build with structural H2s, visual tables, and drag-and-drop native images.</p>
+                <MDXEditor 
+                  markdown={formData.content} 
+                  onChange={(val) => setFormData(prev => ({...prev, content: val}))} 
                 />
              </div>
           </div>

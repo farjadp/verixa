@@ -40,8 +40,8 @@ export default function Footer() {
               <FooterGroup title="Discover">
                 <FooterLink href="/search" label="Search Registry" />
                 <FooterLink href="/search?city=Toronto" label="Toronto Experts" />
+                <FooterLink href="/refund-policy" label="Booking Policy" />
                 <FooterLink href="/search?language=English" label="Multi-lingual" />
-                <FooterLink href="/search?q=Express" label="Express Entry" />
               </FooterGroup>
 
               <FooterGroup title="Resources">
@@ -62,9 +62,9 @@ export default function Footer() {
               <FooterGroup title="Legal">
                 <FooterLink href="/terms" label="Terms" />
                 <FooterLink href="/privacy" label="Privacy" />
+                <FooterLink href="/refund-policy" label="Refund Policy" />
                 <FooterLink href="/consultant-agreement" label="Consultant Agreement" />
                 <FooterLink href="/disclaimer" label="Disclaimer" />
-                <FooterLink href="/contact" label="Contact" />
               </FooterGroup>
 
             </div>

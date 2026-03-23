@@ -249,7 +249,7 @@ export default function PricingPage() {
 
                 {/* 4. Financials & Escrow */}
                 <TableGroup title="Financials & Escrow" />
-                <TableRow label="Monthly Subscription" vals={["$0", "$49", "$99", "$199"]} />
+                <TableRow label="Monthly Subscription" vals={["$0", "$21", "$55", "$199"]} />
                 <TableRow label="Platform Commission Fee" isDark vals={[<span key="1" className="text-gray-500 font-bold">21%</span>, <span key="2" className="text-[#0F2A44] font-bold">8%</span>, <span key="3" className="text-[#2FA4A9] font-black text-base">3%</span>, <span key="2" className="text-gray-900 font-black text-base">0%</span>]} />
                 <TableRow label="Escrow Financial Protection" vals={[true, true, true, true]} />
                 <TableRow label="Targeted Service Pricing (Dynamic)" vals={[false, true, true, true]} />

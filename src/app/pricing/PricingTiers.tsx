@@ -73,13 +73,13 @@ export default function PricingTiers() {
                  {isAnnual && <span className="bg-[#2FA4A9]/10 text-[#2FA4A9] text-[10px] font-black uppercase px-2 py-0.5 rounded-full">13% OFF</span>}
               </div>
               <div className="font-serif flex items-end gap-1">
-                {isAnnual && <span className="text-2xl font-black text-gray-300 line-through mb-1 mr-1">$49</span>}
-                <span className="text-4xl font-black text-[#0F2A44]">{isAnnual ? '$42' : '$49'}</span>
+                {isAnnual && <span className="text-2xl font-black text-gray-300 line-through mb-1 mr-1">$21</span>}
+                <span className="text-4xl font-black text-[#0F2A44]">{isAnnual ? '$18' : '$21'}</span>
                 <span className="text-gray-400 font-medium mb-1">/mo</span>
               </div>
               <div className="h-5 mt-1">
                 {isAnnual ? (
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Billed $504/yr</span>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Billed $216/yr</span>
                 ) : (
                   <span className="text-[10px] font-bold text-transparent select-none">-</span>
                 )}
@@ -104,13 +104,13 @@ export default function PricingTiers() {
                  {isAnnual && <span className="bg-white/20 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded-full">21% OFF</span>}
               </div>
               <div className="font-serif flex items-end gap-1">
-                {isAnnual && <span className="text-2xl font-black text-gray-500 line-through mb-1 mr-1 opacity-60">$99</span>}
-                <span className="text-4xl font-black text-white">{isAnnual ? '$78' : '$99'}</span>
+                {isAnnual && <span className="text-2xl font-black text-gray-500 line-through mb-1 mr-1 opacity-60">$55</span>}
+                <span className="text-4xl font-black text-white">{isAnnual ? '$43' : '$55'}</span>
                 <span className="text-gray-400 font-medium mb-1">/mo</span>
               </div>
               <div className="h-5 mt-1">
                 {isAnnual ? (
-                  <span className="text-[10px] font-bold text-[#2FA4A9] uppercase tracking-widest">Billed $936/yr</span>
+                  <span className="text-[10px] font-bold text-[#2FA4A9] uppercase tracking-widest">Billed $516/yr</span>
                 ) : (
                   <span className="text-[10px] font-bold text-transparent select-none">-</span>
                 )}

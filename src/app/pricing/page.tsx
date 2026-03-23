@@ -287,7 +287,7 @@ export default function PricingPage() {
       </section>
 
       {/* 6. COMPARISON TABLE */}
-      <section id="comparison" className="py-24 bg-white border-y border-gray-100 hidden lg:block">
+      <section id="comparison" className="py-24 bg-white border-y border-gray-100 hidden md:block">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-black text-[#0F2A44] mb-4">Deep Structure Comparison</h2>
@@ -299,90 +299,63 @@ export default function PricingPage() {
               <thead>
                 <tr>
                   <th className="p-4 border-b-2 border-gray-200 w-1/3"></th>
-                  <th className="p-4 border-b-2 border-gray-200 text-center font-bold text-gray-400">Free</th>
-                  <th className="p-4 border-b-2 border-gray-200 text-center font-bold text-[#0F2A44]">Starter</th>
-                  <th className="p-4 border-b-2 border-[#2FA4A9] text-center font-bold text-[#2FA4A9]">Growth</th>
-                  <th className="p-4 border-b-2 border-gray-200 text-center font-bold text-gray-900">Pro</th>
+                  <th className="p-4 border-b-2 border-gray-200 text-center font-bold text-gray-400 w-[16%]">Free</th>
+                  <th className="p-4 border-b-2 border-gray-200 text-center font-bold text-[#0F2A44] w-[16%]">Starter</th>
+                  <th className="p-4 border-b-2 border-[#2FA4A9] text-center font-bold text-[#2FA4A9] w-[16%]">Growth</th>
+                  <th className="p-4 border-b-2 border-gray-200 text-center font-bold text-gray-900 w-[16%]">Pro</th>
                 </tr>
               </thead>
               <tbody className="text-sm font-medium text-gray-600">
-                {/* Visibility */}
-                <tr className="bg-gray-50">
-                  <td colSpan={5} className="p-3 font-bold text-[#0F2A44] text-xs uppercase tracking-widest">Visibility & Conversion</td>
-                </tr>
-                <tr>
-                  <td className="p-4 border-b border-gray-100">Visibility Score</td>
-                  <td className="p-4 border-b border-gray-100 text-center text-gray-400">Low</td>
-                  <td className="p-4 border-b border-gray-100 text-center text-[#0F2A44]">Boosted</td>
-                  <td className="p-4 border-b border-gray-100 text-center text-[#2FA4A9] font-bold">High</td>
-                  <td className="p-4 border-b border-gray-100 text-center text-gray-900 font-bold">Maximum</td>
-                </tr>
-                <tr>
-                  <td className="p-4 border-b border-gray-100">Booking Enabled</td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                </tr>
-                <tr className="bg-[#0F2A44]/5">
-                  <td className="p-4 border-b border-gray-100 font-bold text-[#0F2A44]">Platform Commission Rate</td>
-                  <td className="p-4 border-b border-gray-100 text-center font-bold text-gray-500">21%</td>
-                  <td className="p-4 border-b border-gray-100 text-center font-bold text-[#0F2A44]">8%</td>
-                  <td className="p-4 border-b border-gray-100 text-center font-bold text-[#2FA4A9]">3%</td>
-                  <td className="p-4 border-b border-gray-100 text-center font-bold text-black">0%</td>
-                </tr>
                 
-                {/* Trust & Profile */}
-                <tr className="bg-gray-50">
-                  <td colSpan={5} className="p-3 font-bold text-[#0F2A44] text-xs uppercase tracking-widest border-t border-gray-100">Trust & Profile Control</td>
-                </tr>
-                <tr>
-                  <td className="p-4 border-b border-gray-100">Verified Badge</td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                </tr>
-                <tr>
-                  <td className="p-4 border-b border-gray-100">Respond to Reviews</td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Minus className="w-4 h-4 mx-auto text-gray-300" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                </tr>
-                <tr>
-                  <td className="p-4 border-b border-gray-100">Competitor Ads Removed</td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Minus className="w-4 h-4 mx-auto text-gray-300" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Minus className="w-4 h-4 mx-auto text-gray-300" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                </tr>
-                
-                {/* Advanced Features */}
-                <tr className="bg-gray-50">
-                  <td colSpan={5} className="p-3 font-bold text-[#0F2A44] text-xs uppercase tracking-widest border-t border-gray-100">Advanced Systems</td>
-                </tr>
-                <tr>
-                  <td className="p-4 border-b border-gray-100">Analytics Access</td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Minus className="w-4 h-4 mx-auto text-gray-300" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center text-xs">Basic</td>
-                  <td className="p-4 border-b border-gray-100 text-center text-xs font-bold text-[#2FA4A9]">Advanced</td>
-                  <td className="p-4 border-b border-gray-100 text-center text-xs font-bold text-gray-900">Enterprise</td>
-                </tr>
-                <tr>
-                  <td className="p-4 border-b border-gray-100">Custom Branding</td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Minus className="w-4 h-4 mx-auto text-gray-300" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Minus className="w-4 h-4 mx-auto text-gray-300" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Minus className="w-4 h-4 mx-auto text-gray-300" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                </tr>
-                <tr>
-                  <td className="p-4 border-b border-gray-100">Priority Support</td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Minus className="w-4 h-4 mx-auto text-gray-300" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Minus className="w-4 h-4 mx-auto text-gray-300" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                  <td className="p-4 border-b border-gray-100 text-center"><Check className="w-4 h-4 mx-auto text-green-500" /></td>
-                </tr>
+                {/* 1. Visibility & SEO */}
+                <TableGroup title="Visibility & SEO" />
+                <TableRow label="Algorithmic Search Ranking" vals={["Basic", "Boosted", <span key="1" className="text-[#2FA4A9] font-bold">High Priority</span>, <span key="2" className="text-gray-900 font-bold">Maximum</span>]} />
+                <TableRow label="Google Search Indexing" vals={[false, true, true, true]} />
+                <TableRow label="Competitor Ad Removal" vals={[false, false, true, true]} />
+                <TableRow label="Featured Consultant Badge" vals={[false, false, true, true]} />
+                <TableRow label="Category Dominance (e.g. Study Visas)" vals={["None", "1 Category", "3 Categories", "Unlimited"]} />
+                <TableRow label="Geographic Targeting" vals={["City", "Province", "National", "Global"]} />
+
+                {/* 2. Trust & Identity */}
+                <TableGroup title="Trust & Identity" />
+                <TableRow label="CICC/Law Society Verification Badge" vals={[true, true, true, true]} />
+                <TableRow label="Structured Review Collection" vals={[true, true, true, true]} />
+                <TableRow label="Review Response Management" vals={[false, true, true, true]} />
+                <TableRow label="Custom Profile Cover & Branding" vals={[false, "Basic", "Advanced", "Full Agency"]} />
+                <TableRow label="Custom Domain Routing (e.g. yourname.com)" vals={[false, false, false, true]} />
+                <TableRow label="Trust Score Multiplier" vals={["1.0x", "1.2x", "1.5x", "2.0x"]} />
+
+                {/* 3. Booking & Client Acquisition */}
+                <TableGroup title="Booking & Client Acquisition" />
+                <TableRow label="Direct Calendar Booking" vals={[true, true, true, true]} />
+                <TableRow label="Calendar Sync (Outlook/Google)" vals={["Basic", "Automatic", "Automatic", "Automatic"]} />
+                <TableRow label="Consultation Types (e.g. 15min, 1h)" vals={["1 Type", "3 Types", "Unlimited", "Unlimited"]} />
+                <TableRow label="Automated Email Reminders" vals={[true, true, true, true]} />
+                <TableRow label="Automated SMS Reminders (Anti No-Show)" vals={[false, false, true, true]} />
+                <TableRow label="Pre-Booking Custom Questionnaire" vals={[false, "Standard", "Custom", "Advanced Routing"]} />
+
+                {/* 4. Financials & Escrow */}
+                <TableGroup title="Financials & Escrow" />
+                <TableRow label="Monthly Subscription" vals={["$0", "$49", "$99", "$199"]} />
+                <TableRow label="Platform Commission Fee" isDark vals={[<span key="1" className="text-gray-500 font-bold">21%</span>, <span key="2" className="text-[#0F2A44] font-bold">8%</span>, <span key="3" className="text-[#2FA4A9] font-black text-base">3%</span>, <span key="2" className="text-gray-900 font-black text-base">0%</span>]} />
+                <TableRow label="Escrow Financial Protection" vals={[true, true, true, true]} />
+                <TableRow label="Targeted Service Pricing (Dynamic)" vals={[false, true, true, true]} />
+                <TableRow label="Payout Dispatch Speed" vals={["5 Days", "5 Days", "Priority (2 Days)", "Instant"]} />
+
+                {/* 5. Analytics & CRM */}
+                <TableGroup title="Analytics & CRM" />
+                <TableRow label="Profile Views Dashboard" vals={[false, "Basic", "Advanced", "Enterprise"]} />
+                <TableRow label="High-Intent Lead Tracking" vals={[false, false, true, true]} />
+                <TableRow label="Conversion Rate Analytics" vals={[false, false, true, true]} />
+                <TableRow label="Client CRM Export" vals={[false, false, "CSV Export", "API / Webhook"]} />
+                <TableRow label="Market Demand Insights" vals={[false, false, true, true]} />
+
+                {/* 6. Support & Setup */}
+                <TableGroup title="Support & Setup" />
+                <TableRow label="Platform Support" vals={["Ticket (72h)", "Email (24h)", "Live Chat", "24/7 Priority"]} />
+                <TableRow label="Profile Optimization Audit" vals={[false, false, "One-Time", "Quarterly"]} />
+                <TableRow label="Dedicated Account Manager" vals={[false, false, false, true]} />
+
               </tbody>
             </table>
           </div>
@@ -439,5 +412,34 @@ export default function PricingPage() {
 
       <Footer />
     </main>
+  );
+}
+
+// --- HELPER COMPONENTS ---
+
+function TableGroup({ title }: { title: string }) {
+  return (
+    <tr className="bg-gray-50/80">
+      <td colSpan={5} className="p-4 font-black text-[#0F2A44] text-[10px] uppercase tracking-widest border-t border-gray-100">
+        {title}
+      </td>
+    </tr>
+  );
+}
+
+function TableRow({ label, vals, isDark = false }: { label: string; vals: React.ReactNode[]; isDark?: boolean }) {
+  return (
+    <tr className={`border-b border-gray-100 hover:bg-gray-50/50 transition-colors ${isDark ? 'bg-[#0F2A44]/5' : ''}`}>
+      <td className={`p-4 ${isDark ? 'font-bold text-[#0F2A44]' : 'text-gray-700'}`}>{label}</td>
+      {vals.map((v, i) => (
+        <td key={i} className="p-4 text-center">
+          {typeof v === 'boolean' ? (
+            v ? <Check className="w-4 h-4 mx-auto text-teal-500" /> : <Minus className="w-4 h-4 mx-auto text-gray-300" />
+          ) : (
+            <span className={typeof v === 'string' ? "text-gray-500" : ""}>{v}</span>
+          )}
+        </td>
+      ))}
+    </tr>
   );
 }

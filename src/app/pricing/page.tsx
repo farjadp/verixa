@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { CheckCircle2, ChevronRight, HelpCircle, ShieldCheck, Eye, TrendingUp, CalendarCheck, Target, ArrowUpRight, Check, Minus } from "lucide-react";
 import Link from "next/link";
+import PricingTiers from "./PricingTiers";
 
 export const metadata = {
   title: "Pricing | Membership for Verified Consultants",
@@ -72,96 +73,8 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* 3. PRICING TABLE (CORE) */}
-      <section className="py-24 bg-[#F5F7FA]">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-black text-[#0F2A44] mb-4">Choose Your Growth Trajectory</h2>
-            <p className="text-gray-500 text-lg">Invest in your digital infrastructure. Upgrade to lower commissions and higher visibility.</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            
-            {/* FREE PLAN */}
-            <div className="bg-white rounded-3xl p-8 border border-gray-200 flex flex-col hover:border-[#2FA4A9] transition duration-300">
-              <div className="mb-6">
-                <h3 className="text-xl font-bold text-gray-400 mb-2">Free</h3>
-                <div className="font-serif">
-                  <span className="text-4xl font-black text-[#0F2A44]">$0</span>
-                  <span className="text-gray-400 font-medium">/mo</span>
-                </div>
-                <p className="text-sm text-gray-500 mt-3 font-medium">Basic presence. Organic discovery.</p>
-              </div>
-              <ul className="space-y-4 mb-8 flex-1 text-[15px] font-medium text-gray-600">
-                <li className="flex items-start gap-3"><Check className="w-5 h-5 text-[#2FA4A9] shrink-0" /> Basic Verixa Profile</li>
-                <li className="flex items-start gap-3"><Check className="w-5 h-5 text-[#2FA4A9] shrink-0" /> Standard Search Visibility</li>
-                <li className="flex items-start gap-3"><Check className="w-5 h-5 text-[#2FA4A9] shrink-0" /> Booking Enabled</li>
-                <li className="flex items-start gap-3 bg-gray-50 p-2 rounded-lg text-[#0F2A44] font-bold"><Target className="w-5 h-5 text-gray-400 shrink-0" /> 21% Commission Fee</li>
-              </ul>
-              <Link href="/signup/consultant" className="w-full py-3 px-4 bg-gray-100 text-[#0F2A44] font-bold rounded-xl text-center hover:bg-gray-200 transition">Get Started</Link>
-            </div>
-
-            {/* STARTER PLAN */}
-            <div className="bg-white rounded-3xl p-8 border border-gray-200 flex flex-col hover:border-[#0F2A44] transition duration-300 shadow-xl shadow-gray-200/50">
-              <div className="mb-6">
-                <h3 className="text-xl font-bold text-[#2FA4A9] mb-2">Starter</h3>
-                <div className="font-serif">
-                  <span className="text-4xl font-black text-[#0F2A44]">$49</span>
-                  <span className="text-gray-400 font-medium">/mo</span>
-                </div>
-                <p className="text-sm text-gray-500 mt-3 font-medium">For independent professionals.</p>
-              </div>
-              <ul className="space-y-4 mb-8 flex-1 text-[15px] font-medium text-gray-600">
-                <li className="flex items-start gap-3"><Check className="w-5 h-5 text-[#2FA4A9] shrink-0" /> Boosted Search Visibility</li>
-                <li className="flex items-start gap-3"><Check className="w-5 h-5 text-[#2FA4A9] shrink-0" /> Review Responses Enabled</li>
-                <li className="flex items-start gap-3"><Check className="w-5 h-5 text-[#2FA4A9] shrink-0" /> Basic Analytics</li>
-                <li className="flex items-start gap-3 bg-[#2FA4A9]/10 p-2 rounded-lg text-[#0F2A44] font-bold"><Target className="w-5 h-5 text-[#2FA4A9] shrink-0" /> 8% Commission Fee</li>
-              </ul>
-              <Link href="/signup/consultant?plan=starter" className="w-full py-3 px-4 bg-white border-2 border-[#0F2A44] text-[#0F2A44] font-bold rounded-xl text-center hover:bg-gray-50 transition">Upgrade to Starter</Link>
-            </div>
-
-            {/* GROWTH PLAN */}
-            <div className="bg-[#0F2A44] rounded-3xl p-8 border border-[#0F2A44] flex flex-col relative shadow-2xl shadow-[#0F2A44]/30 transform lg:-translate-y-4">
-              <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 bg-[#2FA4A9] text-white text-xs font-black uppercase tracking-widest py-1 px-4 rounded-full">Most Popular</div>
-              <div className="mb-6">
-                <h3 className="text-xl font-bold text-[#2FA4A9] mb-2">Growth</h3>
-                <div className="font-serif">
-                  <span className="text-4xl font-black text-white">$99</span>
-                  <span className="text-gray-400 font-medium">/mo</span>
-                </div>
-                <p className="text-sm text-gray-300 mt-3 font-medium">Maximum ROI and dedicated exposure.</p>
-              </div>
-              <ul className="space-y-4 mb-8 flex-1 text-[15px] font-medium text-gray-300">
-                <li className="flex items-start gap-3"><Check className="w-5 h-5 text-[#2FA4A9] shrink-0" /> High Search Visibility</li>
-                <li className="flex items-start gap-3"><Check className="w-5 h-5 text-[#2FA4A9] shrink-0" /> Featured Placements</li>
-                <li className="flex items-start gap-3"><Check className="w-5 h-5 text-[#2FA4A9] shrink-0" /> Competitor Ads Removed</li>
-                <li className="flex items-start gap-3 bg-[#1A3855] p-2 rounded-lg text-white font-bold border border-[#2FA4A9]/30"><Target className="w-5 h-5 text-[#2FA4A9] shrink-0" /> 3% Commission Fee</li>
-              </ul>
-              <Link href="/signup/consultant?plan=growth" className="w-full py-4 px-4 bg-[#2FA4A9] text-white font-bold rounded-xl text-center hover:bg-[#258a8f] transition shadow-lg shadow-[#2FA4A9]/20">Start Growing</Link>
-            </div>
-
-            {/* PRO PLAN */}
-            <div className="bg-white rounded-3xl p-8 border border-gray-200 flex flex-col hover:border-[#0F2A44] transition duration-300">
-              <div className="mb-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Pro</h3>
-                <div className="font-serif">
-                  <span className="text-4xl font-black text-[#0F2A44]">$199</span>
-                  <span className="text-gray-400 font-medium">/mo</span>
-                </div>
-                <p className="text-sm text-gray-500 mt-3 font-medium">For established firms and agencies.</p>
-              </div>
-              <ul className="space-y-4 mb-8 flex-1 text-[15px] font-medium text-gray-600">
-                <li className="flex items-start gap-3"><Check className="w-5 h-5 text-[#2FA4A9] shrink-0" /> Maximum Search Dominance</li>
-                <li className="flex items-start gap-3"><Check className="w-5 h-5 text-[#2FA4A9] shrink-0" /> Custom Branding & Domain</li>
-                <li className="flex items-start gap-3"><Check className="w-5 h-5 text-[#2FA4A9] shrink-0" /> Firm-level Lead Tracking</li>
-                <li className="flex items-start gap-3 bg-gray-900 p-2 rounded-lg text-white font-bold"><Target className="w-5 h-5 text-gray-400 shrink-0" /> 0% Commission Fee</li>
-              </ul>
-              <Link href="/signup/consultant?plan=pro" className="w-full py-3 px-4 bg-gray-900 text-white font-bold rounded-xl text-center hover:bg-black transition shadow-lg">Go Professional</Link>
-            </div>
-
-          </div>
-        </div>
-      </section>
+      {/* 3. INTERACTIVE PRICING TIERS */}
+      <PricingTiers />
 
       {/* 4. ROI SECTION (VERY IMPORTANT) */}
       <section className="py-24 bg-white border-b border-gray-100 relative overflow-hidden">

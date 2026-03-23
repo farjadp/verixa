@@ -16,12 +16,12 @@ export async function createBlogPost(data: {
   seoDesc?: string;
 }) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN") throw new Error("Unauthorized");
+  if ((session?.user as any)?.role !== "ADMIN") throw new Error("Unauthorized");
 
   return prisma.blogPost.create({
     data: {
       ...data,
-      authorId: session.user.id,
+      authorId: (session!.user as any).id,
       publishedAt: data.isPublished ? new Date() : null,
     }
   });
@@ -29,7 +29,7 @@ export async function createBlogPost(data: {
 
 export async function updateBlogPost(id: string, data: any) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN") throw new Error("Unauthorized");
+  if ((session?.user as any)?.role !== "ADMIN") throw new Error("Unauthorized");
 
   const existing = await prisma.blogPost.findUnique({ where: { id } });
   const isPublishingNow = !existing?.isPublished && data.isPublished;
@@ -45,7 +45,7 @@ export async function updateBlogPost(id: string, data: any) {
 
 export async function deleteBlogPost(id: string) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN") throw new Error("Unauthorized");
+  if ((session?.user as any)?.role !== "ADMIN") throw new Error("Unauthorized");
 
   return prisma.blogPost.delete({ where: { id } });
 }

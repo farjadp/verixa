@@ -138,15 +138,15 @@ export async function processPendingRawArticle(rawArticleId: string) {
   `;
 
   // @ts-ignore
-  const briefCompletion = await openai.beta.chat.completions.parse({
+  const briefCompletion = await openai.chat.completions.create({
     model: "gpt-4o",
     messages: [
-      { role: "system", content: "You are an elite SEO Strategist checking for deduplication and building extraction briefs." },
+      { role: "system", content: "You are an elite SEO Strategist checking for deduplication and building extraction briefs. You must return only JSON." },
       { role: "user", content: briefPrompt }
     ],
     response_format: zodResponseFormat(AggregatedBriefSchema, "brief"),
   });
-  const brief = briefCompletion.choices[0].message.parsed;
+  const brief = JSON.parse(briefCompletion.choices[0].message.content || "{}");
 
   if (brief?.isDuplicate) {
     await prisma.rawArticle.update({ where: { id: raw.id }, data: { status: "DUPLICATE" } });
@@ -183,12 +183,12 @@ export async function processPendingRawArticle(rawArticleId: string) {
   // 4. GENERATE SOCIAL POSTS
   const socialPrompt = `Create 3 platform-specific posts for this new article focusing on the angle: ${brief?.angle}. \n\n Article snippet: \n ${finalMarkdown?.substring(0, 3000)}`;
   // @ts-ignore
-  const socialCompletion = await openai.beta.chat.completions.parse({
+  const socialCompletion = await openai.chat.completions.create({
     model: "gpt-4o",
-    messages: [{ role: "user", content: socialPrompt }],
+    messages: [{ role: "system", content: "You must return only JSON." }, { role: "user", content: socialPrompt }],
     response_format: zodResponseFormat(SocialHookSchema, "socials"),
   });
-  const socials = socialCompletion.choices[0].message.parsed;
+  const socials = JSON.parse(socialCompletion.choices[0].message.content || "{}");
 
   // 5. GENERATE FAL EDITORIAL IMAGE
   let imageUrl = "";

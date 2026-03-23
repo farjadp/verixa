@@ -77,12 +77,12 @@ export async function igniteSocialEngine(blogPostId: string) {
     `;
     
     // @ts-ignore
-    const extractionCompletion = await openai.beta.chat.completions.parse({
+    const extractionCompletion = await openai.chat.completions.create({
       model: "gpt-4o",
-      messages: [{ role: "system", content: "You are a precise data extraction algorithm." }, { role: "user", content: extractionPrompt }],
+      messages: [{ role: "system", content: "You are a precise data extraction algorithm. You must return only JSON." }, { role: "user", content: extractionPrompt }],
       response_format: zodResponseFormat(ExtractionSchema, "extraction")
     });
-    const extractedData = extractionCompletion.choices[0].message.parsed;
+    const extractedData = JSON.parse(extractionCompletion.choices[0].message.content || "{}");
 
     // ---------------------------------------------------------
     // PROMPT 2: HOOK & CTA GENERATOR
@@ -98,12 +98,12 @@ export async function igniteSocialEngine(blogPostId: string) {
     `;
     
     // @ts-ignore
-    const hooksCompletion = await openai.beta.chat.completions.parse({
+    const hooksCompletion = await openai.chat.completions.create({
       model: "gpt-4o",
-      messages: [{ role: "system", content: "You are an elite copywriter optimizing for click-through rates." }, { role: "user", content: hooksPrompt }],
+      messages: [{ role: "system", content: "You are an elite copywriter optimizing for click-through rates. You must return only JSON." }, { role: "user", content: hooksPrompt }],
       response_format: zodResponseFormat(HooksSchema, "hooks_ctas")
     });
-    const hooksData = hooksCompletion.choices[0].message.parsed;
+    const hooksData = JSON.parse(hooksCompletion.choices[0].message.content || "{}");
 
     // ---------------------------------------------------------
     // PROMPT 3: THE MOTHER PROMPT (Social Gen)
@@ -130,12 +130,12 @@ export async function igniteSocialEngine(blogPostId: string) {
     `;
 
     // @ts-ignore
-    const motherCompletion = await openai.beta.chat.completions.parse({
+    const motherCompletion = await openai.chat.completions.create({
       model: "gpt-4o",
-      messages: [{ role: "system", content: "You are an expert Social Publisher." }, { role: "user", content: motherPrompt }],
+      messages: [{ role: "system", content: "You are an expert Social Publisher. You must return only JSON." }, { role: "user", content: motherPrompt }],
       response_format: zodResponseFormat(SocialSchema, "social_drafts")
     });
-    const draftSocials = motherCompletion.choices[0].message.parsed;
+    const draftSocials = JSON.parse(motherCompletion.choices[0].message.content || "{}");
 
     // ---------------------------------------------------------
     // PROMPT 4: QUALITY CONTROLLER
@@ -155,12 +155,12 @@ export async function igniteSocialEngine(blogPostId: string) {
     `;
 
     // @ts-ignore
-    const qcCompletion = await openai.beta.chat.completions.parse({
+    const qcCompletion = await openai.chat.completions.create({
       model: "gpt-4o",
-      messages: [{ role: "system", content: "You are the final Editor-In-Chief." }, { role: "user", content: qcPrompt }],
+      messages: [{ role: "system", content: "You are the final Editor-In-Chief. You must return only JSON." }, { role: "user", content: qcPrompt }],
       response_format: zodResponseFormat(SocialSchema, "final_socials")
     });
-    const finalSocials = qcCompletion.choices[0].message.parsed;
+    const finalSocials = JSON.parse(qcCompletion.choices[0].message.content || "{}");
 
     // ---------------------------------------------------------
     // Final DB Cache

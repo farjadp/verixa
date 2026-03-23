@@ -56,16 +56,16 @@ export async function generateBrief(payload: { topic: string; keyword: string; a
   `;
 
   // @ts-ignore
-  const completion = await openai.beta.chat.completions.parse({
+  const completion = await openai.chat.completions.create({
     model: "gpt-4o",
     messages: [
-      { role: "system", content: "You are an elite SEO structured data generator." },
+      { role: "system", content: "You are an elite SEO structured data generator. You must return only JSON." },
       { role: "user", content: prompt }
     ],
     response_format: zodResponseFormat(ContentBriefSchema, "content_brief"),
   });
 
-  return completion.choices[0].message.parsed;
+  return JSON.parse(completion.choices[0].message.content || "{}");
 }
 
 // 2. CONTENT LAYER
@@ -117,16 +117,16 @@ export async function generateSocials(articleContent: string) {
   `;
 
   // @ts-ignore
-  const completion = await openai.beta.chat.completions.parse({
+  const completion = await openai.chat.completions.create({
     model: "gpt-4o",
     messages: [
-      { role: "system", content: "You are an elite social media manager." },
+      { role: "system", content: "You are an elite social media manager. You must return only JSON." },
       { role: "user", content: prompt }
     ],
     response_format: zodResponseFormat(SocialPostsSchema, "social_posts"),
   });
 
-  return completion.choices[0].message.parsed;
+  return JSON.parse(completion.choices[0].message.content || "{}");
 }
 
 // 4. IMAGE LAYER (fal.ai FLUX Pro)

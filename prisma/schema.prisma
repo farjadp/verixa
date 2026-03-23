@@ -294,6 +294,14 @@ model Notification {
   consultant      ConsultantProfile? @relation(fields: [consultantId], references: [id], onDelete: Cascade)
 }
 
+model PlatformSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model BlogPost {
   id          String   @id @default(cuid())
   slug        String   @unique

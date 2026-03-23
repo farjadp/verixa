@@ -10,7 +10,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import { format } from "date-fns";
-import { BookOpen, Scale, Lightbulb, RefreshCw, ArrowRight } from "lucide-react";
+import { BookOpen, Scale, Lightbulb, RefreshCw, ArrowRight, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -29,22 +29,42 @@ const CATEGORIES = [
 export default async function BlogIndexPage({
   searchParams
 }: {
-  searchParams: Promise<{ c?: string }>
+  searchParams: Promise<{ c?: string, q?: string, page?: string }>
 }) {
-  const posts = await getBlogPosts(true); // only published
+  const posts = await getBlogPosts(true); 
   
   const sp = await searchParams;
   const filterCat = sp.c || "ALL";
+  const searchQuery = sp.q?.toLowerCase() || "";
+  const currentPage = parseInt(sp.page || "1", 10);
+  const POSTS_PER_PAGE = 9;
 
-  const filteredPosts = filterCat === "ALL" 
-    ? posts 
-    : posts.filter(p => p.category === filterCat);
+  // Filter Logic
+  let filteredPosts = posts;
+  
+  if (filterCat !== "ALL") {
+    filteredPosts = filteredPosts.filter(p => p.category === filterCat);
+  }
+  
+  if (searchQuery) {
+    filteredPosts = filteredPosts.filter(p => 
+      p.title.toLowerCase().includes(searchQuery) || 
+      p.summary.toLowerCase().includes(searchQuery)
+    );
+  }
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE);
+  const paginatedPosts = filteredPosts.slice(
+    (currentPage - 1) * POSTS_PER_PAGE,
+    currentPage * POSTS_PER_PAGE
+  );
 
   return (
     <div className="min-h-screen bg-[#FDFCFB] font-sans flex flex-col">
       <Header />
       
-      {/* HERO */}
+      {/* HERO & SEARCH */}
       <section className="bg-white border-b border-[#f5ecd8] pt-24 pb-16 px-6">
         <div className="max-w-6xl mx-auto text-center">
           <h1 className="text-4xl md:text-6xl font-serif font-black text-[#1A1A1A] tracking-tight mb-6">
@@ -54,6 +74,24 @@ export default async function BlogIndexPage({
             Master the Canadian immigration process with verified guides, consultant insights, and real-case breakdowns. Exclusively on Verixa.
           </p>
 
+          {/* SEARCH BAR */}
+          <form action="/blog" method="GET" className="max-w-xl mx-auto mb-10 relative">
+             <input type="hidden" name="c" value={filterCat} />
+             <input 
+               type="text" 
+               name="q" 
+               defaultValue={searchQuery}
+               placeholder="Search articles by topic, keyword, or policy..." 
+               className="w-full bg-[#FAFAFA] border border-[#f5ecd8] rounded-full py-4 pl-14 pr-6 text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none focus:border-[#C29967] focus:ring-4 focus:ring-[#C29967]/10 transition-all font-medium"
+             />
+             <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
+                <Search className="w-5 h-5 text-gray-400" />
+             </div>
+             <button type="submit" className="absolute inset-y-2 right-2 bg-[#1A1A1A] hover:bg-black text-white px-6 rounded-full text-sm font-bold transition-colors">
+               Search
+             </button>
+          </form>
+
           {/* PILLARS / FILTERS */}
           <div className="flex flex-wrap items-center justify-center gap-3">
             {CATEGORIES.map(cat => {
@@ -62,7 +100,7 @@ export default async function BlogIndexPage({
               return (
                 <Link 
                   key={cat.value} 
-                  href={`/blog${cat.value !== "ALL" ? `?c=${cat.value}` : ''}`}
+                  href={`/blog?c=${cat.value}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}`}
                   className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold border transition-all ${
                     isActive 
                       ? "bg-[#1A1A1A] border-[#1A1A1A] text-white shadow-xl shadow-black/5" 
@@ -78,53 +116,91 @@ export default async function BlogIndexPage({
       </section>
 
       {/* GRID */}
-      <section className="py-16 px-6 flex-1">
+      <section className="py-16 px-6 flex-1 bg-[#FDFCFB]">
         <div className="max-w-6xl mx-auto">
           {filteredPosts.length === 0 ? (
-            <div className="text-center py-20 text-gray-400 font-medium">
-              Check back soon for upcoming insights in this category.
+            <div className="text-center py-24 border-2 border-dashed border-[#f5ecd8] rounded-3xl bg-white">
+              <BookOpen className="w-12 h-12 text-[#f5ecd8] mx-auto mb-4" />
+              <h3 className="text-xl font-bold tracking-tight text-[#1A1A1A] mb-2">No intelligence found.</h3>
+              <p className="text-gray-400 font-medium">Check back soon or adjust your search parameters.</p>
+              <Link href="/blog" className="mt-6 inline-block text-sm font-bold text-[#C29967] border-b border-[#C29967] pb-0.5">Clear Filters</Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredPosts.map(post => (
-                <Link 
-                  href={`/blog/${post.slug}`} 
-                  key={post.id}
-                  className="group bg-white border border-[#f5ecd8] rounded-3xl overflow-hidden hover:shadow-2xl hover:shadow-[#C29967]/10 transition-all duration-300 flex flex-col"
-                >
-                  {/* IMAGES (optional placeholder) */}
-                  <div className="h-48 bg-gray-100 flex items-center justify-center overflow-hidden border-b border-[#f5ecd8]">
-                    {post.coverImage ? (
-                      <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-[#1A1A1A] to-[#2A2A2A] relative flex items-center justify-center">
-                        <div className="absolute opacity-10 font-serif text-[#C29967] text-8xl scale-150 tracking-tighter mix-blend-plus-lighter blur-[1px] -rotate-12">
-                          Verixa
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {paginatedPosts.map(post => (
+                  <Link 
+                    href={`/blog/${post.slug}`} 
+                    key={post.id}
+                    className="group bg-white border border-[#f5ecd8] rounded-[32px] overflow-hidden hover:shadow-2xl hover:shadow-[#C29967]/10 transition-all duration-300 flex flex-col relative"
+                  >
+                    {/* IMAGES */}
+                    <div className="h-56 bg-gray-100 flex items-center justify-center overflow-hidden border-b border-[#f5ecd8] relative">
+                      {post.coverImage ? (
+                        <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-[#1A1A1A] to-[#2A2A2A] relative flex items-center justify-center">
+                          <div className="absolute opacity-10 font-serif text-[#C29967] text-8xl scale-150 tracking-tighter mix-blend-plus-lighter blur-[1px] -rotate-12">
+                            Verixa
+                          </div>
                         </div>
+                      )}
+                      {/* Gradient Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                    </div>
+
+                    <div className="p-8 flex-1 flex flex-col relative z-10 bg-white">
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#C29967] bg-[#C29967]/10 px-3 py-1 rounded-full">
+                          {post.category.replace(/_/g, " ")}
+                        </span>
+                        <span className="text-xs font-semibold text-gray-400">
+                          {format(new Date(post.publishedAt || post.createdAt), "MMM d, yyyy")}
+                        </span>
                       </div>
-                    )}
-                  </div>
 
-                  <div className="p-8 flex-1 flex flex-col">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-[#C29967] bg-[#C29967]/10 px-3 py-1 rounded-full">
-                        {post.category.replace(/_/g, " ")}
-                      </span>
-                      <span className="text-xs font-semibold text-gray-400">
-                        {format(new Date(post.publishedAt || post.createdAt), "MMM d, yyyy")}
-                      </span>
+                      <h2 className="text-2xl font-serif text-[#1A1A1A] font-medium mb-3 leading-snug group-hover:text-[#C29967] transition-colors">{post.title}</h2>
+                      <p className="text-sm text-gray-500 line-clamp-3 leading-relaxed mb-8 flex-1">{post.summary}</p>
+                      
+                      <div className="mt-auto flex justify-end">
+                         <div className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center group-hover:bg-[#C29967] group-hover:border-[#C29967] group-hover:text-white transition-all">
+                           <ArrowRight className="w-4 h-4" />
+                         </div>
+                      </div>
                     </div>
+                  </Link>
+                ))}
+              </div>
 
-                    <h2 className="text-xl font-bold text-[#1A1A1A] mb-3 leading-snug group-hover:text-[#C29967] transition-colors">{post.title}</h2>
-                    <p className="text-sm text-gray-500 line-clamp-3 leading-relaxed mb-6 flex-1">{post.summary}</p>
-                    
-                    <div className="mt-auto flex items-center text-sm font-bold text-[#1A1A1A] group-hover:text-[#C29967] transition-colors gap-2">
-                       Read Insight <ArrowRight className="w-4 h-4" />
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
+              {/* PAGINATION ENGINE */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-4 mt-20">
+                   {currentPage > 1 ? (
+                     <Link href={`/blog?page=${currentPage - 1}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}${filterCat !== "ALL" ? `&c=${filterCat}` : ''}`} className="w-12 h-12 flex items-center justify-center rounded-full bg-white border border-[#f5ecd8] text-gray-500 hover:text-[#C29967] hover:border-[#C29967] transition-colors shadow-sm">
+                       <ChevronLeft className="w-5 h-5" />
+                     </Link>
+                   ) : (
+                     <div className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-50 border border-gray-100 text-gray-300 cursor-not-allowed">
+                       <ChevronLeft className="w-5 h-5" />
+                     </div>
+                   )}
+                   
+                   <div className="text-sm font-bold text-gray-500 tracking-widest uppercase">
+                     Page <span className="text-[#1A1A1A]">{currentPage}</span> of {totalPages}
+                   </div>
+
+                   {currentPage < totalPages ? (
+                     <Link href={`/blog?page=${currentPage + 1}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}${filterCat !== "ALL" ? `&c=${filterCat}` : ''}`} className="w-12 h-12 flex items-center justify-center rounded-full bg-white border border-[#f5ecd8] text-gray-500 hover:text-[#C29967] hover:border-[#C29967] transition-colors shadow-sm">
+                       <ChevronRight className="w-5 h-5" />
+                     </Link>
+                   ) : (
+                     <div className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-50 border border-gray-100 text-gray-300 cursor-not-allowed">
+                       <ChevronRight className="w-5 h-5" />
+                     </div>
+                   )}
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>

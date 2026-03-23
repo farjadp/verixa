@@ -28,7 +28,7 @@ export default async function SocialDistributionPage() {
       <div className="mb-6 shrink-0 flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-serif font-black text-gray-900 tracking-tight flex items-center gap-3">
-            Multi-Format Social Hub <Share2 className="w-6 h-6 text-[#C29967]" />
+            Multi-Format Social Hub <Share2 className="w-6 h-6 text-[#2FA4A9]" />
           </h1>
           <p className="text-gray-600 mt-1 font-light text-sm max-w-2xl">
             Ignite the 4-layer GPT-4o Action sequence to generate optimized LinkedIn, Twitter, and Telegram posts directly from your CMS articles.

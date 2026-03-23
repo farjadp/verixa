@@ -131,17 +131,17 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
 
   if (step === 5) {
     return (
-      <div className="bg-white rounded-3xl border border-[#f5ecd8] p-10 text-center shadow-xl shadow-black/5">
+      <div className="bg-white rounded-3xl border border-[#e5e7eb] p-10 text-center shadow-xl shadow-black/5">
         <div className="w-20 h-20 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
           <CheckCircle2 className="w-10 h-10" />
         </div>
-        <h2 className="text-3xl font-bold font-serif mb-4 text-[#1A1A1A]">Your booking request has been sent</h2>
+        <h2 className="text-3xl font-bold font-serif mb-4 text-[#1A1F2B]">Your booking request has been sent</h2>
         <p className="text-gray-500 mb-8 max-w-sm mx-auto text-sm">
           The consultant will review your request shortly. 
           Upon confirmation, meeting details will be unlocked in your dashboard.
         </p>
         <div className="flex flex-col gap-3 max-w-xs mx-auto">
-          <button onClick={() => window.location.href = '/dashboard/client/bookings'} className="bg-[#1A1A1A] text-white px-8 py-3.5 rounded-xl font-bold hover:bg-black transition-all">
+          <button onClick={() => window.location.href = '/dashboard/client/bookings'} className="bg-[#0F2A44] text-white px-8 py-3.5 rounded-xl font-bold hover:bg-black transition-all">
             View My Bookings
           </button>
           <button onClick={() => window.location.href = `/consultant/${profile.slug}`} className="text-gray-500 hover:text-gray-900 font-semibold text-sm py-2">
@@ -153,7 +153,7 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
   }
 
   return (
-    <div className="bg-white rounded-3xl border border-[#f5ecd8] p-8 shadow-xl shadow-black/5 min-h-[600px] flex flex-col">
+    <div className="bg-white rounded-3xl border border-[#e5e7eb] p-8 shadow-xl shadow-black/5 min-h-[600px] flex flex-col">
        
        {/* STEPPER UI */}
        <div className="flex items-center justify-between mb-8 overflow-x-auto pb-4 hide-scrollbar">
@@ -165,13 +165,13 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
              <div key={s} className="flex items-center">
                <div className="flex items-center gap-2">
                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                   isActive ? "bg-[#1A1A1A] text-white" : 
+                   isActive ? "bg-[#0F2A44] text-white" : 
                    isPast ? "bg-green-500 text-white" : "bg-gray-100 text-gray-400"
                  }`}>
                    {isPast ? <CheckCircle2 className="w-3.5 h-3.5" /> : s}
                  </div>
                  <span className={`text-xs font-bold uppercase tracking-wider ${
-                   isActive ? "text-[#1A1A1A]" : isPast ? "text-green-600" : "text-gray-400"
+                   isActive ? "text-[#1A1F2B]" : isPast ? "text-green-600" : "text-gray-400"
                  }`}>{label}</span>
                </div>
                {s < 5 && (
@@ -192,10 +192,10 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
                <button 
                   key={type.id}
                   onClick={() => handleSelectType(type)}
-                  className="text-left border border-gray-100 hover:border-[#C29967] hover:bg-[#FDFCFB] transition-all rounded-2xl p-6 flex items-center justify-between group"
+                  className="text-left border border-gray-100 hover:border-[#2FA4A9] hover:bg-[#ffffff] transition-all rounded-2xl p-6 flex items-center justify-between group"
                >
                  <div>
-                   <h3 className="font-bold text-[#1A1A1A] text-lg mb-1">{type.title}</h3>
+                   <h3 className="font-bold text-[#1A1F2B] text-lg mb-1">{type.title}</h3>
                    <p className="text-sm text-gray-500 mb-4">{type.description}</p>
                    <div className="flex items-center gap-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
                       <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {type.durationMinutes} Min</span>
@@ -205,10 +205,10 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
                         {type.communicationType === 'IN_PERSON' && <Users className="w-3.5 h-3.5" />}
                         {type.communicationType}
                       </span>
-                      <span className="text-[#C29967] text-sm">${(type.priceCents / 100).toFixed(2)} CAD</span>
+                      <span className="text-[#2FA4A9] text-sm">${(type.priceCents / 100).toFixed(2)} CAD</span>
                    </div>
                  </div>
-                 <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-[#C29967] group-hover:text-white transition-colors shrink-0 ml-4">
+                 <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-[#2FA4A9] group-hover:text-white transition-colors shrink-0 ml-4">
                    <ArrowRight className="w-5 h-5" />
                  </div>
                </button>
@@ -231,7 +231,7 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
                      <button 
                        key={i} 
                        onClick={() => handleSelectDate(d)}
-                       className={`p-3 rounded-xl border text-center transition-all ${isSelected ? 'border-[#C29967] bg-[#C29967] text-white shadow-md' : 'border-gray-100 text-gray-600 hover:border-[#C29967] hover:bg-[#FDFCFB]'}`}
+                       className={`p-3 rounded-xl border text-center transition-all ${isSelected ? 'border-[#2FA4A9] bg-[#2FA4A9] text-white shadow-md' : 'border-gray-100 text-gray-600 hover:border-[#2FA4A9] hover:bg-[#ffffff]'}`}
                      >
                        <p className="text-[10px] font-bold uppercase mb-1 opacity-70">{format(d, 'EEE')}</p>
                        <p className="text-lg font-black">{format(d, 'd')}</p>
@@ -265,7 +265,7 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
                         <button 
                           key={idx}
                           onClick={() => setSelectedSlot(slot)}
-                          className={`w-full p-4 rounded-xl border text-center transition-all font-bold ${isSelected ? 'border-[#C29967] text-[#C29967] bg-[#FDFCFB] shadow-sm' : 'border-gray-200 text-gray-600 hover:border-[#C29967] hover:text-[#C29967]'}`}
+                          className={`w-full p-4 rounded-xl border text-center transition-all font-bold ${isSelected ? 'border-[#2FA4A9] text-[#2FA4A9] bg-[#ffffff] shadow-sm' : 'border-gray-200 text-gray-600 hover:border-[#2FA4A9] hover:text-[#2FA4A9]'}`}
                         >
                            {format(new Date(slot.start), 'hh:mm a')}
                         </button>
@@ -279,7 +279,7 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
            <div className="flex items-center justify-between pt-2">
              <button type="button" onClick={() => setStep(1)} className="text-sm font-bold text-gray-400 hover:text-gray-800">Back</button>
              {selectedSlot && (
-               <button onClick={() => setStep(3)} className="bg-[#1A1A1A] text-white px-8 py-3 rounded-xl font-bold shadow-md hover:bg-black transition-all">
+               <button onClick={() => setStep(3)} className="bg-[#0F2A44] text-white px-8 py-3 rounded-xl font-bold shadow-md hover:bg-black transition-all">
                  Continue to Details
                </button>
              )}
@@ -294,7 +294,7 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
              {sessionUser && (
                 <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex items-center justify-between mb-4">
                    <div>
-                     <p className="text-sm font-bold text-[#1A1A1A]">Booking as {sessionUser.name}</p>
+                     <p className="text-sm font-bold text-[#1A1F2B]">Booking as {sessionUser.name}</p>
                      <p className="text-xs text-gray-500">{sessionUser.email}</p>
                    </div>
                    <div title="Auto-filled from account">
@@ -308,34 +308,34 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
                  <>
                    <div className="space-y-2">
                      <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">First Name</label>
-                     <input required type="text" value={formData.firstName} onChange={e => setFormData(p => ({...p, firstName: e.target.value}))} className="w-full bg-[#FDFCFB] border border-gray-200 px-4 py-3 rounded-xl text-sm focus:border-[#C29967] outline-none" />
+                     <input required type="text" value={formData.firstName} onChange={e => setFormData(p => ({...p, firstName: e.target.value}))} className="w-full bg-[#ffffff] border border-gray-200 px-4 py-3 rounded-xl text-sm focus:border-[#2FA4A9] outline-none" />
                    </div>
                    <div className="space-y-2">
                      <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Last Name</label>
-                     <input required type="text" value={formData.lastName} onChange={e => setFormData(p => ({...p, lastName: e.target.value}))} className="w-full bg-[#FDFCFB] border border-gray-200 px-4 py-3 rounded-xl text-sm focus:border-[#C29967] outline-none" />
+                     <input required type="text" value={formData.lastName} onChange={e => setFormData(p => ({...p, lastName: e.target.value}))} className="w-full bg-[#ffffff] border border-gray-200 px-4 py-3 rounded-xl text-sm focus:border-[#2FA4A9] outline-none" />
                    </div>
                    <div className="space-y-2 md:col-span-2">
                      <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Email Address</label>
-                     <input required type="email" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} className="w-full bg-[#FDFCFB] border border-gray-200 px-4 py-3 rounded-xl text-sm focus:border-[#C29967] outline-none" />
+                     <input required type="email" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} className="w-full bg-[#ffffff] border border-gray-200 px-4 py-3 rounded-xl text-sm focus:border-[#2FA4A9] outline-none" />
                    </div>
                  </>
                )}
                <div className="space-y-2">
                  <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Phone</label>
-                 <input required type="tel" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} className="w-full bg-[#FDFCFB] border border-gray-200 px-4 py-3 rounded-xl text-sm focus:border-[#C29967] outline-none" />
+                 <input required type="tel" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} className="w-full bg-[#ffffff] border border-gray-200 px-4 py-3 rounded-xl text-sm focus:border-[#2FA4A9] outline-none" />
                </div>
                <div className="space-y-2 relative z-50">
                  <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Country of Residence</label>
                  <CountrySelect 
                    value={formData.country} 
                    onChange={(val) => setFormData(p => ({...p, country: val}))} 
-                   className="w-full bg-[#FDFCFB] border border-gray-200 px-4 py-3 rounded-xl text-sm focus:border-[#C29967] outline-none"
+                   className="w-full bg-[#ffffff] border border-gray-200 px-4 py-3 rounded-xl text-sm focus:border-[#2FA4A9] outline-none"
                  />
                </div>
                
                <div className="space-y-2">
                  <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Service Needed</label>
-                 <select required value={formData.serviceNeeded} onChange={e => setFormData(p => ({...p, serviceNeeded: e.target.value}))} className="w-full bg-[#FDFCFB] border border-gray-200 px-4 py-3.5 rounded-xl text-sm focus:border-[#C29967] outline-none">
+                 <select required value={formData.serviceNeeded} onChange={e => setFormData(p => ({...p, serviceNeeded: e.target.value}))} className="w-full bg-[#ffffff] border border-gray-200 px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none">
                    <option value="" disabled>Select Goal</option>
                    <option>Express Entry</option>
                    <option>Study Permit</option>
@@ -347,7 +347,7 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
                </div>
                <div className="space-y-2">
                  <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Urgency</label>
-                 <select required value={formData.urgency} onChange={e => setFormData(p => ({...p, urgency: e.target.value}))} className="w-full bg-[#FDFCFB] border border-gray-200 px-4 py-3.5 rounded-xl text-sm focus:border-[#C29967] outline-none">
+                 <select required value={formData.urgency} onChange={e => setFormData(p => ({...p, urgency: e.target.value}))} className="w-full bg-[#ffffff] border border-gray-200 px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none">
                    <option>Standard / No rush</option>
                    <option>Soon (Next 3 months)</option>
                    <option>Urgent (Deadline approaching)</option>
@@ -355,14 +355,14 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
                </div>
                <div className="space-y-2 md:col-span-2">
                  <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Brief Case Description</label>
-                 <textarea required rows={3} placeholder="Tell us briefly about your situation..." value={formData.caseDescription} onChange={e => setFormData(p => ({...p, caseDescription: e.target.value}))} className="w-full bg-[#FDFCFB] border border-gray-200 px-4 py-3 rounded-xl text-sm focus:border-[#C29967] outline-none resize-none"></textarea>
+                 <textarea required rows={3} placeholder="Tell us briefly about your situation..." value={formData.caseDescription} onChange={e => setFormData(p => ({...p, caseDescription: e.target.value}))} className="w-full bg-[#ffffff] border border-gray-200 px-4 py-3 rounded-xl text-sm focus:border-[#2FA4A9] outline-none resize-none"></textarea>
                </div>
              </div>
            </div>
 
            <div className="flex items-center justify-between pt-6 border-t border-gray-100 shrink-0">
              <button type="button" onClick={() => setStep(2)} className="text-sm font-bold text-gray-400 hover:text-gray-800">Back</button>
-             <button type="submit" className="bg-[#1A1A1A] text-white px-8 py-3 rounded-xl font-bold shadow-md hover:bg-black transition-all">
+             <button type="submit" className="bg-[#0F2A44] text-white px-8 py-3 rounded-xl font-bold shadow-md hover:bg-black transition-all">
                Review Booking
              </button>
            </div>
@@ -386,11 +386,11 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
                   </div>
                   <div className="flex justify-between items-start">
                     <span className="text-sm text-gray-500">Date & Time</span>
-                    <span className="text-sm font-bold text-gray-900 text-right">{selectedSlot && format(selectedSlot.start, "EEEE, MMMM d, yyyy")}<br/><span className="text-[#C29967]">{selectedSlot && format(selectedSlot.start, "hh:mm a")}</span></span>
+                    <span className="text-sm font-bold text-gray-900 text-right">{selectedSlot && format(selectedSlot.start, "EEEE, MMMM d, yyyy")}<br/><span className="text-[#2FA4A9]">{selectedSlot && format(selectedSlot.start, "hh:mm a")}</span></span>
                   </div>
                   <div className="flex justify-between items-start border-t border-gray-200 pt-4 mt-2">
                     <span className="text-sm font-bold text-gray-900">Total Price</span>
-                    <span className="text-lg font-black text-[#1A1A1A]">${selectedType ? (selectedType.priceCents / 100).toFixed(2) : "0.00"} CAD</span>
+                    <span className="text-lg font-black text-[#1A1F2B]">${selectedType ? (selectedType.priceCents / 100).toFixed(2) : "0.00"} CAD</span>
                   </div>
                 </div>
              </div>
@@ -426,7 +426,7 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Secure Payment Authorization</h4>
                 {isPreparingPayment ? (
                   <div className="p-10 border border-gray-100 rounded-2xl flex items-center justify-center bg-gray-50">
-                    <div className="w-6 h-6 border-2 border-[#1A1A1A] border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-6 h-6 border-2 border-[#0F2A44] border-t-transparent rounded-full animate-spin"></div>
                   </div>
                 ) : clientSecret ? (
                   <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'flat' } }}>

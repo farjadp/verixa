@@ -80,10 +80,10 @@ export default function BookingSettingsForm({ initialProfile }: { initialProfile
     <div className="space-y-8 pb-16">
       
       {/* SECTION: SESSION TYPES */}
-      <div className="bg-white rounded-3xl border border-[#f5ecd8] p-6 shadow-sm relative">
+      <div className="bg-white rounded-3xl border border-[#e5e7eb] p-6 shadow-sm relative">
          <div className="flex items-center justify-between mb-6">
-           <h2 className="text-lg font-bold text-[#1A1A1A]">Session Types</h2>
-           <button onClick={handleAddSession} className="text-sm font-bold text-[#C29967] flex items-center gap-1.5 hover:underline">
+           <h2 className="text-lg font-bold text-[#1A1F2B]">Session Types</h2>
+           <button onClick={handleAddSession} className="text-sm font-bold text-[#2FA4A9] flex items-center gap-1.5 hover:underline">
              <Plus className="w-4 h-4" /> Add Session
            </button>
          </div>
@@ -96,19 +96,19 @@ export default function BookingSettingsForm({ initialProfile }: { initialProfile
            {types.map((type) => {
               if (!type.isActive && !type.id.startsWith("new_")) return null; // hide explicitly deleted
               return (
-              <div key={type.id} className="border border-[#f5ecd8] rounded-2xl p-5 hover:border-[#C29967]/30 transition-all bg-[#FDFCFB]">
+              <div key={type.id} className="border border-[#e5e7eb] rounded-2xl p-5 hover:border-[#2FA4A9]/30 transition-all bg-[#ffffff]">
                  
                  <div className="flex justify-between items-start mb-4">
                    <div className="flex-1 mr-4">
                      <input 
                        value={type.title}
                        onChange={e => handleUpdateType(type.id, "title", e.target.value)}
-                       className="font-bold text-[#1A1A1A] text-lg bg-transparent border-none outline-none w-full focus:ring-1 focus:ring-[#C29967] rounded px-1 -mx-1"
+                       className="font-bold text-[#1A1F2B] text-lg bg-transparent border-none outline-none w-full focus:ring-1 focus:ring-[#2FA4A9] rounded px-1 -mx-1"
                      />
                      <input
                        value={type.description}
                        onChange={e => handleUpdateType(type.id, "description", e.target.value)}
-                       className="text-sm text-gray-500 mt-1 bg-transparent border-none outline-none w-full focus:ring-1 focus:ring-[#C29967] rounded px-1 -mx-1"
+                       className="text-sm text-gray-500 mt-1 bg-transparent border-none outline-none w-full focus:ring-1 focus:ring-[#2FA4A9] rounded px-1 -mx-1"
                      />
                    </div>
                    <div className="flex items-center gap-3">
@@ -118,7 +118,7 @@ export default function BookingSettingsForm({ initialProfile }: { initialProfile
                    </div>
                  </div>
 
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 pt-4 border-t border-[#f5ecd8]">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 pt-4 border-t border-[#e5e7eb]">
                    <div className="flex items-center gap-2">
                      <Clock className="w-4 h-4 text-gray-400" /> 
                      <select value={type.durationMinutes} onChange={e => handleUpdateType(type.id, "durationMinutes", e.target.value)} className="text-sm font-bold text-gray-600 bg-transparent outline-none">
@@ -135,7 +135,7 @@ export default function BookingSettingsForm({ initialProfile }: { initialProfile
                        <input type="number" 
                          value={type.priceCents / 100} 
                          onChange={e => handleUpdateType(type.id, "priceCents", Math.round(Number(e.target.value) * 100))}
-                         className="w-16 text-sm font-bold text-gray-600 bg-transparent outline-none border-b border-gray-200 focus:border-[#C29967]"
+                         className="w-16 text-sm font-bold text-gray-600 bg-transparent outline-none border-b border-gray-200 focus:border-[#2FA4A9]"
                        /> 
                        <span className="text-sm font-bold text-gray-600 ml-1">CAD</span>
                      </div>
@@ -154,25 +154,25 @@ export default function BookingSettingsForm({ initialProfile }: { initialProfile
       </div>
 
       {/* SECTION: GENERAL AVAILABILITY */}
-      <div className="bg-white rounded-3xl border border-[#f5ecd8] p-6 shadow-sm">
-         <h2 className="text-lg font-bold text-[#1A1A1A] mb-5">Recurring Availability</h2>
+      <div className="bg-white rounded-3xl border border-[#e5e7eb] p-6 shadow-sm">
+         <h2 className="text-lg font-bold text-[#1A1F2B] mb-5">Recurring Availability</h2>
          
          <div className="space-y-4">
            {daysLabels.map((day, idx) => {
               const currentAvail = fullAvailability[idx];
               return (
-              <div key={day} className="flex items-center justify-between border-b border-[#f5ecd8] pb-4 last:border-0 last:pb-0">
+              <div key={day} className="flex items-center justify-between border-b border-[#e5e7eb] pb-4 last:border-0 last:pb-0">
                 <div className="flex items-center gap-4 w-32">
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" className="sr-only peer" checked={currentAvail.isActive} onChange={(e) => handleAvailabilityChange(idx, "isActive", e.target.checked)} />
-                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#1A1A1A]"></div>
+                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0F2A44]"></div>
                   </label>
-                  <span className={`text-sm font-bold ${currentAvail.isActive ? 'text-[#1A1A1A]' : 'text-gray-400'}`}>{day}</span>
+                  <span className={`text-sm font-bold ${currentAvail.isActive ? 'text-[#1A1F2B]' : 'text-gray-400'}`}>{day}</span>
                 </div>
                 <div className={`flex items-center gap-3 ${!currentAvail.isActive ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <input type="time" value={currentAvail.startTime} onChange={e => handleAvailabilityChange(idx, "startTime", e.target.value)} className="bg-[#FDFCFB] border border-[#f5ecd8] px-3 py-2 rounded-lg text-sm text-[#1A1A1A] outline-none focus:border-[#C29967]" />
+                  <input type="time" value={currentAvail.startTime} onChange={e => handleAvailabilityChange(idx, "startTime", e.target.value)} className="bg-[#ffffff] border border-[#e5e7eb] px-3 py-2 rounded-lg text-sm text-[#1A1F2B] outline-none focus:border-[#2FA4A9]" />
                   <span className="text-gray-400 text-sm">-</span>
-                  <input type="time" value={currentAvail.endTime} onChange={e => handleAvailabilityChange(idx, "endTime", e.target.value)} className="bg-[#FDFCFB] border border-[#f5ecd8] px-3 py-2 rounded-lg text-sm text-[#1A1A1A] outline-none focus:border-[#C29967]" />
+                  <input type="time" value={currentAvail.endTime} onChange={e => handleAvailabilityChange(idx, "endTime", e.target.value)} className="bg-[#ffffff] border border-[#e5e7eb] px-3 py-2 rounded-lg text-sm text-[#1A1F2B] outline-none focus:border-[#2FA4A9]" />
                 </div>
               </div>
            )})}
@@ -181,7 +181,7 @@ export default function BookingSettingsForm({ initialProfile }: { initialProfile
 
       {/* SAVE CTA */}
       <div className="flex justify-end sticky bottom-6 z-20">
-        <button onClick={handleSave} disabled={isSaving} type="button" className="bg-[#1A1A1A] text-white px-8 py-3.5 rounded-xl font-bold shadow-xl shadow-black/10 hover:bg-black transition-all flex items-center gap-2 disabled:opacity-70">
+        <button onClick={handleSave} disabled={isSaving} type="button" className="bg-[#0F2A44] text-white px-8 py-3.5 rounded-xl font-bold shadow-xl shadow-black/10 hover:bg-black transition-all flex items-center gap-2 disabled:opacity-70">
           {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-4 h-4" />}
           {isSaving ? "Saving..." : "Save Schedule Output"}
         </button>

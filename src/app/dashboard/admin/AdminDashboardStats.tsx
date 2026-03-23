@@ -15,7 +15,7 @@ export default function AdminDashboardStats({
 }) {
   const stats = [
     { title: "Total Clients", value: clients.toLocaleString(), icon: Users, trend: "+12%", color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20" },
-    { title: "Registered Consultants", value: consultants.toLocaleString(), icon: Briefcase, trend: "+5%", color: "text-[#C29967]", bg: "bg-[#C29967]/10", border: "border-[#C29967]/20" },
+    { title: "Registered Consultants", value: consultants.toLocaleString(), icon: Briefcase, trend: "+5%", color: "text-[#2FA4A9]", bg: "bg-[#2FA4A9]/10", border: "border-[#2FA4A9]/20" },
     { title: "Platform Bookings", value: bookings.toLocaleString(), icon: CalendarDays, trend: "+24%", color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20" },
     { title: "Gross Platform Rev", value: `$${revenue.toLocaleString()}`, icon: DollarSign, trend: "+18%", color: "text-green-400", bg: "bg-green-400/10", border: "border-green-400/20" },
   ];
@@ -25,7 +25,7 @@ export default function AdminDashboardStats({
       {stats.map((stat, i) => {
         const Icon = stat.icon;
         return (
-          <div key={i} className="bg-[#1A1A1A] border border-gray-800 rounded-3xl p-5 shadow-2xl relative overflow-hidden group hover:border-gray-700 transition-all">
+          <div key={i} className="bg-[#0F2A44] border border-gray-800 rounded-3xl p-5 shadow-2xl relative overflow-hidden group hover:border-gray-700 transition-all">
              <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full blur-3xl opacity-20 bg-current transition-opacity group-hover:opacity-40" style={{ color: "var(--tw-text-opacity)" }} />
              
              <div className="flex justify-between items-start mb-4">

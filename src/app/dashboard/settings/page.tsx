@@ -38,7 +38,7 @@ export default async function ConsultantSettingsPage() {
       
       {/* HEADER */}
       <div>
-        <h1 className="text-3xl font-serif font-bold text-[#1A1A1A] mb-2">Booking & Meeting Setup</h1>
+        <h1 className="text-3xl font-serif font-bold text-[#1A1F2B] mb-2">Booking & Meeting Setup</h1>
         <p className="text-gray-500 font-medium">Configure your availability rules and automate how your meetings are delivered to clients.</p>
       </div>
 

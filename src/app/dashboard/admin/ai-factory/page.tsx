@@ -22,7 +22,7 @@ export default async function AIFactoryPage() {
       <div className="mb-6 shrink-0 flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-serif font-black text-white tracking-tight flex items-center gap-3">
-            Autonomous SEO Factory <Sparkles className="w-6 h-6 text-[#C29967]" />
+            Autonomous SEO Factory <Sparkles className="w-6 h-6 text-[#2FA4A9]" />
           </h1>
           <p className="text-gray-400 mt-1 font-light text-sm max-w-2xl">
             Execute the 5-Layer AI Content Pipeline natively. Transform raw topics into hyper-structured, DALL-E/FAL illustrated, AEO-optimized web assets.
@@ -30,7 +30,7 @@ export default async function AIFactoryPage() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-[700px] bg-[#111111] border border-gray-800 rounded-xl overflow-hidden shadow-2xl relative flex">
+      <div className="flex-1 min-h-[700px] bg-[#0F2A44] border border-gray-800 rounded-xl overflow-hidden shadow-2xl relative flex">
         <AIFactoryWizard />
       </div>
     </div>

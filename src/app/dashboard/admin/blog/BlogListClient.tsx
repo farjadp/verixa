@@ -27,16 +27,16 @@ export default function BlogListClient({ initialPosts }: { initialPosts: any[] }
   };
 
   return (
-    <div className="w-full flex flex-col h-full bg-[#111111] overflow-hidden">
+    <div className="w-full flex flex-col h-full bg-[#0F2A44] overflow-hidden">
       {/* Header Toolbar */}
-      <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-[#161616] shrink-0">
+      <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-[#0F2A44] shrink-0">
         <h2 className="text-sm font-bold text-gray-300 uppercase tracking-widest flex items-center gap-2">
-          <LayoutTemplate className="w-4 h-4 text-[#C29967]" />
+          <LayoutTemplate className="w-4 h-4 text-[#2FA4A9]" />
           Published Library
         </h2>
         <Link 
           href="/dashboard/admin/blog/new" 
-          className="bg-[#C29967] hover:bg-[#b08856] text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors"
+          className="bg-[#2FA4A9] hover:bg-[#258d92] text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors"
         >
           <Plus className="w-4 h-4" /> Create New AI Post
         </Link>
@@ -45,13 +45,13 @@ export default function BlogListClient({ initialPosts }: { initialPosts: any[] }
       {/* List Area */}
       <div className="flex-1 overflow-y-auto p-6">
         {posts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-[#1A1A1A] rounded-xl border border-gray-800/50">
+          <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-[#0F2A44] rounded-xl border border-gray-800/50">
             <LayoutTemplate className="w-12 h-12 text-gray-600 mb-4" />
             <h3 className="text-lg font-bold text-white mb-2">No Content Yet</h3>
             <p className="text-gray-400 max-w-sm mb-6">Drive high-intent traffic to your consultants by converting AI prompts into SEO structure.</p>
             <Link 
               href="/dashboard/admin/blog/new" 
-              className="bg-[#1A1A1A] border border-gray-700 hover:bg-gray-800 text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"
+              className="bg-[#0F2A44] border border-gray-700 hover:bg-gray-800 text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"
             >
               <Plus className="w-4 h-4" /> Initialize First Post
             </Link>
@@ -59,7 +59,7 @@ export default function BlogListClient({ initialPosts }: { initialPosts: any[] }
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {posts.map(post => (
-              <div key={post.id} className="bg-[#1A1A1A] border border-gray-800 rounded-xl overflow-hidden shadow-sm flex flex-col group">
+              <div key={post.id} className="bg-[#0F2A44] border border-gray-800 rounded-xl overflow-hidden shadow-sm flex flex-col group">
                 <div className="p-5 flex-1 flex flex-col">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <span className="px-2.5 py-1 bg-gray-900 border border-gray-700 text-gray-300 rounded-[8px] text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
@@ -86,7 +86,7 @@ export default function BlogListClient({ initialPosts }: { initialPosts: any[] }
                 </div>
                 
                 {/* Actions */}
-                <div className="p-3 border-t border-gray-800 bg-[#161616] flex justify-end gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="p-3 border-t border-gray-800 bg-[#0F2A44] flex justify-end gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Link 
                     href={`/dashboard/admin/blog/${post.id}`}
                     className="p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors border border-gray-700"

@@ -73,7 +73,7 @@ export default async function AdminHome() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
          
          {/* Charts - 2 spans */}
-         <div className="lg:col-span-2 bg-[#1A1A1A] border border-gray-800 rounded-3xl p-6 shadow-2xl">
+         <div className="lg:col-span-2 bg-[#0F2A44] border border-gray-800 rounded-3xl p-6 shadow-2xl">
             <h3 className="text-lg font-bold text-white mb-6 font-serif">Platform Growth & Activity</h3>
             <div className="h-[300px] w-full">
               <AdminDashboardCharts totalClients={totalClients} totalConsultants={totalConsultants} />
@@ -81,7 +81,7 @@ export default async function AdminHome() {
          </div>
 
          {/* Recent System Activity */}
-         <div className="bg-[#1A1A1A] border border-gray-800 rounded-3xl p-6 shadow-2xl flex flex-col">
+         <div className="bg-[#0F2A44] border border-gray-800 rounded-3xl p-6 shadow-2xl flex flex-col">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold text-white font-serif">Live Security Feed</h3>
               <Activity className="w-5 h-5 text-green-400 animate-pulse" />
@@ -90,7 +90,7 @@ export default async function AdminHome() {
             <div className="flex-1 space-y-4 overflow-y-auto pr-2">
               {recentLogs.map((log) => (
                 <div key={log.id} className="group relative pl-4 border-l-2 border-white/10 hover:border-green-400/50 transition-colors">
-                   <div className="absolute -left-1.5 top-1.5 w-2.5 h-2.5 rounded-full bg-white/10 group-hover:bg-green-400 transition-colors border-2 border-[#1A1A1A]" />
+                   <div className="absolute -left-1.5 top-1.5 w-2.5 h-2.5 rounded-full bg-white/10 group-hover:bg-green-400 transition-colors border-2 border-[#0F2A44]" />
                    <div className="flex justify-between items-start mb-1">
                      <span className="text-[10px] font-bold text-green-400/80 font-mono uppercase tracking-wider">{log.action}</span>
                      <span className="text-[10px] text-gray-500 uppercase tracking-widest">{format(new Date(log.createdAt), 'HH:mm:ss')}</span>

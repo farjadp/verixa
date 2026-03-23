@@ -54,7 +54,7 @@ export default async function ClientReviewsPage() {
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
       <div>
-        <h1 className="text-3xl font-serif font-bold text-[#1A1A1A]">My Reviews</h1>
+        <h1 className="text-3xl font-serif font-bold text-[#1A1F2B]">My Reviews</h1>
         <p className="text-gray-500 mt-2">Manage your feedback. Reviews help build a trusted community for everyone.</p>
       </div>
 

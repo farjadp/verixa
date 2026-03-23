@@ -29,13 +29,13 @@ export default async function ClientBookingPage({ params }: { params: Promise<{ 
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col font-sans text-gray-900">
       
       {/* HEADER */}
-      <header className="bg-white border-b border-[#f5ecd8] h-20 flex items-center px-8 z-20 sticky top-0">
+      <header className="bg-white border-b border-[#e5e7eb] h-20 flex items-center px-8 z-20 sticky top-0">
         <div className="max-w-6xl mx-auto w-full flex items-center justify-between">
-          <Link href={`/consultant/${licenseNumber}`} className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-[#1A1A1A] transition-colors">
+          <Link href={`/consultant/${licenseNumber}`} className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-[#1A1F2B] transition-colors">
             <ArrowLeft className="w-4 h-4" /> Back to Profile
           </Link>
-          <div className="text-xl font-black font-serif tracking-tight text-[#1A1A1A]">
-            Verixa<span className="text-[#C29967]">.</span>
+          <div className="text-xl font-black font-serif tracking-tight text-[#1A1F2B]">
+            Verixa<span className="text-[#2FA4A9]">.</span>
           </div>
         </div>
       </header>
@@ -45,8 +45,8 @@ export default async function ClientBookingPage({ params }: { params: Promise<{ 
         
         {/* LEFT: CONSULTANT SUMMARY */}
         <div className="lg:col-span-4 space-y-6">
-           <div className="bg-white rounded-3xl p-6 border border-[#f5ecd8] shadow-sm">
-             <div className="w-20 h-20 rounded-2xl bg-[#F6F3F0] mb-4 flex items-center justify-center text-[#C29967]">
+           <div className="bg-white rounded-3xl p-6 border border-[#e5e7eb] shadow-sm">
+             <div className="w-20 h-20 rounded-2xl bg-[#F5F7FA] mb-4 flex items-center justify-center text-[#2FA4A9]">
                <User className="w-8 h-8 opacity-50" />
              </div>
              <div className="flex items-center gap-2 mb-1">
@@ -57,7 +57,7 @@ export default async function ClientBookingPage({ params }: { params: Promise<{ 
              </div>
              <p className="text-sm text-gray-500 mb-6 font-medium">Immigration Consultation</p>
              
-             <div className="space-y-4 pt-6 border-t border-[#f5ecd8]">
+             <div className="space-y-4 pt-6 border-t border-[#e5e7eb]">
                <div className="flex gap-3">
                  <Clock className="w-5 h-5 text-gray-400 shrink-0" />
                  <div>

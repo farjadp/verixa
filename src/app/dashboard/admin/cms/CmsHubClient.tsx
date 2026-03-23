@@ -28,20 +28,20 @@ export default function CmsHubClient({ initialPosts }: { initialPosts: any[] }) 
       
       {/* 1. TOP METRICS ENGINE */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 shrink-0">
-        <div className="bg-white border border-[#f5ecd8] p-6 rounded-[24px] flex flex-col justify-between shadow-sm">
-           <div className="flex items-center gap-2 text-gray-500 mb-2"><FileText className="w-4 h-4 text-[#C29967]" /> <h3 className="text-xs font-bold uppercase tracking-wider">Total Articles</h3></div>
+        <div className="bg-white border border-[#e5e7eb] p-6 rounded-[24px] flex flex-col justify-between shadow-sm">
+           <div className="flex items-center gap-2 text-gray-500 mb-2"><FileText className="w-4 h-4 text-[#2FA4A9]" /> <h3 className="text-xs font-bold uppercase tracking-wider">Total Articles</h3></div>
            <div className="text-3xl font-serif font-black text-gray-900">{totalPosts}</div>
         </div>
-        <div className="bg-white border border-[#f5ecd8] p-6 rounded-[24px] flex flex-col justify-between shadow-sm">
+        <div className="bg-white border border-[#e5e7eb] p-6 rounded-[24px] flex flex-col justify-between shadow-sm">
            <div className="flex items-center gap-2 text-gray-500 mb-2"><Globe className="w-4 h-4 text-green-600" /> <h3 className="text-xs font-bold uppercase tracking-wider">Live & Indexed</h3></div>
            <div className="text-3xl font-serif font-black text-gray-900">{publishedPosts} <span className="text-sm font-normal text-gray-400 ml-1">/{totalPosts}</span></div>
         </div>
-        <div className="bg-white border border-[#f5ecd8] p-6 rounded-[24px] flex flex-col justify-between shadow-sm relative overflow-hidden group">
+        <div className="bg-white border border-[#e5e7eb] p-6 rounded-[24px] flex flex-col justify-between shadow-sm relative overflow-hidden group">
            <div className="flex items-center gap-2 text-gray-500 mb-2"><AlertCircle className="w-4 h-4 text-orange-500" /> <h3 className="text-xs font-bold uppercase tracking-wider">Missing SEO</h3></div>
            <div className="text-3xl font-serif font-black text-orange-600">{missingSeo}</div>
            {missingSeo > 0 && <div className="absolute top-0 right-0 w-16 h-16 bg-orange-100 rounded-bl-full opacity-50"></div>}
         </div>
-        <div className="bg-white border border-[#f5ecd8] p-6 rounded-[24px] flex flex-col justify-between shadow-sm">
+        <div className="bg-white border border-[#e5e7eb] p-6 rounded-[24px] flex flex-col justify-between shadow-sm">
            <div className="flex items-center gap-2 text-gray-500 mb-2"><Share2 className="w-4 h-4 text-blue-500" /> <h3 className="text-xs font-bold uppercase tracking-wider">Social Variants Gen.</h3></div>
            <div className="text-3xl font-serif font-black text-blue-600">{socialReady} <span className="text-sm font-normal text-gray-400 ml-1">hooks</span></div>
         </div>
@@ -53,18 +53,18 @@ export default function CmsHubClient({ initialPosts }: { initialPosts: any[] }) 
         <div className="xl:col-span-1 flex flex-col gap-6 overflow-y-auto pr-2">
            
            {/* Action Command Center */}
-           <div className="bg-white border border-[#f5ecd8] p-6 rounded-[24px] flex flex-col gap-4 shadow-sm">
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest border-b border-[#f5ecd8] pb-3">Module Triggers</h3>
+           <div className="bg-white border border-[#e5e7eb] p-6 rounded-[24px] flex flex-col gap-4 shadow-sm">
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest border-b border-[#e5e7eb] pb-3">Module Triggers</h3>
               
-              <Link href="/dashboard/admin/ai-factory" className="w-full bg-[#FAFAFA] hover:bg-[#F3F0EA] border border-[#f5ecd8] p-4 rounded-xl flex items-center justify-between group transition-all">
+              <Link href="/dashboard/admin/ai-factory" className="w-full bg-[#FAFAFA] hover:bg-[#F3F0EA] border border-[#e5e7eb] p-4 rounded-xl flex items-center justify-between group transition-all">
                 <div>
-                  <h4 className="font-bold text-gray-900 flex items-center gap-2"><Sparkles className="w-4 h-4 text-[#C29967]" /> Launch AI Factory</h4>
+                  <h4 className="font-bold text-gray-900 flex items-center gap-2"><Sparkles className="w-4 h-4 text-[#2FA4A9]" /> Launch AI Factory</h4>
                   <p className="text-[11px] text-gray-500 mt-1">Generate automated SEO Articles & Images.</p>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#C29967] transition-colors" />
+                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#2FA4A9] transition-colors" />
               </Link>
 
-              <Link href="/dashboard/admin/news-aggregator" className="w-full bg-[#FAFAFA] hover:bg-[#F3F0EA] border border-[#f5ecd8] p-4 rounded-xl flex items-center justify-between group transition-all">
+              <Link href="/dashboard/admin/news-aggregator" className="w-full bg-[#FAFAFA] hover:bg-[#F3F0EA] border border-[#e5e7eb] p-4 rounded-xl flex items-center justify-between group transition-all">
                 <div>
                   <h4 className="font-bold text-gray-900 flex items-center gap-2"><Globe className="w-4 h-4 text-blue-500" /> RSS AI Aggregator</h4>
                   <p className="text-[11px] text-gray-500 mt-1">Auto-fetch external news into Drafts.</p>
@@ -72,15 +72,15 @@ export default function CmsHubClient({ initialPosts }: { initialPosts: any[] }) 
                 <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-500 transition-colors" />
               </Link>
 
-              <Link href="/dashboard/admin/social" className="w-full bg-[#FAFAFA] hover:bg-[#F3F0EA] border border-[#f5ecd8] p-4 rounded-xl flex items-center justify-between group transition-all">
+              <Link href="/dashboard/admin/social" className="w-full bg-[#FAFAFA] hover:bg-[#F3F0EA] border border-[#e5e7eb] p-4 rounded-xl flex items-center justify-between group transition-all">
                 <div>
-                  <h4 className="font-bold text-gray-900 flex items-center gap-2"><Share2 className="w-4 h-4 text-[#C29967]" /> Content Distribution Engine</h4>
+                  <h4 className="font-bold text-gray-900 flex items-center gap-2"><Share2 className="w-4 h-4 text-[#2FA4A9]" /> Content Distribution Engine</h4>
                   <p className="text-[11px] text-gray-500 mt-1">Multi-Format LinkedIn & X Optimizer.</p>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#C29967] transition-colors" />
+                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#2FA4A9] transition-colors" />
               </Link>
               
-              <Link href="/dashboard/admin/blog/new" className="w-full bg-[#FAFAFA] hover:bg-[#F3F0EA] border border-[#f5ecd8] p-4 rounded-xl flex items-center justify-between group transition-all">
+              <Link href="/dashboard/admin/blog/new" className="w-full bg-[#FAFAFA] hover:bg-[#F3F0EA] border border-[#e5e7eb] p-4 rounded-xl flex items-center justify-between group transition-all">
                 <div>
                   <h4 className="font-bold text-gray-900 flex items-center gap-2"><Plus className="w-4 h-4 text-green-600" /> New Manual Article</h4>
                   <p className="text-[11px] text-gray-500 mt-1">Write an article natively in Markdown.</p>
@@ -88,7 +88,7 @@ export default function CmsHubClient({ initialPosts }: { initialPosts: any[] }) 
                 <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-green-600 transition-colors" />
               </Link>
 
-              <Link href="/dashboard/admin/blog" className="w-full bg-[#FAFAFA] hover:bg-[#F3F0EA] border border-[#f5ecd8] p-4 rounded-xl flex items-center justify-between group transition-all">
+              <Link href="/dashboard/admin/blog" className="w-full bg-[#FAFAFA] hover:bg-[#F3F0EA] border border-[#e5e7eb] p-4 rounded-xl flex items-center justify-between group transition-all">
                 <div>
                   <h4 className="font-bold text-gray-900 flex items-center gap-2"><LayoutTemplate className="w-4 h-4 text-gray-500" /> Global Article Manager</h4>
                   <p className="text-[11px] text-gray-500 mt-1">Edit, Delete, and force Draft states.</p>
@@ -98,8 +98,8 @@ export default function CmsHubClient({ initialPosts }: { initialPosts: any[] }) 
            </div>
 
            {/* Taxonomy Manager: Categories & Tags */}
-           <div className="bg-white border border-[#f5ecd8] p-6 rounded-[24px] flex flex-col gap-4 shadow-sm">
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest border-b border-[#f5ecd8] pb-3 flex items-center justify-between">
+           <div className="bg-white border border-[#e5e7eb] p-6 rounded-[24px] flex flex-col gap-4 shadow-sm">
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest border-b border-[#e5e7eb] pb-3 flex items-center justify-between">
                  Taxonomy Layer
                  <span className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded border border-red-200">LOCKED</span>
               </h3>
@@ -108,8 +108,8 @@ export default function CmsHubClient({ initialPosts }: { initialPosts: any[] }) 
               </p>
               <div className="space-y-3">
                  {CATEGORIES.map(cat => (
-                    <div key={cat.value} className="bg-[#FAFAFA] border border-[#f5ecd8] p-3 rounded-lg">
-                       <h4 className="text-[11px] font-black uppercase text-[#C29967]">{cat.label}</h4>
+                    <div key={cat.value} className="bg-[#FAFAFA] border border-[#e5e7eb] p-3 rounded-lg">
+                       <h4 className="text-[11px] font-black uppercase text-[#2FA4A9]">{cat.label}</h4>
                        <p className="text-[10px] text-gray-600 mt-1">{cat.desc}</p>
                     </div>
                  ))}
@@ -126,16 +126,16 @@ export default function CmsHubClient({ initialPosts }: { initialPosts: any[] }) 
         </div>
 
         {/* RIGHT COLUMN: ARTICLE LISTING & AUDIT TABLE */}
-        <div className="xl:col-span-2 bg-white border border-[#f5ecd8] rounded-[24px] flex flex-col shadow-sm overflow-hidden">
-           <div className="p-5 border-b border-[#f5ecd8] flex items-center justify-between bg-[#FAFAFA]">
+        <div className="xl:col-span-2 bg-white border border-[#e5e7eb] rounded-[24px] flex flex-col shadow-sm overflow-hidden">
+           <div className="p-5 border-b border-[#e5e7eb] flex items-center justify-between bg-[#FAFAFA]">
               <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest flex items-center gap-2">
-                 <Search className="w-4 h-4 text-[#C29967]" /> Content Tracker & Status Report
+                 <Search className="w-4 h-4 text-[#2FA4A9]" /> Content Tracker & Status Report
               </h3>
            </div>
            
            <div className="flex-1 overflow-y-auto">
               <table className="w-full text-left border-collapse">
-                <thead className="bg-[#FDFCFB] sticky top-0 z-10 border-b border-[#f5ecd8]">
+                <thead className="bg-[#ffffff] sticky top-0 z-10 border-b border-[#e5e7eb]">
                   <tr>
                     <th className="p-4 text-[11px] font-bold text-gray-600 uppercase tracking-wider w-[40%]">Article Name</th>
                     <th className="p-4 text-[11px] font-bold text-gray-600 uppercase tracking-wider">Category</th>
@@ -144,7 +144,7 @@ export default function CmsHubClient({ initialPosts }: { initialPosts: any[] }) 
                     <th className="p-4 text-[11px] font-bold text-gray-600 uppercase tracking-wider text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#f5ecd8] text-sm">
+                <tbody className="divide-y divide-[#e5e7eb] text-sm">
                   {initialPosts.length === 0 ? (
                      <tr>
                         <td colSpan={5} className="p-8 text-center text-gray-500 text-xs font-mono">
@@ -153,9 +153,9 @@ export default function CmsHubClient({ initialPosts }: { initialPosts: any[] }) 
                      </tr>
                   ) : (
                      initialPosts.map(post => (
-                        <tr key={post.id} className="hover:bg-[#FDFCFB] transition-colors group">
+                        <tr key={post.id} className="hover:bg-[#ffffff] transition-colors group">
                           <td className="p-4">
-                             <div className="font-bold text-gray-900 line-clamp-1 group-hover:text-[#C29967] transition-colors">{post.title}</div>
+                             <div className="font-bold text-gray-900 line-clamp-1 group-hover:text-[#2FA4A9] transition-colors">{post.title}</div>
                              <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-2">
                                {post.isPublished ? (
                                   <span className="text-green-600 font-bold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Live</span>
@@ -193,7 +193,7 @@ export default function CmsHubClient({ initialPosts }: { initialPosts: any[] }) 
                              )}
                           </td>
                           <td className="p-4 text-right">
-                             <Link href={`/dashboard/admin/blog/${post.id}`} className="text-[11px] font-bold text-gray-600 hover:text-[#C29967] bg-white border border-[#f5ecd8] hover:border-[#C29967] px-3 py-1.5 rounded-lg transition-colors shadow-sm">
+                             <Link href={`/dashboard/admin/blog/${post.id}`} className="text-[11px] font-bold text-gray-600 hover:text-[#2FA4A9] bg-white border border-[#e5e7eb] hover:border-[#2FA4A9] px-3 py-1.5 rounded-lg transition-colors shadow-sm">
                                Edit
                              </Link>
                           </td>

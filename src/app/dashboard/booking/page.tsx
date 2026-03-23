@@ -38,7 +38,7 @@ export default async function ConsultantBookingsPage() {
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
       <div>
-        <h1 className="text-3xl font-serif font-black text-[#1A1A1A] tracking-tight mb-2">Bookings</h1>
+        <h1 className="text-3xl font-serif font-black text-[#1A1F2B] tracking-tight mb-2">Bookings</h1>
         <p className="text-gray-500 font-medium">Manage your consultations and action incoming requests.</p>
       </div>
 

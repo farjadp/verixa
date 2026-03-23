@@ -28,7 +28,7 @@ export default function DashboardSetupPage() {
       
       {/* HEADER SECTION */}
         <div className="mb-10">
-          <p className="text-sm font-bold text-[#C29967] uppercase tracking-widest mb-2">Onboarding Dashboard</p>
+          <p className="text-sm font-bold text-[#2FA4A9] uppercase tracking-widest mb-2">Onboarding Dashboard</p>
           <h1 className="text-3xl md:text-4xl font-bold font-serif mb-3 tracking-tight">Complete your profile setup</h1>
           <p className="text-gray-500 font-medium">To maximize your visibility and start receiving client leads, complete the steps below.</p>
         </div>
@@ -40,13 +40,13 @@ export default function DashboardSetupPage() {
               <h2 className="text-xl font-bold mb-1">Your profile is {completionPercentage}% complete</h2>
               <p className="text-sm text-gray-500">You're almost ready to go live on the Verixa directory.</p>
             </div>
-            <span className="text-3xl font-black text-[#C29967]">{completionPercentage}%</span>
+            <span className="text-3xl font-black text-[#2FA4A9]">{completionPercentage}%</span>
           </div>
           
           {/* Progress Bar Container */}
           <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-gradient-to-r from-[#C29967] to-[#b08856] rounded-full transition-all duration-1000 ease-in-out"
+              className="h-full bg-gradient-to-r from-[#2FA4A9] to-[#258d92] rounded-full transition-all duration-1000 ease-in-out"
               style={{ width: `${completionPercentage}%` }}
             />
           </div>
@@ -86,13 +86,13 @@ export default function DashboardSetupPage() {
                   href={item.link}
                   className="px-8 py-6 flex items-start gap-4 hover:bg-gray-50/50 transition-colors group cursor-pointer"
                 >
-                  <Circle className="w-6 h-6 text-gray-200 shrink-0 group-hover:text-[#C29967] transition-colors" />
+                  <Circle className="w-6 h-6 text-gray-200 shrink-0 group-hover:text-[#2FA4A9] transition-colors" />
                   <div className="flex-1">
-                    <h4 className="font-bold text-[#1A1A1A] group-hover:text-[#C29967] transition-colors">{item.title}</h4>
+                    <h4 className="font-bold text-[#1A1F2B] group-hover:text-[#2FA4A9] transition-colors">{item.title}</h4>
                     <p className="text-sm text-gray-500 mt-1">{item.description}</p>
                   </div>
                   <div className="pl-4 h-full flex items-center">
-                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#C29967] transition-transform group-hover:translate-x-1" />
+                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#2FA4A9] transition-transform group-hover:translate-x-1" />
                   </div>
                 </Link>
               );
@@ -102,7 +102,7 @@ export default function DashboardSetupPage() {
 
         {/* SKIP TO DASHBOARD CTA */}
         <div className="mt-8 text-center pb-12">
-          <Link href="/dashboard" className="text-sm font-bold text-gray-400 hover:text-[#C29967] transition-colors border-b border-transparent hover:border-[#C29967]/30 pb-1">
+          <Link href="/dashboard" className="text-sm font-bold text-gray-400 hover:text-[#2FA4A9] transition-colors border-b border-transparent hover:border-[#2FA4A9]/30 pb-1">
             Skip onboarding and go to my dashboard
           </Link>
         </div>

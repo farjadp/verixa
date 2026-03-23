@@ -50,17 +50,17 @@ export default function LoginPage() {
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 font-sans overflow-hidden">
       
       {/* LEFT SIDE: Form */}
-      <div className="flex flex-col justify-center px-8 sm:px-16 md:px-24 bg-[#FDFCFB]">
+      <div className="flex flex-col justify-center px-8 sm:px-16 md:px-24 bg-[#ffffff]">
         <div className="max-w-md w-full mx-auto">
           {/* Header */}
           <Link href="/" className="flex items-center gap-2 mb-16 group w-fit">
             <img src="/Brand/Vertixa.png" alt="Verixa Logo" className="h-8 w-auto object-contain rounded-sm" />
-            <span className="text-xl font-bold tracking-tighter uppercase font-serif text-[#1A1A1A]">Verixa</span>
+            <span className="text-xl font-bold tracking-tighter uppercase font-serif text-[#1A1F2B]">Verixa</span>
           </Link>
 
           {/* Titles */}
           <div className="mb-10">
-            <h1 className="text-3xl md:text-4xl font-bold font-serif text-[#1A1A1A] mb-3">Welcome back</h1>
+            <h1 className="text-3xl md:text-4xl font-bold font-serif text-[#1A1F2B] mb-3">Welcome back</h1>
             <p className="text-gray-500">Sign in to your Verixa account to continue.</p>
           </div>
 
@@ -76,14 +76,14 @@ export default function LoginPage() {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full bg-white border border-gray-200 px-4 py-3.5 rounded-xl focus:border-[#C29967] focus:ring-1 focus:ring-[#C29967] focus:outline-none transition-colors shadow-sm"
+                className="w-full bg-white border border-gray-200 px-4 py-3.5 rounded-xl focus:border-[#2FA4A9] focus:ring-1 focus:ring-[#2FA4A9] focus:outline-none transition-colors shadow-sm"
               />
             </div>
             
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-bold text-gray-700" htmlFor="password">Password</label>
-                <Link href="#" className="text-sm text-[#C29967] font-bold hover:underline">Forgot password?</Link>
+                <Link href="#" className="text-sm text-[#2FA4A9] font-bold hover:underline">Forgot password?</Link>
               </div>
               <input 
                 type="password" 
@@ -92,14 +92,14 @@ export default function LoginPage() {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full bg-white border border-gray-200 px-4 py-3.5 rounded-xl focus:border-[#C29967] focus:ring-1 focus:ring-[#C29967] focus:outline-none transition-colors shadow-sm"
+                className="w-full bg-white border border-gray-200 px-4 py-3.5 rounded-xl focus:border-[#2FA4A9] focus:ring-1 focus:ring-[#2FA4A9] focus:outline-none transition-colors shadow-sm"
               />
             </div>
 
             <button 
               type="submit" 
               disabled={isLoading}
-              className="w-full bg-[#1A1A1A] text-white py-4 rounded-xl font-bold text-lg hover:bg-black transition-colors shadow-lg shadow-black/10 mt-4 flex items-center justify-center gap-2 group disabled:opacity-70"
+              className="w-full bg-[#0F2A44] text-white py-4 rounded-xl font-bold text-lg hover:bg-black transition-colors shadow-lg shadow-black/10 mt-4 flex items-center justify-center gap-2 group disabled:opacity-70"
             >
               {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sign In"}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -109,7 +109,7 @@ export default function LoginPage() {
           {/* Footer */}
           <p className="text-center text-gray-500 mt-10">
             Don't have an account?{' '}
-            <Link href="/register" className="text-[#C29967] font-bold hover:underline">
+            <Link href="/register" className="text-[#2FA4A9] font-bold hover:underline">
               Create an account
             </Link>
           </p>

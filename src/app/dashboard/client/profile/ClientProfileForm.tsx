@@ -59,7 +59,7 @@ export default function ClientProfileForm({ initialData }: { initialData: any })
              placeholder="e.g. Iran, India, Brazil"
              value={formData.nationality} 
              onChange={e => handleUpdate("nationality", e.target.value)} 
-             className="w-full bg-[#FDFCFB] border border-[#f5ecd8] px-4 py-3.5 rounded-xl text-sm focus:border-[#C29967] outline-none transition-colors placeholder:text-gray-300" 
+             className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none transition-colors placeholder:text-gray-300" 
            />
          </div>
 
@@ -71,7 +71,7 @@ export default function ClientProfileForm({ initialData }: { initialData: any })
              placeholder="e.g. UAE, Canada, Germany"
              value={formData.currentCountry} 
              onChange={e => handleUpdate("currentCountry", e.target.value)} 
-             className="w-full bg-[#FDFCFB] border border-[#f5ecd8] px-4 py-3.5 rounded-xl text-sm focus:border-[#C29967] outline-none transition-colors placeholder:text-gray-300" 
+             className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none transition-colors placeholder:text-gray-300" 
            />
          </div>
 
@@ -83,7 +83,7 @@ export default function ClientProfileForm({ initialData }: { initialData: any })
              placeholder="e.g. English, Persian, French"
              value={formData.languages} 
              onChange={e => handleUpdate("languages", e.target.value)} 
-             className="w-full bg-[#FDFCFB] border border-[#f5ecd8] px-4 py-3.5 rounded-xl text-sm focus:border-[#C29967] outline-none transition-colors placeholder:text-gray-300" 
+             className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none transition-colors placeholder:text-gray-300" 
            />
            <p className="text-[11px] text-gray-400 font-medium">We occasionally use this to recommend consultants who speak your language natively.</p>
          </div>
@@ -94,7 +94,7 @@ export default function ClientProfileForm({ initialData }: { initialData: any })
            <select 
              value={formData.immigrationGoals} 
              onChange={e => handleUpdate("immigrationGoals", e.target.value)} 
-             className="w-full bg-[#FDFCFB] border border-[#f5ecd8] px-4 py-3.5 rounded-xl text-sm focus:border-[#C29967] outline-none transition-colors text-[#1A1A1A]" 
+             className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none transition-colors text-[#1A1F2B]" 
            >
              <option value="">Select a goal...</option>
              <option value="Express Entry">Express Entry / PR</option>
@@ -115,7 +115,7 @@ export default function ClientProfileForm({ initialData }: { initialData: any })
            <select 
              value={formData.educationLevel} 
              onChange={e => handleUpdate("educationLevel", e.target.value)} 
-             className="w-full bg-[#FDFCFB] border border-[#f5ecd8] px-4 py-3.5 rounded-xl text-sm focus:border-[#C29967] outline-none transition-colors text-[#1A1A1A]" 
+             className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none transition-colors text-[#1A1F2B]" 
            >
              <option value="">Select level...</option>
              <option value="High School">High School</option>
@@ -133,7 +133,7 @@ export default function ClientProfileForm({ initialData }: { initialData: any })
               <select 
                 value={formData.maritalStatus} 
                 onChange={e => handleUpdate("maritalStatus", e.target.value)} 
-                className="w-full bg-[#FDFCFB] border border-[#f5ecd8] px-4 py-3.5 rounded-xl text-sm focus:border-[#C29967] outline-none transition-colors text-[#1A1A1A]" 
+                className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none transition-colors text-[#1A1F2B]" 
               >
                 <option value="">Select...</option>
                 <option value="Single">Single</option>
@@ -150,15 +150,15 @@ export default function ClientProfileForm({ initialData }: { initialData: any })
                 placeholder="e.g. 28"
                 value={formData.age} 
                 onChange={e => handleUpdate("age", e.target.value)} 
-                className="w-full bg-[#FDFCFB] border border-[#f5ecd8] px-4 py-3.5 rounded-xl text-sm focus:border-[#C29967] outline-none transition-colors placeholder:text-gray-300" 
+                className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none transition-colors placeholder:text-gray-300" 
               />
             </div>
          </div>
        </div>
 
        {/* Sharing Toggle */}
-       <div className="pt-6 border-t border-[#f5ecd8]">
-          <div className="flex items-start gap-4 p-5 bg-[#FDFCFB] rounded-2xl border border-gray-100">
+       <div className="pt-6 border-t border-[#e5e7eb]">
+          <div className="flex items-start gap-4 p-5 bg-[#ffffff] rounded-2xl border border-gray-100">
              <label className="relative inline-flex items-center cursor-pointer mt-1 shrink-0">
                <input 
                  type="checkbox" 
@@ -166,10 +166,10 @@ export default function ClientProfileForm({ initialData }: { initialData: any })
                  checked={formData.shareWithConsultant} 
                  onChange={(e) => handleUpdate("shareWithConsultant", e.target.checked)} 
                />
-               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#C29967]"></div>
+               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2FA4A9]"></div>
              </label>
              <div>
-               <h4 className="font-bold text-[#1A1A1A] text-sm">Share Profile with Consultants</h4>
+               <h4 className="font-bold text-[#1A1F2B] text-sm">Share Profile with Consultants</h4>
                <p className="text-sm text-gray-500 mt-1">
                  When enabled, any consultant you book a session with will automatically receive this profile a few hours before the meeting. This helps them prepare and skips the basic questions so you get more value out of your paid time.
                </p>
@@ -181,7 +181,7 @@ export default function ClientProfileForm({ initialData }: { initialData: any })
          <button 
            type="submit" 
            disabled={isSubmitting}
-           className="bg-[#1A1A1A] text-white px-8 py-3.5 rounded-xl font-bold hover:bg-black transition-all shadow-lg shadow-black/5 flex items-center gap-2 disabled:opacity-50"
+           className="bg-[#0F2A44] text-white px-8 py-3.5 rounded-xl font-bold hover:bg-black transition-all shadow-lg shadow-black/5 flex items-center gap-2 disabled:opacity-50"
          >
            {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
            {isSubmitting ? "Saving Profile..." : "Save Immigration Profile"}

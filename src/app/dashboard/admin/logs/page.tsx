@@ -30,11 +30,11 @@ export default async function AdminLogsPage() {
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
       <div>
-         <h1 className="text-3xl font-serif font-bold text-[#1A1A1A]">System Audit Logs</h1>
+         <h1 className="text-3xl font-serif font-bold text-[#1A1F2B]">System Audit Logs</h1>
          <p className="text-gray-500 mt-2">Comprehensive, real-time activity tracking across the Consultation Control Center.</p>
       </div>
 
-      <div className="bg-white rounded-[32px] border border-[#f5ecd8] shadow-sm overflow-hidden">
+      <div className="bg-white rounded-[32px] border border-[#e5e7eb] shadow-sm overflow-hidden">
         <AdminLogsTable initialLogs={logs} />
       </div>
     </div>

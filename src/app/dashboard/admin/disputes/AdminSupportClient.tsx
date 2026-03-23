@@ -133,7 +133,7 @@ export default function AdminSupportClient({
       </div>
 
       {/* Right Content Area */}
-      <div className="flex-1 flex flex-col h-full bg-[#1A1A1A] relative">
+      <div className="flex-1 flex flex-col h-full bg-[#0F2A44] relative">
         {loadingTicket ? (
           <div className="flex-1 flex items-center justify-center text-gray-500">
             <div className="animate-spin w-8 h-8 border-4 border-gray-600 border-t-white rounded-full"></div>

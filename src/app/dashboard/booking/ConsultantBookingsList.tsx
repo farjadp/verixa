@@ -57,8 +57,8 @@ export default function ConsultantBookingsList({ bookings }: { bookings: Extende
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition-all ${
                 isActive 
-                  ? tab.id === "ACTION_REQUIRED" ? "bg-red-500 text-white shadow-md shadow-red-500/20" : "bg-[#1A1A1A] text-white shadow-md shadow-black/10"
-                  : "bg-white text-gray-500 border border-gray-100 hover:border-gray-300 hover:text-[#1A1A1A]"
+                  ? tab.id === "ACTION_REQUIRED" ? "bg-red-500 text-white shadow-md shadow-red-500/20" : "bg-[#0F2A44] text-white shadow-md shadow-black/10"
+                  : "bg-white text-gray-500 border border-gray-100 hover:border-gray-300 hover:text-[#1A1F2B]"
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -76,7 +76,7 @@ export default function ConsultantBookingsList({ bookings }: { bookings: Extende
         {displayedBookings.length === 0 ? (
           <div className="bg-white border border-dashed border-gray-200 rounded-3xl p-12 text-center">
             <CalendarDays className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-[#1A1A1A] mb-2">No bookings found</h3>
+            <h3 className="text-xl font-bold text-[#1A1F2B] mb-2">No bookings found</h3>
             <p className="text-gray-500">You don't have any bookings in this category.</p>
           </div>
         ) : (
@@ -87,7 +87,7 @@ export default function ConsultantBookingsList({ bookings }: { bookings: Extende
 
             return (
               <Link href={`/dashboard/booking/${booking.id}`} key={booking.id} className="block group">
-                <div className="bg-white border border-gray-100 hover:border-[#C29967] rounded-2xl p-6 transition-all shadow-sm hover:shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
+                <div className="bg-white border border-gray-100 hover:border-[#2FA4A9] rounded-2xl p-6 transition-all shadow-sm hover:shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
                   
                   {/* Left Accent Bar for Action Required */}
                   {activeTab === "ACTION_REQUIRED" && (
@@ -96,22 +96,22 @@ export default function ConsultantBookingsList({ bookings }: { bookings: Extende
 
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-3">
-                      <h3 className="font-bold text-[#1A1A1A] text-lg">{booking.userFirstName} {booking.userLastName}</h3>
+                      <h3 className="font-bold text-[#1A1F2B] text-lg">{booking.userFirstName} {booking.userLastName}</h3>
                       <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-bold uppercase tracking-wider">
                         {booking.type.title}
                       </span>
                     </div>
                     <div className="flex items-center gap-6 text-sm text-gray-500">
                       <div className="flex items-center gap-1.5 font-medium">
-                        <CalendarDays className="w-4 h-4 text-[#C29967]" />
+                        <CalendarDays className="w-4 h-4 text-[#2FA4A9]" />
                         {format(new Date(booking.scheduledStart), "MMM d, yyyy")}
                       </div>
                       <div className="flex items-center gap-1.5 font-medium">
-                        <Clock className="w-4 h-4 text-[#C29967]" />
+                        <Clock className="w-4 h-4 text-[#2FA4A9]" />
                         {format(new Date(booking.scheduledStart), "h:mm a")}
                       </div>
                       <div className="flex items-center gap-1.5 font-medium">
-                        <Video className="w-4 h-4 text-[#C29967]" />
+                        <Video className="w-4 h-4 text-[#2FA4A9]" />
                         {booking.meetingMethod || "Online"}
                       </div>
                     </div>
@@ -127,7 +127,7 @@ export default function ConsultantBookingsList({ bookings }: { bookings: Extende
                       </div>
                     )}
                     
-                    <button className="bg-[#FDFCFB] text-[#1A1A1A] font-bold px-6 py-3 rounded-xl border border-gray-100 group-hover:bg-[#1A1A1A] group-hover:text-white transition-colors flex items-center gap-2">
+                    <button className="bg-[#ffffff] text-[#1A1F2B] font-bold px-6 py-3 rounded-xl border border-gray-100 group-hover:bg-[#0F2A44] group-hover:text-white transition-colors flex items-center gap-2">
                        {activeTab === "ACTION_REQUIRED" ? "Take Action" : "View Details"}
                        <ArrowRight className="w-4 h-4" />
                     </button>

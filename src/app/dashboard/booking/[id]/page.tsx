@@ -42,9 +42,9 @@ export default async function ConsultantBookingDetailPage({ params }: { params: 
         <div className="flex items-center gap-3 text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">
           <span>Bookings</span>
           <span className="w-1 h-1 rounded-full bg-gray-300" />
-          <span className="text-[#C29967]">{booking.id.slice(0, 8)}</span>
+          <span className="text-[#2FA4A9]">{booking.id.slice(0, 8)}</span>
         </div>
-        <h1 className="text-3xl font-serif font-black text-[#1A1A1A] tracking-tight">Booking Details</h1>
+        <h1 className="text-3xl font-serif font-black text-[#1A1F2B] tracking-tight">Booking Details</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -56,28 +56,28 @@ export default async function ConsultantBookingDetailPage({ params }: { params: 
           <ConsultantActionPanel booking={booking} />
 
           {/* CASE AND CLIENT INFO */}
-          <div className="bg-white border border-[#f5ecd8] rounded-3xl p-8 space-y-8">
-            <h3 className="font-bold text-xl text-[#1A1A1A] border-b border-[#f5ecd8] pb-4">Intake Form & Case Details</h3>
+          <div className="bg-white border border-[#e5e7eb] rounded-3xl p-8 space-y-8">
+            <h3 className="font-bold text-xl text-[#1A1F2B] border-b border-[#e5e7eb] pb-4">Intake Form & Case Details</h3>
             
             <div className="grid grid-cols-2 gap-y-6 gap-x-12">
                <div>
                  <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Service Requested</p>
-                 <p className="font-bold text-lg text-[#1A1A1A]">{booking.serviceNeeded || booking.type.title}</p>
+                 <p className="font-bold text-lg text-[#1A1F2B]">{booking.serviceNeeded || booking.type.title}</p>
                </div>
                <div>
                  <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Urgency</p>
-                 <p className="font-bold text-lg text-[#1A1A1A]">{booking.urgency || "Not Specified"}</p>
+                 <p className="font-bold text-lg text-[#1A1F2B]">{booking.urgency || "Not Specified"}</p>
                </div>
                <div>
                  <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Communication Method</p>
-                 <div className="flex items-center gap-2 font-bold text-lg text-[#1A1A1A]">
-                    <Video className="w-5 h-5 text-[#C29967]" />
+                 <div className="flex items-center gap-2 font-bold text-lg text-[#1A1F2B]">
+                    <Video className="w-5 h-5 text-[#2FA4A9]" />
                     {booking.preferredCommunicationMethod || "Online / Zoom"}
                  </div>
                </div>
                <div>
                  <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Session Rate</p>
-                 <p className="font-bold text-lg text-[#1A1A1A] text-green-700">CA ${(booking.grossAmountCents / 100).toFixed(2)}</p>
+                 <p className="font-bold text-lg text-[#1A1F2B] text-green-700">CA ${(booking.grossAmountCents / 100).toFixed(2)}</p>
                </div>
             </div>
 
@@ -90,13 +90,13 @@ export default async function ConsultantBookingDetailPage({ params }: { params: 
           </div>
 
           {/* EVENT LOG */}
-          <div className="bg-white border border-[#f5ecd8] rounded-3xl p-8">
-            <h3 className="font-bold text-xl text-[#1A1A1A] mb-6">Activity Log</h3>
+          <div className="bg-white border border-[#e5e7eb] rounded-3xl p-8">
+            <h3 className="font-bold text-xl text-[#1A1F2B] mb-6">Activity Log</h3>
             <div className="space-y-6 pl-2 border-l-2 border-gray-100">
                {booking.events.map((event, i) => (
                  <div key={event.id} className="relative pl-6">
-                   <div className="absolute -left-[35px] top-1 w-4 h-4 rounded-full border-4 border-white bg-[#C29967]" />
-                   <p className="font-bold text-[#1A1A1A] text-sm">{event.action.replace(/_/g, " ")}</p>
+                   <div className="absolute -left-[35px] top-1 w-4 h-4 rounded-full border-4 border-white bg-[#2FA4A9]" />
+                   <p className="font-bold text-[#1A1F2B] text-sm">{event.action.replace(/_/g, " ")}</p>
                    {event.notes && <p className="text-gray-500 text-sm mt-1">{event.notes}</p>}
                    <p className="text-xs text-gray-400 font-bold uppercase mt-1.5">{format(new Date(event.createdAt), "MMM d, yyyy - h:mm a")}</p>
                  </div>
@@ -107,12 +107,12 @@ export default async function ConsultantBookingDetailPage({ params }: { params: 
 
         {/* RIGHT COLUMN: CLIENT SUMMARY WIDGET */}
         <div className="space-y-6">
-          <div className="bg-[#1A1A1A] text-white rounded-3xl p-8 shadow-xl sticky top-28">
+          <div className="bg-[#0F2A44] text-white rounded-3xl p-8 shadow-xl sticky top-28">
              <div className="w-16 h-16 rounded-full bg-[#333] border-4 border-[#222] flex items-center justify-center text-2xl font-black mb-6">
                 {booking.userFirstName[0]}{booking.userLastName[0]}
              </div>
              <h2 className="text-2xl font-serif font-bold mb-1">{booking.userFirstName} {booking.userLastName}</h2>
-             <p className="text-[#C29967] font-bold text-sm mb-6 flex items-center gap-1"><AlertCircle className="w-4 h-4" /> Client Profile</p>
+             <p className="text-[#2FA4A9] font-bold text-sm mb-6 flex items-center gap-1"><AlertCircle className="w-4 h-4" /> Client Profile</p>
 
              <div className="space-y-4">
                <div className="flex items-start gap-3 border-t border-[#333] pt-4">
@@ -130,9 +130,9 @@ export default async function ConsultantBookingDetailPage({ params }: { params: 
                  </div>
                </div>
                <div className="flex items-start gap-3 border-t border-[#333] pt-4">
-                 <CalendarDays className="w-5 h-5 text-[#C29967] shrink-0 mt-0.5" />
+                 <CalendarDays className="w-5 h-5 text-[#2FA4A9] shrink-0 mt-0.5" />
                  <div>
-                   <p className="text-xs text-[#C29967] font-bold uppercase tracking-wider">Scheduled Time</p>
+                   <p className="text-xs text-[#2FA4A9] font-bold uppercase tracking-wider">Scheduled Time</p>
                    <p className="font-bold text-lg">{format(new Date(booking.scheduledStart), "MMM d, h:mm a")}</p>
                  </div>
                </div>

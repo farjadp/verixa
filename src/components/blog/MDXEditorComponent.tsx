@@ -64,7 +64,7 @@ export default function MDXEditorComponent({ markdown, onChange }: EditorProps) 
         markdown={markdown}
         onChange={onChange}
         className="flex-1 overflow-y-auto"
-        contentEditableClassName="outline-none p-8 prose prose-lg max-w-none prose-h2:text-[#C29967] prose-a:text-blue-600 prose-img:rounded-xl prose-img:shadow-md"
+        contentEditableClassName="outline-none p-8 prose prose-lg max-w-none prose-h2:text-[#2FA4A9] prose-a:text-blue-600 prose-img:rounded-xl prose-img:shadow-md"
         plugins={[
           headingsPlugin(),
           listsPlugin(),
@@ -82,7 +82,7 @@ export default function MDXEditorComponent({ markdown, onChange }: EditorProps) 
           toolbarPlugin({
             toolbarContents: () => (
               <DiffSourceToggleWrapper>
-                <div className="flex flex-wrap items-center gap-1.5 p-3 bg-gradient-to-b from-[#FAFAFA] to-white border-b border-[#f5ecd8] sticky top-0 z-50 w-full shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+                <div className="flex flex-wrap items-center gap-1.5 p-3 bg-gradient-to-b from-[#FAFAFA] to-white border-b border-[#e5e7eb] sticky top-0 z-50 w-full shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
                   <UndoRedo />
                   <div className="w-[1px] h-6 bg-gray-200 mx-2" />
                   
@@ -125,7 +125,7 @@ export default function MDXEditorComponent({ markdown, onChange }: EditorProps) 
         }
         .mdxeditor-toolbar [data-state="on"] {
            background-color: #f3f4f6 !important;
-           color: #C29967 !important;
+           color: #2FA4A9 !important;
         }
       `}</style>
     </div>

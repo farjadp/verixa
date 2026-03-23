@@ -42,20 +42,20 @@ export default async function SearchPage({
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFCFB] font-sans text-[#1A1A1A] flex flex-col">
+    <div className="min-h-screen bg-[#ffffff] font-sans text-[#1A1F2B] flex flex-col">
       <Header />
 
       {/* SEARCH AREA - متمرکز و مدرن */}
-      <div className="w-full bg-white pt-16 pb-12 px-8 border-b border-[#f5ecd8] bg-gradient-to-b from-[#FDFCFB] to-white">
+      <div className="w-full bg-white pt-16 pb-12 px-8 border-b border-[#e5e7eb] bg-gradient-to-b from-[#ffffff] to-white">
         <div className="max-w-7xl mx-auto">
           <div className="max-w-3xl">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-4 font-serif">Find a Verified RCIC</h1>
-            <p className="text-[#1A1A1A]/70 mb-8 font-medium">Connect with professionals officially recognized by the CICC.</p>
+            <p className="text-[#1A1F2B]/70 mb-8 font-medium">Connect with professionals officially recognized by the CICC.</p>
             
             <form action="/search" method="GET" className="relative flex items-center group">
               <input type="hidden" name="status" value={statusFilter} />
               <input type="hidden" name="province" value={provinceFilter} />
-              <div className="absolute left-5 text-gray-400 group-focus-within:text-[#C29967] transition-colors">
+              <div className="absolute left-5 text-gray-400 group-focus-within:text-[#2FA4A9] transition-colors">
                 <SearchIcon className="w-5 h-5" />
               </div>
               <input
@@ -63,9 +63,9 @@ export default async function SearchPage({
                 name="q"
                 defaultValue={q}
                 placeholder="Name, ID Number, or Company..."
-                className="w-full h-16 pl-14 pr-36 rounded-2xl bg-[#FDFCFB] border border-[#f5ecd8] focus:bg-white focus:border-[#C29967]/50 focus:ring-4 focus:ring-[#C29967]/10 transition-all outline-none text-lg shadow-[0_4px_20px_rgba(0,0,0,0.02)]"
+                className="w-full h-16 pl-14 pr-36 rounded-2xl bg-[#ffffff] border border-[#e5e7eb] focus:bg-white focus:border-[#2FA4A9]/50 focus:ring-4 focus:ring-[#2FA4A9]/10 transition-all outline-none text-lg shadow-[0_4px_20px_rgba(0,0,0,0.02)]"
               />
-              <button type="submit" className="absolute right-3 bg-[#1A1A1A] text-white px-8 py-3 rounded-xl font-bold text-sm hover:bg-black transition-all active:scale-95 shadow-lg shadow-black/10">
+              <button type="submit" className="absolute right-3 bg-[#0F2A44] text-white px-8 py-3 rounded-xl font-bold text-sm hover:bg-black transition-all active:scale-95 shadow-lg shadow-black/10">
                 Search
               </button>
             </form>
@@ -79,16 +79,16 @@ export default async function SearchPage({
         <aside className="w-full lg:w-64 shrink-0">
           <div className="sticky top-32 space-y-10">
             <div>
-              <div className="flex items-center justify-between mb-6 border-b border-[#f5ecd8] pb-4">
-                <h3 className="text-xs font-black uppercase tracking-widest text-[#C29967]">Filters</h3>
+              <div className="flex items-center justify-between mb-6 border-b border-[#e5e7eb] pb-4">
+                <h3 className="text-xs font-black uppercase tracking-widest text-[#2FA4A9]">Filters</h3>
                 {(q || statusFilter || provinceFilter) && (
-                  <Link href="/search" className="text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] hover:text-[#C29967] transition-colors">Clear</Link>
+                  <Link href="/search" className="text-[10px] uppercase tracking-widest font-bold text-[#1A1F2B] hover:text-[#2FA4A9] transition-colors">Clear</Link>
                 )}
               </div>
               
               <div className="space-y-8">
                 <div className="space-y-3">
-                  <h4 className="text-sm font-bold text-[#1A1A1A]">Current Standing</h4>
+                  <h4 className="text-sm font-bold text-[#1A1F2B]">Current Standing</h4>
                   <div className="flex flex-wrap lg:flex-col gap-2">
                     {['', ...statuses].map((s, idx) => {
                       const isSelected = statusFilter === s;
@@ -96,7 +96,7 @@ export default async function SearchPage({
                         <Link 
                           key={idx}
                           href={s ? `/search?q=${q}&province=${provinceFilter}&status=${encodeURIComponent(s)}` : `/search?q=${q}&province=${provinceFilter}`}
-                          className={`px-4 py-2.5 rounded-[12px] text-sm font-medium transition-all ${isSelected ? 'bg-[#1A1A1A] text-white shadow-md' : 'bg-white text-gray-500 hover:bg-[#FDFCFB] border border-[#f5ecd8]'}`}
+                          className={`px-4 py-2.5 rounded-[12px] text-sm font-medium transition-all ${isSelected ? 'bg-[#0F2A44] text-white shadow-md' : 'bg-white text-gray-500 hover:bg-[#ffffff] border border-[#e5e7eb]'}`}
                         >
                           {s || 'All Statuses'}
                         </Link>
@@ -108,11 +108,11 @@ export default async function SearchPage({
                 {/* Province Selection */}
 
 <div className="space-y-3">
-  <h4 className="text-sm font-bold text-[#1A1A1A]">Province</h4>
+  <h4 className="text-sm font-bold text-[#1A1F2B]">Province</h4>
   <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
     <Link 
       href={`/search?q=${q}&status=${statusFilter}`}
-      className={`px-4 py-2.5 rounded-[12px] text-sm transition-all ${!provinceFilter ? 'bg-[#F6F3F0] text-[#1A1A1A] font-bold border border-[#f5ecd8]' : 'text-gray-500 hover:bg-[#FDFCFB] hover:text-[#1A1A1A]'}`}
+      className={`px-4 py-2.5 rounded-[12px] text-sm transition-all ${!provinceFilter ? 'bg-[#F5F7FA] text-[#1A1F2B] font-bold border border-[#e5e7eb]' : 'text-gray-500 hover:bg-[#ffffff] hover:text-[#1A1F2B]'}`}
     >
       All Regions
     </Link>
@@ -120,7 +120,7 @@ export default async function SearchPage({
       <Link 
         key={p}
         href={`/search?q=${q}&status=${statusFilter}&province=${encodeURIComponent(p)}`}
-        className={`px-4 py-2.5 rounded-[12px] text-sm transition-all ${provinceFilter === p ? 'bg-[#F6F3F0] text-[#1A1A1A] font-bold border border-[#f5ecd8]' : 'text-gray-500 hover:bg-[#FDFCFB] hover:text-[#1A1A1A]'}`}
+        className={`px-4 py-2.5 rounded-[12px] text-sm transition-all ${provinceFilter === p ? 'bg-[#F5F7FA] text-[#1A1F2B] font-bold border border-[#e5e7eb]' : 'text-gray-500 hover:bg-[#ffffff] hover:text-[#1A1F2B]'}`}
       >
         {p}
       </Link>
@@ -147,47 +147,47 @@ export default async function SearchPage({
                 {results.data.map((c) => {
                   const isActive = c.Status?.toLowerCase()?.includes('active');
                   return (
-                    <div key={c.License_Number} className="group bg-white border border-[#f5ecd8] p-7 rounded-[32px] hover:shadow-[0_20px_50px_rgba(0,0,0,0.04)] hover:border-[#C29967]/30 transition-all relative overflow-hidden">
+                    <div key={c.License_Number} className="group bg-white border border-[#e5e7eb] p-7 rounded-[32px] hover:shadow-[0_20px_50px_rgba(0,0,0,0.04)] hover:border-[#2FA4A9]/30 transition-all relative overflow-hidden">
                       
                       {/* Background Decoration */}
-                      <div className="absolute -top-12 -right-12 w-24 h-24 bg-[#FDFCFB] border border-[#f5ecd8] rounded-full group-hover:bg-[#F6F3F0] transition-colors" />
+                      <div className="absolute -top-12 -right-12 w-24 h-24 bg-[#ffffff] border border-[#e5e7eb] rounded-full group-hover:bg-[#F5F7FA] transition-colors" />
 
                       <div className="relative z-10">
                         <div className="flex justify-between items-start mb-6">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-bold text-xl font-serif group-hover:text-[#C29967] transition-colors">{c.Full_Name}</h3>
+                              <h3 className="font-bold text-xl font-serif group-hover:text-[#2FA4A9] transition-colors">{c.Full_Name}</h3>
                               {isActive && (
-                                <div className="flex items-center justify-center p-1.5 rounded-full bg-[#F6F3F0] border border-[#f5ecd8]" title="Active License">
+                                <div className="flex items-center justify-center p-1.5 rounded-full bg-[#F5F7FA] border border-[#e5e7eb]" title="Active License">
                                   <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
                                 </div>
                               )}
                             </div>
                             <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">{c.License_Number}</span>
                           </div>
-                          <div className={`px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider ${isActive ? 'bg-[#F6F3F0] border-[#f5ecd8] text-green-700' : 'bg-[#F6F3F0] border-[#f5ecd8] text-orange-600'}`}>
+                          <div className={`px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider ${isActive ? 'bg-[#F5F7FA] border-[#e5e7eb] text-green-700' : 'bg-[#F5F7FA] border-[#e5e7eb] text-orange-600'}`}>
                             {c.Status}
                           </div>
                         </div>
 
                         <div className="space-y-3 mb-8">
                           <div className="flex items-center gap-3 text-sm text-gray-600 font-medium">
-                            <Building2 className="w-4 h-4 text-[#C29967]" />
+                            <Building2 className="w-4 h-4 text-[#2FA4A9]" />
                             <span className="truncate">{c.Company || 'Independent'}</span>
                           </div>
                           <div className="flex items-center gap-3 text-sm text-gray-600 font-medium">
-                            <MapPin className="w-4 h-4 text-[#C29967]" />
+                            <MapPin className="w-4 h-4 text-[#2FA4A9]" />
                             <span>{c.Province || 'N/A'}{c.Province && c.Country ? ', ' : ''}{c.Country}</span>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between pt-6 border-t border-[#f5ecd8]">
+                        <div className="flex items-center justify-between pt-6 border-t border-[#e5e7eb]">
                           <div className="flex items-center gap-2 text-xs font-bold text-gray-400">
                              <Mail className="w-3.5 h-3.5" />
                              {c.Email ? <span className="max-w-[120px] truncate">{c.Email}</span> : 'Private'}
                           </div>
-                          <Link href={`/consultant/${c.License_Number}`} className="flex items-center gap-1.5 text-sm font-bold text-[#1A1A1A] hover:text-[#C29967] hover:gap-2.5 transition-all">
-                            View Profile <ArrowRight className="w-4 h-4 text-[#C29967]" />
+                          <Link href={`/consultant/${c.License_Number}`} className="flex items-center gap-1.5 text-sm font-bold text-[#1A1F2B] hover:text-[#2FA4A9] hover:gap-2.5 transition-all">
+                            View Profile <ArrowRight className="w-4 h-4 text-[#2FA4A9]" />
                           </Link>
                         </div>
                       </div>
@@ -199,13 +199,13 @@ export default async function SearchPage({
               {/* PAGINATION - کلاسیک و مدرن */}
               {results.totalPages > 1 && (
                 <div className="mt-16 flex items-center justify-center gap-4">
-                  <Link href={page > 1 ? buildPageUrl(page - 1) : '#'} className={`w-12 h-12 flex items-center justify-center rounded-[16px] bg-white border border-[#f5ecd8] shadow-sm transition-all ${page > 1 ? 'hover:bg-[#FDFCFB] hover:border-[#C29967]/30 text-[#1A1A1A]' : 'opacity-30 cursor-not-allowed text-gray-400'}`}>
+                  <Link href={page > 1 ? buildPageUrl(page - 1) : '#'} className={`w-12 h-12 flex items-center justify-center rounded-[16px] bg-white border border-[#e5e7eb] shadow-sm transition-all ${page > 1 ? 'hover:bg-[#ffffff] hover:border-[#2FA4A9]/30 text-[#1A1F2B]' : 'opacity-30 cursor-not-allowed text-gray-400'}`}>
                     <ChevronLeft className="w-5 h-5" />
                   </Link>
-                  <div className="px-6 py-3 bg-white border border-[#f5ecd8] rounded-[16px] text-[13px] font-bold shadow-sm tracking-widest uppercase text-gray-500">
-                    Page <span className="text-[#1A1A1A] mx-1">{page}</span> of {results.totalPages}
+                  <div className="px-6 py-3 bg-white border border-[#e5e7eb] rounded-[16px] text-[13px] font-bold shadow-sm tracking-widest uppercase text-gray-500">
+                    Page <span className="text-[#1A1F2B] mx-1">{page}</span> of {results.totalPages}
                   </div>
-                  <Link href={page < results.totalPages ? buildPageUrl(page + 1) : '#'} className={`w-12 h-12 flex items-center justify-center rounded-[16px] bg-white border border-[#f5ecd8] shadow-sm transition-all ${page < results.totalPages ? 'hover:bg-[#FDFCFB] hover:border-[#C29967]/30 text-[#1A1A1A]' : 'opacity-30 cursor-not-allowed text-gray-400'}`}>
+                  <Link href={page < results.totalPages ? buildPageUrl(page + 1) : '#'} className={`w-12 h-12 flex items-center justify-center rounded-[16px] bg-white border border-[#e5e7eb] shadow-sm transition-all ${page < results.totalPages ? 'hover:bg-[#ffffff] hover:border-[#2FA4A9]/30 text-[#1A1F2B]' : 'opacity-30 cursor-not-allowed text-gray-400'}`}>
                     <ChevronRight className="w-5 h-5" />
                   </Link>
                 </div>

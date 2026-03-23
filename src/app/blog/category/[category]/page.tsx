@@ -26,8 +26,8 @@ export default function BlogCategoryPage({ params }: { params: { category: strin
 
   return (
     <div className="space-y-10">
-      <div className="bg-white border border-[#f5ecd8] rounded-[28px] p-8 md:p-10">
-        <p className="text-xs uppercase tracking-[0.2em] text-[#C29967] font-bold">Category</p>
+      <div className="bg-white border border-[#e5e7eb] rounded-[28px] p-8 md:p-10">
+        <p className="text-xs uppercase tracking-[0.2em] text-[#2FA4A9] font-bold">Category</p>
         <h1 className="text-3xl font-serif font-black mt-3">{category.title}</h1>
         <p className="text-gray-600 mt-2">{category.description}</p>
       </div>
@@ -39,8 +39,8 @@ export default function BlogCategoryPage({ params }: { params: { category: strin
             href={`/blog/category/${cat.slug}`}
             className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest border transition ${
               cat.slug === category.slug
-                ? "bg-[#1A1A1A] text-white border-[#1A1A1A]"
-                : "bg-white text-gray-500 border-gray-200 hover:border-[#C29967]"
+                ? "bg-[#0F2A44] text-white border-[#0F2A44]"
+                : "bg-white text-gray-500 border-gray-200 hover:border-[#2FA4A9]"
             }`}
           >
             {cat.title} ({cat.count})
@@ -53,9 +53,9 @@ export default function BlogCategoryPage({ params }: { params: { category: strin
           <Link
             key={post.slug}
             href={`/blog/${post.slug}`}
-            className="bg-white border border-[#f5ecd8] rounded-[28px] p-6 hover:shadow-md hover:border-[#C29967] transition"
+            className="bg-white border border-[#e5e7eb] rounded-[28px] p-6 hover:shadow-md hover:border-[#2FA4A9] transition"
           >
-            <p className="text-[11px] uppercase tracking-[0.2em] text-[#C29967] font-bold">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-[#2FA4A9] font-bold">
               {category.title}
             </p>
             <h3 className="text-xl font-bold mt-3">{post.title}</h3>

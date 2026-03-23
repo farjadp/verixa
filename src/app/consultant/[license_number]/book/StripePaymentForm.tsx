@@ -57,7 +57,7 @@ export default function StripePaymentForm({
       <button
         type="submit"
         disabled={isProcessing || !stripe}
-        className="w-full mt-2 bg-[#1A1A1A] text-white px-8 py-3.5 rounded-xl font-bold shadow-xl shadow-black/10 hover:bg-black transition-all flex items-center justify-center gap-2 disabled:bg-gray-400"
+        className="w-full mt-2 bg-[#0F2A44] text-white px-8 py-3.5 rounded-xl font-bold shadow-xl shadow-black/10 hover:bg-black transition-all flex items-center justify-center gap-2 disabled:bg-gray-400"
       >
         <Lock className="w-4 h-4" />
         {isProcessing ? "Authorizing Card..." : `Reserve via Escrow • $${(priceCents / 100).toFixed(2)} CAD`}

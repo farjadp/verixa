@@ -41,13 +41,13 @@ export default async function AdminUsersPage() {
             <input 
               type="text" 
               placeholder="Search User or Email..." 
-              className="pl-9 pr-4 py-2 bg-[#1A1A1A] border border-gray-800 rounded-lg text-sm text-white focus:outline-none focus:border-gray-500 w-64"
+              className="pl-9 pr-4 py-2 bg-[#0F2A44] border border-gray-800 rounded-lg text-sm text-white focus:outline-none focus:border-gray-500 w-64"
             />
           </div>
         </div>
       </div>
 
-      <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
+      <div className="bg-[#0F2A44] border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-[#222] text-gray-400 text-xs uppercase tracking-wider border-b border-gray-800">

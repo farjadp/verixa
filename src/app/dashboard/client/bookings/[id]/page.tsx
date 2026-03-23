@@ -66,7 +66,7 @@ export default async function BookingDetailsPage({
       
       {/* HEADER */}
       <div>
-        <Link href="/dashboard/client/bookings" className="inline-flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-[#1A1A1A] transition-colors mb-6">
+        <Link href="/dashboard/client/bookings" className="inline-flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-[#1A1F2B] transition-colors mb-6">
           <ArrowLeft className="w-4 h-4" /> Back to Bookings
         </Link>
         {/* DYNAMIC HEADER BASED ON PHASE 21 SPEC */}
@@ -84,7 +84,7 @@ export default async function BookingDetailsPage({
         )}
 
         {booking.status === "CONFIRMED" && (
-           <div className="bg-[#1A1A1A] rounded-3xl p-8 mb-8 text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+           <div className="bg-[#0F2A44] rounded-3xl p-8 mb-8 text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
              <div className="absolute right-0 top-0 w-64 h-64 bg-green-500/10 rounded-full blur-3xl mix-blend-screen" />
              <div className="relative z-10">
                <div className="flex items-center gap-3 justify-center md:justify-start mb-3">
@@ -95,7 +95,7 @@ export default async function BookingDetailsPage({
              </div>
              <div className="relative z-10 shrink-0">
                {booking.meetingLink ? (
-                 <a href={booking.meetingLink} target="_blank" rel="noopener noreferrer" className="bg-[#C29967] text-[#1A1A1A] px-8 py-4 rounded-xl text-lg font-black shadow-xl shadow-black/20 hover:bg-[#b0895c] transition-all flex items-center gap-3">
+                 <a href={booking.meetingLink} target="_blank" rel="noopener noreferrer" className="bg-[#2FA4A9] text-[#1A1F2B] px-8 py-4 rounded-xl text-lg font-black shadow-xl shadow-black/20 hover:bg-[#258d92] transition-all flex items-center gap-3">
                    <Video className="w-6 h-6" /> Join Video Call
                  </a>
                ) : (
@@ -124,7 +124,7 @@ export default async function BookingDetailsPage({
         {booking.status === "COMPLETED" && (
            <div className="bg-[#F8F9FA] border border-gray-200 rounded-3xl p-8 mb-8 text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-6">
              <div>
-               <h1 className="text-3xl font-serif font-black text-[#1A1A1A] mb-2">Session Completed</h1>
+               <h1 className="text-3xl font-serif font-black text-[#1A1F2B] mb-2">Session Completed</h1>
                <p className="text-gray-500 font-medium">Thank you for attending your consultation.</p>
              </div>
            </div>
@@ -137,13 +137,13 @@ export default async function BookingDetailsPage({
         <div className="lg:col-span-2 space-y-8">
            
            {/* CONSULTANT CARD */}
-           <div className="bg-white rounded-[24px] border border-[#f5ecd8] p-6 shadow-sm flex items-center gap-5">
-              <div className="w-16 h-16 rounded-[16px] bg-[#F6F3F0] flex items-center justify-center shrink-0">
-                <User className="w-8 h-8 opacity-40 text-[#C29967]" />
+           <div className="bg-white rounded-[24px] border border-[#e5e7eb] p-6 shadow-sm flex items-center gap-5">
+              <div className="w-16 h-16 rounded-[16px] bg-[#F5F7FA] flex items-center justify-center shrink-0">
+                <User className="w-8 h-8 opacity-40 text-[#2FA4A9]" />
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-bold text-xl font-serif text-[#1A1A1A]">{booking.profile.fullName}</h3>
+                  <h3 className="font-bold text-xl font-serif text-[#1A1F2B]">{booking.profile.fullName}</h3>
                   <div className="w-4 h-4 rounded-full bg-green-50 text-green-600 flex items-center justify-center" title="Verified Professional">
                     <ShieldCheck className="w-3 h-3" />
                   </div>
@@ -156,27 +156,27 @@ export default async function BookingDetailsPage({
            </div>
 
            {/* SESSION DETAILS */}
-           <div className="bg-white rounded-[24px] border border-[#f5ecd8] p-8 shadow-sm">
-             <h3 className="text-sm font-bold uppercase tracking-widest text-[#C29967] mb-6">Session Information</h3>
+           <div className="bg-white rounded-[24px] border border-[#e5e7eb] p-8 shadow-sm">
+             <h3 className="text-sm font-bold uppercase tracking-widest text-[#2FA4A9] mb-6">Session Information</h3>
              
              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Service</p>
-                  <p className="font-bold text-[#1A1A1A]">{booking.type.title}</p>
+                  <p className="font-bold text-[#1A1F2B]">{booking.type.title}</p>
                 </div>
                 <div>
                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Date & Time</p>
-                   <p className="font-bold text-[#1A1A1A] flex items-center gap-2">
-                     <CalendarDays className="w-4 h-4 text-[#C29967]" /> {format(new Date(booking.scheduledStart), "MMM d, yyyy")}
+                   <p className="font-bold text-[#1A1F2B] flex items-center gap-2">
+                     <CalendarDays className="w-4 h-4 text-[#2FA4A9]" /> {format(new Date(booking.scheduledStart), "MMM d, yyyy")}
                    </p>
-                   <p className="text-[#1A1A1A] mt-1 flex items-center gap-2 text-sm font-medium">
-                     <Clock className="w-4 h-4 text-[#C29967]" /> {format(new Date(booking.scheduledStart), "h:mm a")} - {format(new Date(booking.scheduledEnd), "h:mm a")}
+                   <p className="text-[#1A1F2B] mt-1 flex items-center gap-2 text-sm font-medium">
+                     <Clock className="w-4 h-4 text-[#2FA4A9]" /> {format(new Date(booking.scheduledStart), "h:mm a")} - {format(new Date(booking.scheduledEnd), "h:mm a")}
                    </p>
                 </div>
                 <div className="md:col-span-2">
                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Meeting Method</p>
-                   <div className="flex items-center gap-2 p-4 bg-[#F6F3F0] rounded-xl border border-[#f5ecd8] mt-2 text-[#1A1A1A]">
-                     <Video className="w-5 h-5 text-[#C29967]" />
+                   <div className="flex items-center gap-2 p-4 bg-[#F5F7FA] rounded-xl border border-[#e5e7eb] mt-2 text-[#1A1F2B]">
+                     <Video className="w-5 h-5 text-[#2FA4A9]" />
                      <div>
                        <p className="font-bold text-sm">{booking.meetingMethod || "Virtual Meeting"}</p>
                        <p className="text-xs text-gray-600 mt-0.5">
@@ -188,16 +188,16 @@ export default async function BookingDetailsPage({
                    </div>
                 </div>
 
-                <div className="md:col-span-2 mt-4 pt-6 border-t border-[#f5ecd8]">
+                <div className="md:col-span-2 mt-4 pt-6 border-t border-[#e5e7eb]">
                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Your Intake Form</p>
                    <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 space-y-4">
                       <div>
                         <span className="text-xs font-bold text-gray-500 block mb-1">Service Needed:</span>
-                        <span className="text-sm font-medium text-[#1A1A1A]">{booking.serviceNeeded || "Not specified"}</span>
+                        <span className="text-sm font-medium text-[#1A1F2B]">{booking.serviceNeeded || "Not specified"}</span>
                       </div>
                       <div>
                         <span className="text-xs font-bold text-gray-500 block mb-1">Case Description:</span>
-                        <p className="text-sm text-[#1A1A1A] leading-relaxed whitespace-pre-wrap">{booking.caseDescription || "No additional notes provided."}</p>
+                        <p className="text-sm text-[#1A1F2B] leading-relaxed whitespace-pre-wrap">{booking.caseDescription || "No additional notes provided."}</p>
                       </div>
                    </div>
                 </div>
@@ -209,16 +209,16 @@ export default async function BookingDetailsPage({
         {/* RIGHT COLUMN: Timeline & Actions */}
         <div className="space-y-6">
           
-          <div className="bg-white rounded-[24px] border border-[#f5ecd8] p-6 shadow-sm">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-[#1A1A1A] mb-6">Status Timeline</h3>
-            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-[#f5ecd8] before:to-transparent">
+          <div className="bg-white rounded-[24px] border border-[#e5e7eb] p-6 shadow-sm">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-[#1A1F2B] mb-6">Status Timeline</h3>
+            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-[#e5e7eb] before:to-transparent">
                {steps.map((step, idx) => (
                  <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                    <div className={"flex items-center justify-center w-6 h-6 rounded-full border-2 bg-white z-10 shrink-0 mx-auto " + (step.active ? "border-[#C29967] text-[#C29967]" : "border-gray-200 text-gray-200")}>
+                    <div className={"flex items-center justify-center w-6 h-6 rounded-full border-2 bg-white z-10 shrink-0 mx-auto " + (step.active ? "border-[#2FA4A9] text-[#2FA4A9]" : "border-gray-200 text-gray-200")}>
                       {step.completed ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Circle className="w-2.5 h-2.5 fill-current" />}
                     </div>
-                    <div className="w-[calc(100%-2.5rem)] md:w-[calc(50%-2rem)] p-3 rounded-xl border shadow-sm flex items-center justify-center text-center bg-white border-[#f5ecd8]">
-                       <span className={"text-xs font-bold " + (step.active ? "text-[#1A1A1A]" : "text-gray-400")}>{step.label}</span>
+                    <div className="w-[calc(100%-2.5rem)] md:w-[calc(50%-2rem)] p-3 rounded-xl border shadow-sm flex items-center justify-center text-center bg-white border-[#e5e7eb]">
+                       <span className={"text-xs font-bold " + (step.active ? "text-[#1A1F2B]" : "text-gray-400")}>{step.label}</span>
                     </div>
                  </div>
                ))}

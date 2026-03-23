@@ -34,11 +34,11 @@ export default async function ActivityFeedPage() {
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-8">
       <div>
-         <h1 className="text-3xl font-serif font-bold text-[#1A1A1A]">Account Activity</h1>
+         <h1 className="text-3xl font-serif font-bold text-[#1A1F2B]">Account Activity</h1>
          <p className="text-gray-500 mt-2">A history of actions performed on your Verixa account.</p>
       </div>
 
-      <div className="bg-white rounded-[32px] border border-[#f5ecd8] shadow-sm overflow-hidden p-8">
+      <div className="bg-white rounded-[32px] border border-[#e5e7eb] shadow-sm overflow-hidden p-8">
         {logs.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
              No activity recorded yet.
@@ -60,12 +60,12 @@ export default async function ActivityFeedPage() {
 
               return (
                 <div key={log.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                   <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-[#FDFCFB] text-[#C29967] shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                   <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-[#ffffff] text-[#2FA4A9] shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
                      <Activity className="w-5 h-5" />
                    </div>
-                   <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-[#FDFCFB] border border-gray-100 p-4 rounded-2xl shadow-sm">
+                   <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-[#ffffff] border border-gray-100 p-4 rounded-2xl shadow-sm">
                       <div className="flex items-center justify-between space-x-2 mb-1">
-                        <div className="font-bold text-[#1A1A1A] text-sm">{label}</div>
+                        <div className="font-bold text-[#1A1F2B] text-sm">{label}</div>
                         <time className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{format(log.createdAt, 'MMM d, h:mm a')}</time>
                       </div>
                       <div className="text-xs text-gray-500 font-mono bg-gray-50 p-2 rounded-lg mt-2 break-all overflow-hidden line-clamp-2">

@@ -50,7 +50,7 @@ export default function BookingClientActions({
           href={meetingLink} 
           target="_blank" 
           rel="noopener noreferrer" 
-          className="block text-center w-full bg-[#C29967] border border-[#b0895c] text-white py-2.5 rounded-xl text-sm font-bold hover:bg-[#a07a4f] transition-colors shadow-sm"
+          className="block text-center w-full bg-[#2FA4A9] border border-[#258d92] text-white py-2.5 rounded-xl text-sm font-bold hover:bg-[#a07a4f] transition-colors shadow-sm"
         >
           Join Meeting
         </a>
@@ -59,7 +59,7 @@ export default function BookingClientActions({
       {status === "COMPLETED" && (
         <button 
           onClick={() => router.push(`/dashboard/client/reviews?bookingId=${bookingId}`)}
-          className="w-full bg-[#1A1A1A] border border-black text-white py-2.5 rounded-xl text-sm font-bold hover:bg-black transition-colors shadow-sm"
+          className="w-full bg-[#0F2A44] border border-black text-white py-2.5 rounded-xl text-sm font-bold hover:bg-black transition-colors shadow-sm"
         >
           Leave a Review
         </button>

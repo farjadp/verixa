@@ -104,8 +104,8 @@ export default function ConsultantActionPanel({ booking }: { booking: any }) {
       
       {/* PHASE 1: ACCEPT / DECLINE PENDING REQUESTS */}
       {isPending && (
-        <div className="bg-[#1A1A1A] text-white p-8 rounded-3xl shadow-2xl relative overflow-hidden">
-          <div className="absolute -right-12 -top-12 w-48 h-48 bg-[#C29967]/20 rounded-full blur-3xl mix-blend-screen" />
+        <div className="bg-[#0F2A44] text-white p-8 rounded-3xl shadow-2xl relative overflow-hidden">
+          <div className="absolute -right-12 -top-12 w-48 h-48 bg-[#2FA4A9]/20 rounded-full blur-3xl mix-blend-screen" />
           
           <div className="relative z-10 space-y-6">
             <div className="flex items-center gap-3 text-orange-400">
@@ -122,7 +122,7 @@ export default function ConsultantActionPanel({ booking }: { booking: any }) {
               <div className="flex flex-wrap gap-4 pt-4">
                  <button 
                   onClick={() => setIsConfirming(true)} 
-                  className="bg-[#C29967] hover:bg-[#a07a4f] text-white font-bold px-8 py-4 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-[#C29967]/30"
+                  className="bg-[#2FA4A9] hover:bg-[#a07a4f] text-white font-bold px-8 py-4 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-[#2FA4A9]/30"
                  >
                    <Check className="w-5 h-5" /> Accept Booking
                  </button>
@@ -143,7 +143,7 @@ export default function ConsultantActionPanel({ booking }: { booking: any }) {
                    <select 
                      value={method} 
                      onChange={e => setMethod(e.target.value)} 
-                     className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#C29967] appearance-none"
+                     className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#2FA4A9] appearance-none"
                    >
                      <option value="VIDEO" className="text-black">Video Call</option>
                      <option value="PHONE" className="text-black">Phone Call</option>
@@ -158,7 +158,7 @@ export default function ConsultantActionPanel({ booking }: { booking: any }) {
                      value={linkInput} 
                      onChange={e => setLinkInput(e.target.value)} 
                      placeholder="e.g. Zoom link or Office address"
-                     className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-[#C29967]"
+                     className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-[#2FA4A9]"
                    />
                  </div>
                  
@@ -169,7 +169,7 @@ export default function ConsultantActionPanel({ booking }: { booking: any }) {
                      onChange={e => setNotesInput(e.target.value)} 
                      rows={3} 
                      placeholder="e.g. Please join 5 minutes early."
-                     className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#C29967] resize-none"
+                     className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#2FA4A9] resize-none"
                    />
                  </div>
                  
@@ -177,7 +177,7 @@ export default function ConsultantActionPanel({ booking }: { booking: any }) {
                    <button 
                      onClick={handleConfirmAccept} 
                      disabled={loading}
-                     className="bg-[#C29967] text-white font-bold px-8 py-3.5 rounded-xl flex items-center gap-2 hover:bg-[#a07a4f] transition-colors"
+                     className="bg-[#2FA4A9] text-white font-bold px-8 py-3.5 rounded-xl flex items-center gap-2 hover:bg-[#a07a4f] transition-colors"
                    >
                      <Send className="w-5 h-5" /> Confirm & Send Details
                    </button>
@@ -197,14 +197,14 @@ export default function ConsultantActionPanel({ booking }: { booking: any }) {
 
       {/* PHASE 2: ADD MEETING LINK FOR CONFIRMED */}
       {isConfirmed && !isPast && (
-        <div className="bg-white border-2 border-[#f5ecd8] p-8 rounded-3xl shadow-sm space-y-6">
-          <div className="flex items-center justify-between border-b border-[#f5ecd8] pb-4">
+        <div className="bg-white border-2 border-[#e5e7eb] p-8 rounded-3xl shadow-sm space-y-6">
+          <div className="flex items-center justify-between border-b border-[#e5e7eb] pb-4">
              <div className="flex items-center gap-3">
-               <div className="w-10 h-10 rounded-full bg-[#C29967]/10 flex items-center justify-center text-[#C29967]">
+               <div className="w-10 h-10 rounded-full bg-[#2FA4A9]/10 flex items-center justify-center text-[#2FA4A9]">
                   <Video className="w-5 h-5" />
                </div>
                <div>
-                 <h3 className="font-bold text-xl text-[#1A1A1A]">Meeting Details</h3>
+                 <h3 className="font-bold text-xl text-[#1A1F2B]">Meeting Details</h3>
                  {booking.meetingLink ? (
                     <p className="text-green-600 font-bold text-sm flex items-center gap-1 mt-0.5"><Check className="w-3.5 h-3.5" /> Link attached</p>
                  ) : (
@@ -222,7 +222,7 @@ export default function ConsultantActionPanel({ booking }: { booking: any }) {
                  value={method} 
                  onChange={e => setMethod(e.target.value)} 
                  placeholder="e.g. Zoom, Google Meet, In-Person Address"
-                 className="w-full bg-[#FDFCFB] border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-[#C29967]"
+                 className="w-full bg-[#ffffff] border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-[#2FA4A9]"
                />
              </div>
              <div>
@@ -232,7 +232,7 @@ export default function ConsultantActionPanel({ booking }: { booking: any }) {
                  value={linkInput} 
                  onChange={e => setLinkInput(e.target.value)} 
                  placeholder="https://..."
-                 className="w-full bg-[#FDFCFB] border border-gray-200 rounded-xl px-4 py-3 font-mono text-sm focus:outline-none focus:border-[#C29967]"
+                 className="w-full bg-[#ffffff] border border-gray-200 rounded-xl px-4 py-3 font-mono text-sm focus:outline-none focus:border-[#2FA4A9]"
                />
              </div>
              <div>
@@ -242,7 +242,7 @@ export default function ConsultantActionPanel({ booking }: { booking: any }) {
                  onChange={e => setNotesInput(e.target.value)} 
                  rows={3} 
                  placeholder="Any documents they need to prepare?"
-                 className="w-full bg-[#FDFCFB] border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-[#C29967] resize-none"
+                 className="w-full bg-[#ffffff] border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-[#2FA4A9] resize-none"
                />
              </div>
              
@@ -250,7 +250,7 @@ export default function ConsultantActionPanel({ booking }: { booking: any }) {
                <button 
                  onClick={handleUpdateDetails} 
                  disabled={loading}
-                 className="bg-[#1A1A1A] text-white font-bold px-8 py-3.5 rounded-xl hover:bg-black transition-colors flex items-center gap-2"
+                 className="bg-[#0F2A44] text-white font-bold px-8 py-3.5 rounded-xl hover:bg-black transition-colors flex items-center gap-2"
                >
                  <Send className="w-4 h-4" /> Save & Notify Client
                </button>

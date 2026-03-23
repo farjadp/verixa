@@ -37,12 +37,12 @@ export async function GET(req: Request) {
     for (const booking of upcomingBookings) {
       // Send to Client
       const clientHtml = `
-        <div style="font-family: -apple-system, sans-serif; color: #1A1A1A; line-height: 1.6;">
+        <div style="font-family: -apple-system, sans-serif; color: #0F2A44; line-height: 1.6;">
           <h2>Reminder: Upcoming Consultation</h2>
           <p>Hi ${booking.userFirstName},</p>
           <p>Just a quick reminder that your consultation with <strong>${booking.profile.user?.name || "your consultant"}</strong> is tomorrow at <strong>${new Date(booking.scheduledStart).toLocaleTimeString()}</strong>.</p>
           <p>Meeting Link: ${booking.meetingLink ? `<a href="${booking.meetingLink}">Join Here</a>` : "Will be available soon."}</p>
-          <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/client/bookings/${booking.id}" style="display:inline-block; padding: 12px 24px; background: #1A1A1A; color: white; text-decoration: none; border-radius: 8px; margin-top: 16px;">View Details</a>
+          <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/client/bookings/${booking.id}" style="display:inline-block; padding: 12px 24px; background: #0F2A44; color: white; text-decoration: none; border-radius: 8px; margin-top: 16px;">View Details</a>
         </div>
       `;
       
@@ -56,10 +56,10 @@ export async function GET(req: Request) {
       // Send to Consultant
       if (booking.profile.user?.email) {
         const consultantHtml = `
-          <div style="font-family: -apple-system, sans-serif; color: #1A1A1A; line-height: 1.6;">
+          <div style="font-family: -apple-system, sans-serif; color: #0F2A44; line-height: 1.6;">
             <h2>Reminder: Upcoming Session</h2>
             <p>You have a confirmed consultation with <strong>${booking.userFirstName} ${booking.userLastName}</strong> tomorrow at <strong>${new Date(booking.scheduledStart).toLocaleTimeString()}</strong>.</p>
-            <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/consultant/bookings/${booking.id}" style="display:inline-block; padding: 12px 24px; background: #1A1A1A; color: white; text-decoration: none; border-radius: 8px; margin-top: 16px;">View Details</a>
+            <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/consultant/bookings/${booking.id}" style="display:inline-block; padding: 12px 24px; background: #0F2A44; color: white; text-decoration: none; border-radius: 8px; margin-top: 16px;">View Details</a>
           </div>
         `;
 

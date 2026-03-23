@@ -61,16 +61,16 @@ export default async function ConsultantProfilePage({
   const isSaved = await checkIsSaved(data.License_Number);
 
   return (
-    <div className="min-h-screen bg-[#FDFCFB] font-sans text-[#1A1A1A]">
+    <div className="min-h-screen bg-[#ffffff] font-sans text-[#1A1F2B]">
       <Header />
 
       {/* 10) CLAIM THIS PROFILE BANNER */}
       {!isClaimed && (
-        <div className="bg-[#1A1A1A] text-white py-4 px-8 border-b border-[#2A2A2A]">
+        <div className="bg-[#0F2A44] text-white py-4 px-8 border-b border-[#2A2A2A]">
           <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-                 <Briefcase className="w-4 h-4 text-[#C29967]" />
+                 <Briefcase className="w-4 h-4 text-[#2FA4A9]" />
               </div>
               <p className="text-sm font-medium">
                 <strong className="font-bold">Is this your profile?</strong> Claim it to respond to reviews, add services, enable booking, and improve visibility.
@@ -78,7 +78,7 @@ export default async function ConsultantProfilePage({
             </div>
             <Link 
               href={`/claim/${data.License_Number}`} 
-              className="bg-[#C29967] text-white px-6 py-2.5 rounded-[12px] text-sm font-bold hover:bg-[#b08856] transition-colors shrink-0 whitespace-nowrap shadow-md focus:ring-4 focus:ring-[#C29967]/20"
+              className="bg-[#2FA4A9] text-white px-6 py-2.5 rounded-[12px] text-sm font-bold hover:bg-[#258d92] transition-colors shrink-0 whitespace-nowrap shadow-md focus:ring-4 focus:ring-[#2FA4A9]/20"
             >
               Claim This Profile
             </Link>
@@ -87,18 +87,18 @@ export default async function ConsultantProfilePage({
       )}
 
       {/* 1) HERO SECTION */}
-      <section className="bg-white border-b border-[#f5ecd8] pt-16 pb-12 px-8 bg-gradient-to-b from-[#FDFCFB] to-white">
+      <section className="bg-white border-b border-[#e5e7eb] pt-16 pb-12 px-8 bg-gradient-to-b from-[#ffffff] to-white">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 items-start">
           
-          <div className="w-32 h-32 bg-[#F6F3F0] border border-[#f5ecd8] rounded-[32px] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] flex items-center justify-center shrink-0 relative overflow-hidden">
-             <User className="w-12 h-12 text-[#C29967]/30" />
+          <div className="w-32 h-32 bg-[#F5F7FA] border border-[#e5e7eb] rounded-[32px] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] flex items-center justify-center shrink-0 relative overflow-hidden">
+             <User className="w-12 h-12 text-[#2FA4A9]/30" />
           </div>
           
           <div className="flex-1 space-y-4">
              <div className="flex flex-wrap items-center gap-4 mb-4">
                <h1 className="text-3xl md:text-5xl font-bold font-serif tracking-tight">{data.Full_Name}</h1>
                {isActive && (
-                 <div title="Active License" className="flex items-center justify-center px-3 py-1.5 rounded-full bg-[#F6F3F0] border border-[#f5ecd8] shadow-sm mt-1 md:mt-0">
+                 <div title="Active License" className="flex items-center justify-center px-3 py-1.5 rounded-full bg-[#F5F7FA] border border-[#e5e7eb] shadow-sm mt-1 md:mt-0">
                    <div className="flex items-center gap-2">
                      <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
                      <span className="text-xs font-bold text-gray-600 uppercase tracking-widest leading-none">Verified</span>
@@ -114,8 +114,8 @@ export default async function ConsultantProfilePage({
                   <span className="text-[11px] md:text-xs font-bold tracking-wide">Verified Professional</span>
                 </div>
                 {isClaimed && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1A1A1A] text-[#C29967] border border-black shadow-sm transition-transform hover:scale-105 cursor-default">
-                    <Zap className="w-4 h-4 fill-[#C29967]" />
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0F2A44] text-[#2FA4A9] border border-black shadow-sm transition-transform hover:scale-105 cursor-default">
+                    <Zap className="w-4 h-4 fill-[#2FA4A9]" />
                     <span className="text-[11px] md:text-xs font-bold tracking-wide">Fast Responder</span>
                   </div>
                 )}
@@ -133,13 +133,13 @@ export default async function ConsultantProfilePage({
              </div>
 
              <div className="flex flex-wrap items-center gap-3 pt-2">
-                <div className="flex items-center gap-1.5 bg-[#FDFCFB] border border-[#f5ecd8] px-3 py-1.5 rounded-lg text-[#C29967] font-bold text-sm">
-                  <Star className="w-4 h-4 fill-current" /> {dummyRating} <span className="text-[#C29967]/70 font-medium">({dummyReviews} reviews)</span>
+                <div className="flex items-center gap-1.5 bg-[#ffffff] border border-[#e5e7eb] px-3 py-1.5 rounded-lg text-[#2FA4A9] font-bold text-sm">
+                  <Star className="w-4 h-4 fill-current" /> {dummyRating} <span className="text-[#2FA4A9]/70 font-medium">({dummyReviews} reviews)</span>
                 </div>
-                <div className={`px-3 py-1.5 rounded-lg border text-xs font-bold uppercase tracking-wider ${isActive ? 'bg-[#F6F3F0] border-[#f5ecd8] text-green-700' : 'bg-[#F6F3F0] border-[#f5ecd8] text-orange-600'}`}>
+                <div className={`px-3 py-1.5 rounded-lg border text-xs font-bold uppercase tracking-wider ${isActive ? 'bg-[#F5F7FA] border-[#e5e7eb] text-green-700' : 'bg-[#F5F7FA] border-[#e5e7eb] text-orange-600'}`}>
                    {data.Status}
                 </div>
-                <div className="px-3 py-1.5 rounded-lg border border-[#f5ecd8] bg-[#FDFCFB] text-gray-600 text-xs font-bold uppercase tracking-wider">
+                <div className="px-3 py-1.5 rounded-lg border border-[#e5e7eb] bg-[#ffffff] text-gray-600 text-xs font-bold uppercase tracking-wider">
                    RCIC #{data.License_Number}
                 </div>
                 {!isClaimed && (
@@ -151,7 +151,7 @@ export default async function ConsultantProfilePage({
           </div>
           
           <div className="w-full md:w-auto flex flex-col gap-3 shrink-0">
-             <Link href={`/consultant/${data.License_Number}/book`} className="w-full md:w-48 bg-[#1A1A1A] text-white py-3.5 rounded-xl font-bold hover:bg-black transition-all shadow-lg shadow-black/5 flex items-center justify-center">
+             <Link href={`/consultant/${data.License_Number}/book`} className="w-full md:w-48 bg-[#0F2A44] text-white py-3.5 rounded-xl font-bold hover:bg-black transition-all shadow-lg shadow-black/5 flex items-center justify-center">
                Book Consultation
              </Link>
              <div className="w-full md:w-48">
@@ -169,13 +169,13 @@ export default async function ConsultantProfilePage({
         <div className="lg:col-span-2 space-y-10">
            
            {/* 2) TRUST SUMMARY BOX */}
-           <section className="bg-white rounded-[32px] border border-[#f5ecd8] p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.02)]">
-             <h3 className="text-xs font-black uppercase tracking-widest text-[#C29967] mb-6 flex items-center gap-2">
+           <section className="bg-white rounded-[32px] border border-[#e5e7eb] p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.02)]">
+             <h3 className="text-xs font-black uppercase tracking-widest text-[#2FA4A9] mb-6 flex items-center gap-2">
                <ShieldCheck className="w-4 h-4" /> Trust & Verification
              </h3>
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                <div className="flex items-start gap-4">
-                 <div className="w-10 h-10 rounded-[12px] bg-[#F6F3F0] flex items-center justify-center shrink-0 border border-[#f5ecd8]">
+                 <div className="w-10 h-10 rounded-[12px] bg-[#F5F7FA] flex items-center justify-center shrink-0 border border-[#e5e7eb]">
                    <Check className="w-5 h-5 text-green-600" />
                  </div>
                  <div>
@@ -184,8 +184,8 @@ export default async function ConsultantProfilePage({
                  </div>
                </div>
                <div className="flex items-start gap-4">
-                 <div className="w-10 h-10 rounded-[12px] bg-[#FDFCFB] flex items-center justify-center shrink-0 border border-[#f5ecd8]">
-                   <ShieldCheck className="w-5 h-5 text-[#C29967]" />
+                 <div className="w-10 h-10 rounded-[12px] bg-[#ffffff] flex items-center justify-center shrink-0 border border-[#e5e7eb]">
+                   <ShieldCheck className="w-5 h-5 text-[#2FA4A9]" />
                  </div>
                  <div>
                    <p className="font-bold text-sm text-gray-900 mb-0.5">Verixa Verified</p>
@@ -193,7 +193,7 @@ export default async function ConsultantProfilePage({
                  </div>
                </div>
                <div className="flex items-start gap-4">
-                 <div className="w-10 h-10 rounded-[12px] bg-[#FDFCFB] flex items-center justify-center shrink-0 border border-[#f5ecd8]">
+                 <div className="w-10 h-10 rounded-[12px] bg-[#ffffff] flex items-center justify-center shrink-0 border border-[#e5e7eb]">
                    <Clock className="w-5 h-5 text-gray-400" />
                  </div>
                  <div>
@@ -202,7 +202,7 @@ export default async function ConsultantProfilePage({
                  </div>
                </div>
                <div className="flex items-start gap-4">
-                 <div className="w-10 h-10 rounded-[12px] bg-[#FDFCFB] flex items-center justify-center shrink-0 border border-[#f5ecd8]">
+                 <div className="w-10 h-10 rounded-[12px] bg-[#ffffff] flex items-center justify-center shrink-0 border border-[#e5e7eb]">
                    <AlertCircle className="w-5 h-5 text-gray-400" />
                  </div>
                  <div>
@@ -218,7 +218,7 @@ export default async function ConsultantProfilePage({
              <h2 className="text-xl font-bold font-serif mb-4 flex items-center gap-2">
                Professional Bio
              </h2>
-             <div className="bg-white rounded-[32px] border border-[#f5ecd8] p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.02)] text-gray-600 leading-relaxed text-[16px] space-y-4">
+             <div className="bg-white rounded-[32px] border border-[#e5e7eb] p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.02)] text-gray-600 leading-relaxed text-[16px] space-y-4">
                <p>
                  <strong>{data.Full_Name}</strong> is a dedicated Regulated Canadian Immigration Consultant (RCIC) operating under the license number <strong>{data.License_Number}</strong>. 
                  Based in {[data.Province, data.Country].filter(Boolean).join(', ') || 'Canada'}, they specialize in navigating the complexities of the Canadian immigration system for clients worldwide.
@@ -227,9 +227,9 @@ export default async function ConsultantProfilePage({
                  As an {data.Status?.toLowerCase()} member of the College of Immigration and Citizenship Consultants (CICC), they are legally authorized to provide representation and advice on all Canadian immigration matters.
                </p>
                {!isClaimed && (
-                 <div className="mt-6 p-5 bg-[#FDFCFB] rounded-2xl border border-[#f5ecd8] flex flex-col md:flex-row items-center justify-between gap-4">
+                 <div className="mt-6 p-5 bg-[#ffffff] rounded-2xl border border-[#e5e7eb] flex flex-col md:flex-row items-center justify-between gap-4">
                    <p className="text-sm">This is an auto-generated summary. Are you {data.Full_Name}?</p>
-                   <button className="text-sm font-bold text-[#C29967] hover:underline bg-[#F6F3F0] px-4 py-2 rounded-xl">Add your custom bio</button>
+                   <button className="text-sm font-bold text-[#2FA4A9] hover:underline bg-[#F5F7FA] px-4 py-2 rounded-xl">Add your custom bio</button>
                  </div>
                )}
              </div>
@@ -242,7 +242,7 @@ export default async function ConsultantProfilePage({
              </h2>
              <div className="flex flex-wrap gap-2">
                 {['Express Entry', 'Study Permits', 'Work Permits', 'Family Sponsorship', 'Provincial Nominee Programs (PNP)', 'Citizenship Applications'].map(tag => (
-                  <span key={tag} className="bg-white border border-[#f5ecd8] px-4 py-2.5 rounded-[12px] text-sm font-medium text-[#1A1A1A] hover:bg-[#FDFCFB] cursor-default transition-colors">
+                  <span key={tag} className="bg-white border border-[#e5e7eb] px-4 py-2.5 rounded-[12px] text-sm font-medium text-[#1A1F2B] hover:bg-[#ffffff] cursor-default transition-colors">
                     {tag}
                   </span>
                 ))}
@@ -255,17 +255,17 @@ export default async function ConsultantProfilePage({
                <h2 className="text-xl font-bold font-serif flex items-center gap-2">
                  Client Reviews
                </h2>
-               <div className="flex items-center gap-1.5 bg-[#FDFCFB] border border-[#f5ecd8] text-[#C29967] px-4 py-1.5 rounded-xl font-bold text-sm shadow-sm">
+               <div className="flex items-center gap-1.5 bg-[#ffffff] border border-[#e5e7eb] text-[#2FA4A9] px-4 py-1.5 rounded-xl font-bold text-sm shadow-sm">
                  <Star className="w-4 h-4 fill-current" /> {dummyRating}
                </div>
              </div>
              
              <div className="space-y-4">
                {[1, 2].map((i) => (
-                 <div key={i} className="bg-white rounded-[24px] border border-[#f5ecd8] p-7 shadow-sm">
+                 <div key={i} className="bg-white rounded-[24px] border border-[#e5e7eb] p-7 shadow-sm">
                    <div className="flex justify-between items-start mb-4">
                      <div>
-                       <div className="flex items-center gap-1 text-[#C29967] mb-2">
+                       <div className="flex items-center gap-1 text-[#2FA4A9] mb-2">
                          {[1,2,3,4,5].map(s => <Star key={s} className="w-3.5 h-3.5 fill-current" />)}
                        </div>
                        <p className="font-bold text-[15px] mb-1">"Highly professional and transparent"</p>
@@ -275,28 +275,28 @@ export default async function ConsultantProfilePage({
                    <p className="text-[15px] text-gray-600 leading-relaxed mb-6">
                      The entire process for my Express Entry application was handled smoothly. Very responsive to emails and explained every step clearly. Highly recommend!
                    </p>
-                   <div className="flex items-center gap-2.5 text-xs font-bold text-gray-400 uppercase tracking-widest bg-[#FDFCFB] w-fit px-3 py-1.5 border border-[#f5ecd8] rounded-full">
-                     <div className="w-5 h-5 rounded-full bg-[#f5ecd8] flex items-center justify-center text-[#C29967]">M</div>
+                   <div className="flex items-center gap-2.5 text-xs font-bold text-gray-400 uppercase tracking-widest bg-[#ffffff] w-fit px-3 py-1.5 border border-[#e5e7eb] rounded-full">
+                     <div className="w-5 h-5 rounded-full bg-[#e5e7eb] flex items-center justify-center text-[#2FA4A9]">M</div>
                      Verified Client
                    </div>
                  </div>
                ))}
-               <button className="w-full py-4.5 mt-2 text-sm font-bold text-[#C29967] bg-[#FDFCFB] border border-[#f5ecd8] rounded-[20px] hover:bg-[#F6F3F0] transition-colors">
+               <button className="w-full py-4.5 mt-2 text-sm font-bold text-[#2FA4A9] bg-[#ffffff] border border-[#e5e7eb] rounded-[20px] hover:bg-[#F5F7FA] transition-colors">
                  Read all {dummyReviews} reviews
                </button>
              </div>
            </section>
 
            {/* 13 & 14) FAQ / LEGAL */}
-           <section className="pt-12 border-t border-[#f5ecd8]">
+           <section className="pt-12 border-t border-[#e5e7eb]">
              <h2 className="text-xl font-bold font-serif mb-6">Frequently Asked Questions</h2>
              <div className="space-y-4">
-               <div className="bg-white rounded-[24px] border border-[#f5ecd8] p-6 shadow-sm">
-                 <h4 className="font-bold text-[15px] mb-2 text-[#1A1A1A]">Is this consultant legally authorized to practice?</h4>
+               <div className="bg-white rounded-[24px] border border-[#e5e7eb] p-6 shadow-sm">
+                 <h4 className="font-bold text-[15px] mb-2 text-[#1A1F2B]">Is this consultant legally authorized to practice?</h4>
                  <p className="text-[15px] text-gray-500 leading-relaxed">Yes. Status: {data.Status}. This was verified against the CICC registry today.</p>
                </div>
-               <div className="bg-white rounded-[24px] border border-[#f5ecd8] p-6 shadow-sm">
-                 <h4 className="font-bold text-[15px] mb-2 text-[#1A1A1A]">Are the reviews verified?</h4>
+               <div className="bg-white rounded-[24px] border border-[#e5e7eb] p-6 shadow-sm">
+                 <h4 className="font-bold text-[15px] mb-2 text-[#1A1F2B]">Are the reviews verified?</h4>
                  <p className="text-[15px] text-gray-500 leading-relaxed">Reviews on Verixa are submitted by users. Verified Client badges indicate we have confirmed an actual consultation took place.</p>
                </div>
              </div>
@@ -309,16 +309,16 @@ export default async function ConsultantProfilePage({
           <div className="sticky top-10 space-y-6">
             
             {/* 8) REAL BOOKING WIDGET */}
-            <div className="bg-white rounded-[32px] border border-[#f5ecd8] p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]">
-              <h3 className="text-lg font-bold font-serif mb-6 flex items-center gap-2 border-b border-[#f5ecd8] pb-5">
-                <CalendarDays className="w-5 h-5 text-[#C29967]" /> Request Consultation
+            <div className="bg-white rounded-[32px] border border-[#e5e7eb] p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]">
+              <h3 className="text-lg font-bold font-serif mb-6 flex items-center gap-2 border-b border-[#e5e7eb] pb-5">
+                <CalendarDays className="w-5 h-5 text-[#2FA4A9]" /> Request Consultation
               </h3>
               
               <div className="space-y-4 mb-8">
-                <div className="bg-[#FDFCFB] p-5 rounded-[20px] border border-[#f5ecd8] cursor-pointer hover:shadow-md transition-all">
+                <div className="bg-[#ffffff] p-5 rounded-[20px] border border-[#e5e7eb] cursor-pointer hover:shadow-md transition-all">
                   <div className="flex justify-between items-start mb-1.5">
                     <strong className="text-[15px]">Virtual Consultation</strong>
-                    <span className="text-[15px] font-bold text-[#C29967]">$150 CAD</span>
+                    <span className="text-[15px] font-bold text-[#2FA4A9]">$150 CAD</span>
                   </div>
                   <p className="text-sm text-gray-500 font-medium">45 Minutes • Google Meet / Zoom</p>
                 </div>
@@ -332,7 +332,7 @@ export default async function ConsultantProfilePage({
               <div className="space-y-3">
                 <button 
                   disabled={!isClaimed}
-                  className={`w-full py-4.5 rounded-[16px] font-bold text-center block transition-all shadow-lg ${isClaimed ? 'bg-[#1A1A1A] text-white hover:bg-black shadow-black/10' : 'bg-[#F6F3F0] text-gray-400 cursor-not-allowed shadow-none border border-[#f5ecd8]'}`}
+                  className={`w-full py-4.5 rounded-[16px] font-bold text-center block transition-all shadow-lg ${isClaimed ? 'bg-[#0F2A44] text-white hover:bg-black shadow-black/10' : 'bg-[#F5F7FA] text-gray-400 cursor-not-allowed shadow-none border border-[#e5e7eb]'}`}
                 >
                   Select Time & Book
                 </button>
@@ -343,15 +343,15 @@ export default async function ConsultantProfilePage({
             </div>
 
             {/* 6, 7 & 9) LANGUAGES, AVAILABILITY, CONTACT */}
-            <div className="bg-white rounded-[32px] border border-[#f5ecd8] p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.02)]">
-              <h3 className="text-xs font-black uppercase tracking-widest text-[#C29967] mb-8">Details & Contact</h3>
+            <div className="bg-white rounded-[32px] border border-[#e5e7eb] p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.02)]">
+              <h3 className="text-xs font-black uppercase tracking-widest text-[#2FA4A9] mb-8">Details & Contact</h3>
               
               <ul className="space-y-6">
                 <li className="flex gap-4 items-start">
                   <Languages className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" />
                   <div>
                     <strong className="block text-[13px] uppercase tracking-wider text-gray-400 font-bold mb-1">Languages</strong>
-                    <span className="text-[15px] font-medium text-[#1A1A1A]">English, French</span>
+                    <span className="text-[15px] font-medium text-[#1A1F2B]">English, French</span>
                   </div>
                 </li>
 
@@ -360,7 +360,7 @@ export default async function ConsultantProfilePage({
                      <Building2 className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" />
                     <div>
                       <strong className="block text-[13px] uppercase tracking-wider text-gray-400 font-bold mb-1">Company</strong>
-                      <span className="text-[15px] font-medium text-[#1A1A1A] line-clamp-2">{data.Company || 'Independent Practice'}</span>
+                      <span className="text-[15px] font-medium text-[#1A1F2B] line-clamp-2">{data.Company || 'Independent Practice'}</span>
                     </div>
                   </li>
                 )}
@@ -370,7 +370,7 @@ export default async function ConsultantProfilePage({
                     <MapPin className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" />
                     <div>
                       <strong className="block text-[13px] uppercase tracking-wider text-gray-400 font-bold mb-1">Location</strong>
-                      <span className="text-[15px] font-medium text-[#1A1A1A]">{[data.Province, data.Country].filter(Boolean).join(', ')}</span>
+                      <span className="text-[15px] font-medium text-[#1A1F2B]">{[data.Province, data.Country].filter(Boolean).join(', ')}</span>
                     </div>
                   </li>
                 )}
@@ -380,7 +380,7 @@ export default async function ConsultantProfilePage({
                   <div>
                     <strong className="block text-[13px] uppercase tracking-wider text-gray-400 font-bold mb-1">Direct Email</strong>
                     {data.Email ? (
-                      <a href={`mailto:${data.Email}`} className="text-[15px] font-bold text-[#C29967] hover:text-[#b08856] underline block max-w-[200px] truncate">
+                      <a href={`mailto:${data.Email}`} className="text-[15px] font-bold text-[#2FA4A9] hover:text-[#258d92] underline block max-w-[200px] truncate">
                         {data.Email}
                       </a>
                     ) : (
@@ -393,7 +393,7 @@ export default async function ConsultantProfilePage({
                   <Phone className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" />
                   <div>
                     <strong className="block text-[13px] uppercase tracking-wider text-gray-400 font-bold mb-1">Phone Number</strong>
-                    <span className="text-[15px] font-medium text-[#1A1A1A]">{data.Phone || 'Protected'}</span>
+                    <span className="text-[15px] font-medium text-[#1A1F2B]">{data.Phone || 'Protected'}</span>
                   </div>
                 </li>
               </ul>

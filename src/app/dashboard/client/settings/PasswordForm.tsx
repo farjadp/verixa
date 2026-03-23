@@ -41,7 +41,7 @@ export default function PasswordForm() {
            type="password" 
            value={formData.current} 
            onChange={e => setFormData(p => ({...p, current: e.target.value}))} 
-           className="w-full bg-[#FDFCFB] border border-[#f5ecd8] px-4 py-3.5 rounded-xl text-sm focus:border-[#C29967] outline-none transition-colors" 
+           className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none transition-colors" 
          />
        </div>
        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
@@ -52,7 +52,7 @@ export default function PasswordForm() {
              type="password" 
              value={formData.newPass} 
              onChange={e => setFormData(p => ({...p, newPass: e.target.value}))} 
-             className="w-full bg-[#FDFCFB] border border-[#f5ecd8] px-4 py-3.5 rounded-xl text-sm focus:border-[#C29967] outline-none transition-colors" 
+             className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none transition-colors" 
            />
          </div>
          <div className="space-y-2">
@@ -62,7 +62,7 @@ export default function PasswordForm() {
              type="password" 
              value={formData.confirm} 
              onChange={e => setFormData(p => ({...p, confirm: e.target.value}))} 
-             className="w-full bg-[#FDFCFB] border border-[#f5ecd8] px-4 py-3.5 rounded-xl text-sm focus:border-[#C29967] outline-none transition-colors" 
+             className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none transition-colors" 
            />
          </div>
        </div>
@@ -74,7 +74,7 @@ export default function PasswordForm() {
          <button 
            type="submit" 
            disabled={isSubmitting}
-           className="bg-white border text-gray-700 border-gray-200 px-8 py-3 rounded-xl font-bold hover:bg-gray-50 hover:border-[#C29967] hover:text-[#C29967] transition-all shadow-sm disabled:opacity-50"
+           className="bg-white border text-gray-700 border-gray-200 px-8 py-3 rounded-xl font-bold hover:bg-gray-50 hover:border-[#2FA4A9] hover:text-[#2FA4A9] transition-all shadow-sm disabled:opacity-50"
          >
            {isSubmitting ? "Updating..." : "Update Password"}
          </button>

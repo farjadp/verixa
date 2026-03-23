@@ -12,7 +12,7 @@ export default function ClientDossierModal({ clientProfile }: { clientProfile: a
     <>
       <button 
         onClick={() => setIsOpen(true)}
-        className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-[#C29967] hover:text-[#b0895c] bg-[#C29967]/10 px-2 py-1 rounded"
+        className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-[#2FA4A9] hover:text-[#258d92] bg-[#2FA4A9]/10 px-2 py-1 rounded"
       >
         <FileText className="w-3.5 h-3.5" /> View Shared Profile
       </button>
@@ -21,11 +21,11 @@ export default function ClientDossierModal({ clientProfile }: { clientProfile: a
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200 text-left">
             
-            <div className="px-6 py-4 flex items-center justify-between border-b border-[#f5ecd8] bg-[#FDFCFB]">
-              <h3 className="font-serif font-bold text-lg text-[#1A1A1A] flex items-center gap-2">
-                <FileText className="w-5 h-5 text-[#C29967]" /> Client Dossier
+            <div className="px-6 py-4 flex items-center justify-between border-b border-[#e5e7eb] bg-[#ffffff]">
+              <h3 className="font-serif font-bold text-lg text-[#1A1F2B] flex items-center gap-2">
+                <FileText className="w-5 h-5 text-[#2FA4A9]" /> Client Dossier
               </h3>
-              <button onClick={() => setIsOpen(false)} className="p-2 text-gray-400 hover:text-[#1A1A1A] hover:bg-white rounded-full transition-colors">
+              <button onClick={() => setIsOpen(false)} className="p-2 text-gray-400 hover:text-[#1A1F2B] hover:bg-white rounded-full transition-colors">
                  <X className="w-5 h-5" />
               </button>
             </div>
@@ -37,20 +37,20 @@ export default function ClientDossierModal({ clientProfile }: { clientProfile: a
 
                <div className="grid grid-cols-2 gap-4">
                   {clientProfile.nationality && (
-                    <div className="bg-[#FDFCFB] border border-[#f5ecd8] rounded-xl p-4 flex gap-3 pb-8">
+                    <div className="bg-[#ffffff] border border-[#e5e7eb] rounded-xl p-4 flex gap-3 pb-8">
                        <MapPin className="w-5 h-5 text-gray-400 shrink-0" />
                        <div>
                          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Nationality</p>
-                         <p className="font-bold text-[#1A1A1A] text-sm">{clientProfile.nationality}</p>
+                         <p className="font-bold text-[#1A1F2B] text-sm">{clientProfile.nationality}</p>
                        </div>
                     </div>
                   )}
                   {clientProfile.currentCountry && (
-                    <div className="bg-[#FDFCFB] border border-[#f5ecd8] rounded-xl p-4 flex gap-3 pb-8">
+                    <div className="bg-[#ffffff] border border-[#e5e7eb] rounded-xl p-4 flex gap-3 pb-8">
                        <MapPin className="w-5 h-5 text-gray-400 shrink-0" />
                        <div>
                          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Current Residence</p>
-                         <p className="font-bold text-[#1A1A1A] text-sm">{clientProfile.currentCountry}</p>
+                         <p className="font-bold text-[#1A1F2B] text-sm">{clientProfile.currentCountry}</p>
                        </div>
                     </div>
                   )}
@@ -64,7 +64,7 @@ export default function ClientDossierModal({ clientProfile }: { clientProfile: a
                      </div>
                      <div>
                        <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Primary Goal</p>
-                       <p className="font-bold text-[#1A1A1A] text-sm">{clientProfile.immigrationGoals}</p>
+                       <p className="font-bold text-[#1A1F2B] text-sm">{clientProfile.immigrationGoals}</p>
                      </div>
                    </div>
                  )}
@@ -76,7 +76,7 @@ export default function ClientDossierModal({ clientProfile }: { clientProfile: a
                      </div>
                      <div>
                        <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Highest Education</p>
-                       <p className="font-bold text-[#1A1A1A] text-sm">{clientProfile.educationLevel}</p>
+                       <p className="font-bold text-[#1A1F2B] text-sm">{clientProfile.educationLevel}</p>
                      </div>
                    </div>
                  )}
@@ -88,7 +88,7 @@ export default function ClientDossierModal({ clientProfile }: { clientProfile: a
                      </div>
                      <div>
                        <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Spoken Languages</p>
-                       <p className="font-bold text-[#1A1A1A] text-sm">{clientProfile.languages}</p>
+                       <p className="font-bold text-[#1A1F2B] text-sm">{clientProfile.languages}</p>
                      </div>
                    </div>
                  )}
@@ -102,13 +102,13 @@ export default function ClientDossierModal({ clientProfile }: { clientProfile: a
                        {clientProfile.maritalStatus && (
                          <div>
                            <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Marital Status</p>
-                           <p className="font-bold text-[#1A1A1A] text-sm">{clientProfile.maritalStatus}</p>
+                           <p className="font-bold text-[#1A1F2B] text-sm">{clientProfile.maritalStatus}</p>
                          </div>
                        )}
                        {clientProfile.age && (
                          <div>
                            <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Age</p>
-                           <p className="font-bold text-[#1A1A1A] text-sm">{clientProfile.age} yrs</p>
+                           <p className="font-bold text-[#1A1F2B] text-sm">{clientProfile.age} yrs</p>
                          </div>
                        )}
                      </div>

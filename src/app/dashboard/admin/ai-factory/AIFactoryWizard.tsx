@@ -99,18 +99,18 @@ export default function AIFactoryWizard() {
     <div className="flex-1 flex flex-col overflow-hidden relative">
       
       {/* HEADER PROGRESS */}
-      <div className="bg-[#161616] border-b border-gray-800 p-4 shrink-0 flex items-center justify-between">
+      <div className="bg-[#0F2A44] border-b border-gray-800 p-4 shrink-0 flex items-center justify-between">
          <div className="flex gap-2 items-center">
             {[1, 2, 3, 4].map(s => (
               <div key={s} className="flex items-center gap-2">
-                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-colors ${step >= s ? 'bg-[#C29967] border-[#C29967] text-white' : 'bg-gray-900 border-gray-800 text-gray-500'}`}>
+                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-colors ${step >= s ? 'bg-[#2FA4A9] border-[#2FA4A9] text-white' : 'bg-gray-900 border-gray-800 text-gray-500'}`}>
                    {s < step ? <CheckCircle2 className="w-4 h-4" /> : s}
                  </div>
-                 {s < 4 && <div className={`w-8 h-px ${step > s ? 'bg-[#C29967]' : 'bg-gray-800'}`}></div>}
+                 {s < 4 && <div className={`w-8 h-px ${step > s ? 'bg-[#2FA4A9]' : 'bg-gray-800'}`}></div>}
               </div>
             ))}
          </div>
-         {loading && <div className="text-[#C29967] text-sm font-bold flex items-center gap-2 animate-pulse"><Loader2 className="w-4 h-4 animate-spin" /> Neural Engine Active...</div>}
+         {loading && <div className="text-[#2FA4A9] text-sm font-bold flex items-center gap-2 animate-pulse"><Loader2 className="w-4 h-4 animate-spin" /> Neural Engine Active...</div>}
       </div>
 
       <div className="flex-1 overflow-y-auto p-8 relative">
@@ -124,28 +124,28 @@ export default function AIFactoryWizard() {
                <p className="text-gray-400 text-sm">Provide the seed variables. GPT-4o will construct the Information Architecture.</p>
              </div>
              
-             <div className="space-y-4 bg-[#161616] border border-gray-800 p-6 rounded-2xl">
+             <div className="space-y-4 bg-[#0F2A44] border border-gray-800 p-6 rounded-2xl">
                <div>
                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">Target Topic</label>
-                 <input type="text" value={inputs.topic} onChange={e => setInputs({...inputs, topic: e.target.value})} className="w-full bg-[#1A1A1A] border border-gray-800 p-3 rounded-lg text-white" />
+                 <input type="text" value={inputs.topic} onChange={e => setInputs({...inputs, topic: e.target.value})} className="w-full bg-[#0F2A44] border border-gray-800 p-3 rounded-lg text-white" />
                </div>
                <div>
                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">Primary Keyword (Exact Match)</label>
-                 <input type="text" value={inputs.keyword} onChange={e => setInputs({...inputs, keyword: e.target.value})} className="w-full bg-[#1A1A1A] border border-gray-800 p-3 rounded-lg text-[#C29967] font-mono" />
+                 <input type="text" value={inputs.keyword} onChange={e => setInputs({...inputs, keyword: e.target.value})} className="w-full bg-[#0F2A44] border border-gray-800 p-3 rounded-lg text-[#2FA4A9] font-mono" />
                </div>
                <div>
                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">Target Audience & Intent</label>
-                 <input type="text" value={inputs.audience} onChange={e => setInputs({...inputs, audience: e.target.value})} className="w-full bg-[#1A1A1A] border border-gray-800 p-3 rounded-lg text-gray-300" />
+                 <input type="text" value={inputs.audience} onChange={e => setInputs({...inputs, audience: e.target.value})} className="w-full bg-[#0F2A44] border border-gray-800 p-3 rounded-lg text-gray-300" />
                </div>
                <div>
                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">SEO Category Pillar</label>
-                 <select value={inputs.category} onChange={e => setInputs({...inputs, category: e.target.value})} className="w-full bg-[#1A1A1A] border border-gray-800 p-3 rounded-lg text-white">
+                 <select value={inputs.category} onChange={e => setInputs({...inputs, category: e.target.value})} className="w-full bg-[#0F2A44] border border-gray-800 p-3 rounded-lg text-white">
                     {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                  </select>
                </div>
              </div>
 
-             <button onClick={handleGenerateBrief} disabled={loading} className="w-full bg-[#C29967] hover:bg-[#b08856] text-white p-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(194,153,103,0.3)] disabled:opacity-50">
+             <button onClick={handleGenerateBrief} disabled={loading} className="w-full bg-[#2FA4A9] hover:bg-[#258d92] text-white p-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(194,153,103,0.3)] disabled:opacity-50">
                Generate Content Brief <Sparkles className="w-5 h-5" />
              </button>
           </div>
@@ -159,7 +159,7 @@ export default function AIFactoryWizard() {
                <p className="text-gray-400 text-sm">Review the GPT-4o Information Architecture. If approved, the Multi-Agent Pipeline will execute the final assets.</p>
              </div>
 
-             <div className="bg-[#161616] border border-gray-800 p-6 rounded-2xl space-y-6">
+             <div className="bg-[#0F2A44] border border-gray-800 p-6 rounded-2xl space-y-6">
                 <div>
                   <label className="text-xs font-bold text-gray-500 uppercase">H1 Title</label>
                   <input type="text" value={brief.title} onChange={e => setBrief({...brief, title: e.target.value})} className="w-full bg-transparent border-b border-gray-700 p-2 text-xl font-serif font-bold text-white focus:outline-none" />
@@ -168,11 +168,11 @@ export default function AIFactoryWizard() {
                 <div className="grid grid-cols-2 gap-6">
                    <div>
                      <label className="text-xs font-bold text-gray-500 uppercase block mb-1">URL Slug</label>
-                     <input type="text" value={brief.slug} onChange={e => setBrief({...brief, slug: e.target.value})} className="w-full bg-[#1A1A1A] border border-gray-800 p-2 rounded text-sm text-gray-300" />
+                     <input type="text" value={brief.slug} onChange={e => setBrief({...brief, slug: e.target.value})} className="w-full bg-[#0F2A44] border border-gray-800 p-2 rounded text-sm text-gray-300" />
                    </div>
                    <div>
                      <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Writer Angle</label>
-                     <input type="text" value={brief.angle} onChange={e => setBrief({...brief, angle: e.target.value})} className="w-full bg-[#1A1A1A] border border-gray-800 p-2 rounded text-sm text-[var(--color-teal)]" />
+                     <input type="text" value={brief.angle} onChange={e => setBrief({...brief, angle: e.target.value})} className="w-full bg-[#0F2A44] border border-gray-800 p-2 rounded text-sm text-[var(--color-teal)]" />
                    </div>
                 </div>
 
@@ -180,7 +180,7 @@ export default function AIFactoryWizard() {
                    <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Article Outline (H2s)</label>
                    <div className="flex flex-col gap-2">
                      {brief.outline.map((o: string, i: number) => (
-                        <div key={i} className="bg-[#1A1A1A] border border-gray-800 p-3 rounded text-sm text-gray-300 flex items-center gap-3">
+                        <div key={i} className="bg-[#0F2A44] border border-gray-800 p-3 rounded text-sm text-gray-300 flex items-center gap-3">
                            <span className="text-gray-600 font-mono">0{i+1}</span> {o}
                         </div>
                      ))}
@@ -189,7 +189,7 @@ export default function AIFactoryWizard() {
 
                 <div>
                   <label className="text-xs font-bold text-gray-500 uppercase block mb-1">DALL-E / FAL Image Prompt Generator</label>
-                  <textarea value={brief.imagePrompt} onChange={e => setBrief({...brief, imagePrompt: e.target.value})} rows={2} className="w-full bg-[#1A1A1A] border border-gray-800 p-3 rounded text-sm text-[#C29967] resize-none" />
+                  <textarea value={brief.imagePrompt} onChange={e => setBrief({...brief, imagePrompt: e.target.value})} rows={2} className="w-full bg-[#0F2A44] border border-gray-800 p-3 rounded text-sm text-[#2FA4A9] resize-none" />
                 </div>
              </div>
 
@@ -210,7 +210,7 @@ export default function AIFactoryWizard() {
                   <h2 className="text-2xl font-serif text-white font-bold mb-2">Pipeline Compilation Complete</h2>
                   <p className="text-gray-400 text-sm">Review the native Markdown, Editorial Image, and Social Hooks before committing to the CMS.</p>
                 </div>
-                <button onClick={handleApproveAndPublish} disabled={loading} className="bg-[#C29967] hover:bg-[#b08856] text-white px-8 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(194,153,103,0.3)]">
+                <button onClick={handleApproveAndPublish} disabled={loading} className="bg-[#2FA4A9] hover:bg-[#258d92] text-white px-8 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(194,153,103,0.3)]">
                   Save Output to Verixa DB <Save className="w-4 h-4" />
                 </button>
              </div>
@@ -220,7 +220,7 @@ export default function AIFactoryWizard() {
                 <div className="space-y-6 flex flex-col h-full overflow-y-auto">
                    
                    {/* FAL Image */}
-                   <div className="bg-[#161616] border border-gray-800 p-4 rounded-2xl shrink-0">
+                   <div className="bg-[#0F2A44] border border-gray-800 p-4 rounded-2xl shrink-0">
                      <h3 className="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center gap-2"><ImageIcon className="w-4 h-4" /> FAL.AI FLUX PRO (Featured Image)</h3>
                      {editorialImage ? (
                         <div className="aspect-[16/9] bg-gray-900 rounded-xl overflow-hidden border border-gray-800">
@@ -232,7 +232,7 @@ export default function AIFactoryWizard() {
                    </div>
 
                    {/* Social Variants */}
-                   <div className="bg-[#161616] border border-gray-800 p-4 rounded-2xl flex-1 flex flex-col">
+                   <div className="bg-[#0F2A44] border border-gray-800 p-4 rounded-2xl flex-1 flex flex-col">
                      <h3 className="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center gap-2"><Send className="w-4 h-4" /> Social Repurposing Engine</h3>
                      <div className="space-y-4 overflow-y-auto flex-1 pr-2">
                         {socials ? (
@@ -259,12 +259,12 @@ export default function AIFactoryWizard() {
                 </div>
 
                 {/* Markdown Code Edit */}
-                <div className="lg:col-span-2 bg-[#161616] border border-gray-800 p-4 rounded-2xl flex flex-col h-full">
+                <div className="lg:col-span-2 bg-[#0F2A44] border border-gray-800 p-4 rounded-2xl flex flex-col h-full">
                    <h3 className="text-xs font-bold text-gray-500 uppercase mb-3">Raw Markdown (AEO Evaluated)</h3>
                    <textarea 
                      value={articleMarkdown} 
                      onChange={(e) => setArticleMarkdown(e.target.value)} 
-                     className="w-full flex-1 bg-[#1A1A1A] border border-gray-800 rounded-xl p-6 text-gray-300 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:border-[#C29967]"
+                     className="w-full flex-1 bg-[#0F2A44] border border-gray-800 rounded-xl p-6 text-gray-300 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:border-[#2FA4A9]"
                    />
                 </div>
              </div>
@@ -283,7 +283,7 @@ export default function AIFactoryWizard() {
              </p>
              <div className="pt-6 flex gap-4">
                 <button onClick={() => setStep(1)} className="px-6 py-2 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-lg border border-gray-800">New Campaign</button>
-                <Link href="/dashboard/admin/blog" className="px-6 py-2 bg-[#C29967] hover:bg-[#b08856] text-white font-bold rounded-lg">View CMS Library</Link>
+                <Link href="/dashboard/admin/blog" className="px-6 py-2 bg-[#2FA4A9] hover:bg-[#258d92] text-white font-bold rounded-lg">View CMS Library</Link>
              </div>
           </div>
         )}

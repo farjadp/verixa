@@ -23,10 +23,10 @@ export default async function LatestArticles() {
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
           <div className="space-y-4 max-w-2xl">
-            <h4 className="text-sm font-bold uppercase tracking-widest text-[#C29967] flex items-center gap-2">
+            <h4 className="text-sm font-bold uppercase tracking-widest text-[#2FA4A9] flex items-center gap-2">
               <BookOpen className="w-4 h-4" /> Global Insights
             </h4>
-            <h2 className="text-5xl font-medium tracking-tight font-serif text-[#1A1A1A]">
+            <h2 className="text-5xl font-medium tracking-tight font-serif text-[#1A1F2B]">
               Stay ahead of Canadian Immigration.
             </h2>
             <p className="text-gray-500 text-lg leading-relaxed">
@@ -35,7 +35,7 @@ export default async function LatestArticles() {
           </div>
           <Link 
             href="/blog" 
-            className="group flex items-center gap-2 font-bold text-[#1A1A1A] border-b-2 border-transparent hover:border-[#1A1A1A] pb-1 transition-all whitespace-nowrap"
+            className="group flex items-center gap-2 font-bold text-[#1A1F2B] border-b-2 border-transparent hover:border-[#0F2A44] pb-1 transition-all whitespace-nowrap"
           >
             Explore the Hub <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </Link>
@@ -61,18 +61,18 @@ export default async function LatestArticles() {
             )}
             
             {/* Dark Overlay for Text Readability */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#1A1A1A] via-[#1A1A1A]/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0F2A44] via-[#0F2A44]/40 to-transparent" />
 
             <div className="absolute inset-0 p-10 flex flex-col justify-end">
                <div className="flex items-center gap-3 mb-6">
-                 <span className="bg-[#C29967] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg">
+                 <span className="bg-[#2FA4A9] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg">
                    {featured.category.replace(/_/g, " ")}
                  </span>
                  <span className="text-white/80 text-xs font-semibold flex items-center gap-1.5">
                    <Clock className="w-3.5 h-3.5" /> {format(new Date(featured.createdAt), "MMMM d, yyyy")}
                  </span>
                </div>
-               <h3 className="text-3xl md:text-5xl font-serif text-white font-medium mb-4 leading-tight group-hover:text-[#C29967] transition-colors">
+               <h3 className="text-3xl md:text-5xl font-serif text-white font-medium mb-4 leading-tight group-hover:text-[#2FA4A9] transition-colors">
                  {featured.title}
                </h3>
                <p className="text-gray-300 line-clamp-2 md:line-clamp-3 max-w-xl text-lg mb-6">
@@ -108,14 +108,14 @@ export default async function LatestArticles() {
                  <div className="relative h-full p-8 flex flex-col justify-between z-10">
                     <div>
                       <div className="flex items-center gap-3 mb-4">
-                        <span className="bg-[#1A1A1A] text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
+                        <span className="bg-[#0F2A44] text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
                           {article.category.replace(/_/g, " ")}
                         </span>
                         <span className="text-gray-400 text-xs font-semibold flex items-center gap-1">
                           <Clock className="w-3 h-3" /> {format(new Date(article.createdAt), "MMM d, yyyy")}
                         </span>
                       </div>
-                      <h3 className="text-2xl font-serif text-[#1A1A1A] font-medium leading-snug group-hover:text-[#C29967] transition-colors">
+                      <h3 className="text-2xl font-serif text-[#1A1F2B] font-medium leading-snug group-hover:text-[#2FA4A9] transition-colors">
                         {article.title}
                       </h3>
                     </div>
@@ -124,7 +124,7 @@ export default async function LatestArticles() {
                       <p className="text-gray-500 text-sm line-clamp-2 max-w-[80%]">
                         {article.summary}
                       </p>
-                      <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:bg-[#C29967] group-hover:text-white transition-colors border border-gray-100">
+                      <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:bg-[#2FA4A9] group-hover:text-white transition-colors border border-gray-100">
                         <ArrowRight className="w-4 h-4" />
                       </div>
                     </div>

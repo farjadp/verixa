@@ -29,7 +29,7 @@ export default async function AdminBlogPage() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 bg-[#1A1A1A] border border-gray-800 rounded-xl overflow-hidden shadow-2xl flex relative">
+      <div className="flex-1 min-h-0 bg-[#0F2A44] border border-gray-800 rounded-xl overflow-hidden shadow-2xl flex relative">
         <BlogListClient initialPosts={posts} />
       </div>
     </div>

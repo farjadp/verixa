@@ -26,7 +26,7 @@ export default async function NotificationsPage() {
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-8">
       <div>
-        <h1 className="text-3xl font-serif font-bold text-[#1A1A1A] mb-2">Activity & Notifications</h1>
+        <h1 className="text-3xl font-serif font-bold text-[#1A1F2B] mb-2">Activity & Notifications</h1>
         <p className="text-gray-500">Stay up to date with your latest booking requests, messages, and platform updates.</p>
       </div>
 

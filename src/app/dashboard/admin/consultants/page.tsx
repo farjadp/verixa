@@ -56,16 +56,16 @@ export default async function AdminConsultantsPage(props: {
               name="q"
               defaultValue={q}
               placeholder="Search Name or License..." 
-              className="pl-9 pr-4 py-2 bg-[#1A1A1A] border border-gray-800 rounded-lg text-sm text-white focus:outline-none focus:border-gray-500 w-64"
+              className="pl-9 pr-4 py-2 bg-[#0F2A44] border border-gray-800 rounded-lg text-sm text-white focus:outline-none focus:border-gray-500 w-64"
             />
           </div>
-          <button type="submit" className="px-4 py-2 bg-[#1A1A1A] border border-gray-800 rounded-lg text-sm text-gray-300 hover:text-white flex items-center gap-2">
+          <button type="submit" className="px-4 py-2 bg-[#0F2A44] border border-gray-800 rounded-lg text-sm text-gray-300 hover:text-white flex items-center gap-2">
             Search
           </button>
         </form>
       </div>
 
-      <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
+      <div className="bg-[#0F2A44] border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-[#222] text-gray-400 text-xs uppercase tracking-wider border-b border-gray-800">
@@ -146,7 +146,7 @@ export default async function AdminConsultantsPage(props: {
         </div>
         
         {/* Pagination */}
-        <div className="p-4 border-t border-gray-800 flex justify-between items-center bg-[#1A1A1A]">
+        <div className="p-4 border-t border-gray-800 flex justify-between items-center bg-[#0F2A44]">
           <span className="text-xs text-gray-500">
             Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total.toLocaleString()} registry records
           </span>

@@ -24,7 +24,7 @@ const data = [
   { name: "Jul", bookings: 349, verifications: 430 },
 ];
 
-const COLORS = ["#3B82F6", "#C29967", "#10B981"]; // Blue for Clients, Gold for Consultants, Green for Verified
+const COLORS = ["#3B82F6", "#2FA4A9", "#10B981"]; // Blue for Clients, Gold for Consultants, Green for Verified
 
 export default function AdminDashboardCharts({ totalClients, totalConsultants }: { totalClients: number, totalConsultants: number }) {
   const pieData = [
@@ -40,18 +40,18 @@ export default function AdminDashboardCharts({ totalClients, totalConsultants }:
           <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="colorBookings" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#C29967" stopOpacity={0.8}/>
-                <stop offset="95%" stopColor="#C29967" stopOpacity={0}/>
+                <stop offset="5%" stopColor="#2FA4A9" stopOpacity={0.8}/>
+                <stop offset="95%" stopColor="#2FA4A9" stopOpacity={0}/>
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
             <XAxis dataKey="name" stroke="#6b7280" fontSize={10} tickLine={false} axisLine={false} />
             <YAxis stroke="#6b7280" fontSize={10} tickLine={false} axisLine={false} />
             <Tooltip 
-              contentStyle={{ backgroundColor: "#1A1A1A", borderColor: "#333", borderRadius: "12px", color: "#fff" }}
+              contentStyle={{ backgroundColor: "#0F2A44", borderColor: "#333", borderRadius: "12px", color: "#fff" }}
               itemStyle={{ color: "#fff" }}
             />
-            <Area type="monotone" dataKey="bookings" stroke="#C29967" fillOpacity={1} fill="url(#colorBookings)" strokeWidth={3} />
+            <Area type="monotone" dataKey="bookings" stroke="#2FA4A9" fillOpacity={1} fill="url(#colorBookings)" strokeWidth={3} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -75,7 +75,7 @@ export default function AdminDashboardCharts({ totalClients, totalConsultants }:
               ))}
             </Pie>
             <Tooltip 
-              contentStyle={{ backgroundColor: "#1A1A1A", borderColor: "#333", borderRadius: "12px", color: "#fff" }}
+              contentStyle={{ backgroundColor: "#0F2A44", borderColor: "#333", borderRadius: "12px", color: "#fff" }}
               itemStyle={{ color: "#fff" }}
             />
             <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: "10px", color: "#9ca3af" }} />

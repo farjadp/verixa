@@ -44,7 +44,7 @@ export default async function ClientBookingsPage() {
       
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-serif font-bold text-[#1A1A1A]">My Bookings</h1>
+        <h1 className="text-3xl font-serif font-bold text-[#1A1F2B]">My Bookings</h1>
         <p className="text-gray-500 mt-2">Manage your consultations, view meeting links, and check request statuses.</p>
       </div>
 

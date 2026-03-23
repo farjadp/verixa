@@ -2,11 +2,11 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --color-navy: #0A192F;
-  --color-primary: #0A192F;
-  --color-teal: #0D9488;
-  --color-accent: #0D9488;
-  --color-lightgray: #F8FAFC;
+  --color-navy: #0F2A44;
+  --color-primary: #0F2A44;
+  --color-teal: #2FA4A9;
+  --color-accent: #2FA4A9;
+  --color-lightgray: #F5F7FA;
   --font-sans: 'Satoshi', sans-serif;
   --font-serif: 'Satoshi', serif;
   --font-heading: 'Satoshi', sans-serif;
@@ -14,7 +14,7 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #1e293b;
+  --foreground: #1A1F2B;
 }
 
 @layer base {
@@ -29,8 +29,8 @@
 }
 
 @theme {
-  --color-navy: #0A192F;
-  --color-teal: #0D9488;
+  --color-navy: #0F2A44;
+  --color-teal: #2FA4A9;
   --color-indigo-600: #4F46E5;
   --font-heading: 'Satoshi', sans-serif;
   --font-sans: 'Inter', sans-serif;

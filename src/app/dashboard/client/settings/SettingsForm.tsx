@@ -35,7 +35,7 @@ export default function SettingsForm({ user }: { user: { name: string; email: st
              type="text" 
              value={formData.name} 
              onChange={e => setFormData(p => ({...p, name: e.target.value}))} 
-             className="w-full bg-[#FDFCFB] border border-[#f5ecd8] px-4 py-3.5 rounded-xl text-sm focus:border-[#C29967] outline-none transition-colors" 
+             className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none transition-colors" 
            />
          </div>
          <div className="space-y-2">
@@ -45,7 +45,7 @@ export default function SettingsForm({ user }: { user: { name: string; email: st
              type="email" 
              value={formData.email} 
              onChange={e => setFormData(p => ({...p, email: e.target.value}))} 
-             className="w-full bg-[#FDFCFB] border border-[#f5ecd8] px-4 py-3.5 rounded-xl text-sm focus:border-[#C29967] outline-none transition-colors" 
+             className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none transition-colors" 
            />
            <p className="text-[10px] text-gray-400 font-medium">Changing your email may require you to log in again.</p>
          </div>
@@ -58,7 +58,7 @@ export default function SettingsForm({ user }: { user: { name: string; email: st
          <button 
            type="submit" 
            disabled={isSubmitting}
-           className="bg-[#1A1A1A] text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-all shadow-lg shadow-black/5 disabled:opacity-50"
+           className="bg-[#0F2A44] text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-all shadow-lg shadow-black/5 disabled:opacity-50"
          >
            {isSubmitting ? "Saving..." : "Save Changes"}
          </button>

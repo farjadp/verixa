@@ -42,7 +42,7 @@ export default async function AdminBookingDetailPage({ params }: { params: Promi
           <ArrowLeft className="w-4 h-4" /> Back to dashboard
         </Link>
         
-        <div className="flex items-center gap-3 text-sm font-bold text-gray-500 uppercase tracking-widest mb-2 border border-gray-800 bg-[#1A1A1A] w-fit px-3 py-1 rounded-full">
+        <div className="flex items-center gap-3 text-sm font-bold text-gray-500 uppercase tracking-widest mb-2 border border-gray-800 bg-[#0F2A44] w-fit px-3 py-1 rounded-full">
           <span>Booking Audit</span>
           <span className="w-1 h-1 rounded-full bg-gray-500" />
           <span className="text-gray-300 font-mono">{booking.id}</span>
@@ -65,7 +65,7 @@ export default async function AdminBookingDetailPage({ params }: { params: Promi
         {/* LEFT COLUMN: IDENTITIES */}
         <div className="space-y-6 lg:col-span-1">
            
-           <div className="bg-[#1A1A1A] border border-gray-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden group">
+           <div className="bg-[#0F2A44] border border-gray-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden group">
              <div className="absolute top-0 right-0 p-4 opacity-10 blur-xl group-hover:blur-2xl transition-all duration-500 text-blue-500">
                <User className="w-32 h-32" />
              </div>
@@ -90,13 +90,13 @@ export default async function AdminBookingDetailPage({ params }: { params: Promi
              </div>
            </div>
 
-           <div className="bg-[#1A1A1A] border border-gray-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden group">
-             <div className="absolute top-0 right-0 p-4 opacity-10 blur-xl group-hover:blur-2xl transition-all duration-500 text-[#C29967]">
+           <div className="bg-[#0F2A44] border border-gray-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden group">
+             <div className="absolute top-0 right-0 p-4 opacity-10 blur-xl group-hover:blur-2xl transition-all duration-500 text-[#2FA4A9]">
                <ShieldCheck className="w-32 h-32" />
              </div>
              
              <div className="flex items-center gap-3 mb-6 relative">
-               <div className="w-8 h-8 rounded-full bg-[#C29967]/10 flex items-center justify-center text-[#C29967]">
+               <div className="w-8 h-8 rounded-full bg-[#2FA4A9]/10 flex items-center justify-center text-[#2FA4A9]">
                  <ShieldCheck className="w-4 h-4" />
                </div>
                <h2 className="text-lg font-bold text-white tracking-wide">Consultant Profile</h2>
@@ -112,7 +112,7 @@ export default async function AdminBookingDetailPage({ params }: { params: Promi
                   <p className="text-gray-200 font-medium font-mono text-sm">{booking.profile.user?.email || "No email linked"}</p>
                 </div>
                 <div className="pt-2">
-                  <Link href={`/dashboard/admin/consultants`} className="inline-flex items-center gap-2 text-xs font-bold text-[#C29967] hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5 hover:border-white/20">
+                  <Link href={`/dashboard/admin/consultants`} className="inline-flex items-center gap-2 text-xs font-bold text-[#2FA4A9] hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5 hover:border-white/20">
                     View Consultant Record <ArrowUpRight className="w-3 h-3" />
                   </Link>
                 </div>
@@ -124,7 +124,7 @@ export default async function AdminBookingDetailPage({ params }: { params: Promi
         <div className="lg:col-span-2 space-y-6">
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-[#1A1A1A] border border-gray-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
+            <div className="bg-[#0F2A44] border border-gray-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-3 mb-4">
                   <CalendarDays className="w-5 h-5 text-purple-400" />
@@ -149,7 +149,7 @@ export default async function AdminBookingDetailPage({ params }: { params: Promi
               </div>
             </div>
 
-            <div className="bg-[#1A1A1A] border border-gray-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
+            <div className="bg-[#0F2A44] border border-gray-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-3 mb-4">
                   <Banknote className="w-5 h-5 text-emerald-400" />
@@ -173,7 +173,7 @@ export default async function AdminBookingDetailPage({ params }: { params: Promi
             </div>
           </div>
 
-          <div className="bg-[#1A1A1A] border border-gray-800 rounded-3xl p-6 shadow-2xl">
+          <div className="bg-[#0F2A44] border border-gray-800 rounded-3xl p-6 shadow-2xl">
              <div className="flex items-center gap-3 mb-6">
                <FileText className="w-5 h-5 text-gray-400" />
                <h3 className="font-bold text-white text-lg">Case Notes & Meeting Metadata</h3>
@@ -215,13 +215,13 @@ export default async function AdminBookingDetailPage({ params }: { params: Promi
              </div>
           </div>
 
-          <div className="bg-[#1A1A1A] border border-gray-800 rounded-3xl p-6 shadow-2xl">
+          <div className="bg-[#0F2A44] border border-gray-800 rounded-3xl p-6 shadow-2xl">
             <h3 className="font-bold text-white text-lg mb-6">Audit Trail</h3>
             <div className="space-y-4">
               {booking.events.map((event) => (
                 <div key={event.id} className="flex gap-4">
                   <div className="flex flex-col items-center">
-                    <div className="w-2 h-2 bg-[#C29967] rounded-full mt-1.5" />
+                    <div className="w-2 h-2 bg-[#2FA4A9] rounded-full mt-1.5" />
                     <div className="w-1 bg-gray-800 flex-1 mt-2 mb-1" />
                   </div>
                   <div className="pb-4">

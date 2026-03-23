@@ -7,7 +7,7 @@ export default function RegistryStatsPanel({ stats }: { stats: { total: number; 
   };
 
   return (
-    <div className="bg-[#1A1A1A] border border-gray-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden group hover:border-gray-700 transition-all">
+    <div className="bg-[#0F2A44] border border-gray-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden group hover:border-gray-700 transition-all">
       <div className="absolute -right-12 -top-12 w-48 h-48 rounded-full blur-3xl opacity-10 bg-blue-500 transition-opacity group-hover:opacity-20 pointer-events-none" />
 
       <h3 className="text-lg font-bold text-white mb-6 font-serif flex items-center gap-2 relative z-10">

@@ -36,9 +36,9 @@ export default function ReviewModal({ booking, onClose }: { booking: any; onClos
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
        <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
           
-          <div className="px-6 py-4 flex items-center justify-between border-b border-[#f5ecd8] bg-[#FDFCFB]">
-            <h3 className="font-serif font-bold text-lg text-[#1A1A1A]">Leave a Review</h3>
-            <button onClick={onClose} className="p-2 text-gray-400 hover:text-[#1A1A1A] hover:bg-white rounded-full transition-colors" disabled={isSubmitting}>
+          <div className="px-6 py-4 flex items-center justify-between border-b border-[#e5e7eb] bg-[#ffffff]">
+            <h3 className="font-serif font-bold text-lg text-[#1A1F2B]">Leave a Review</h3>
+            <button onClick={onClose} className="p-2 text-gray-400 hover:text-[#1A1F2B] hover:bg-white rounded-full transition-colors" disabled={isSubmitting}>
                <X className="w-5 h-5" />
             </button>
           </div>
@@ -47,7 +47,7 @@ export default function ReviewModal({ booking, onClose }: { booking: any; onClos
              
              <div className="text-center mb-8">
                <p className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-2">How was your session with</p>
-               <h4 className="font-serif font-bold text-2xl text-[#1A1A1A]">{booking.profile.fullName}?</h4>
+               <h4 className="font-serif font-bold text-2xl text-[#1A1F2B]">{booking.profile.fullName}?</h4>
              </div>
 
              <div className="flex justify-center gap-2 mb-8">
@@ -77,7 +77,7 @@ export default function ReviewModal({ booking, onClose }: { booking: any; onClos
                  value={comment} 
                  onChange={e => setComment(e.target.value)} 
                  placeholder="What did you like about the consultation? Were your questions answered?"
-                 className="w-full bg-[#FDFCFB] border border-[#f5ecd8] px-4 py-3.5 rounded-xl text-sm focus:border-[#C29967] outline-none resize-none placeholder-gray-300"
+                 className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none resize-none placeholder-gray-300"
                  disabled={isSubmitting}
                ></textarea>
                <p className="text-[11px] text-gray-400 font-medium">Your review will be public and helps other users find the best consultants.</p>
@@ -95,7 +95,7 @@ export default function ReviewModal({ booking, onClose }: { booking: any; onClos
                <button 
                  type="submit" 
                  disabled={isSubmitting || rating === 0}
-                 className="flex-1 bg-[#1A1A1A] text-white py-3.5 rounded-xl font-bold hover:bg-black flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-black/5"
+                 className="flex-1 bg-[#0F2A44] text-white py-3.5 rounded-xl font-bold hover:bg-black flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-black/5"
                >
                  {isSubmitting ? "Submitting..." : "Submit Review"}
                </button>

@@ -67,17 +67,17 @@ export default function RegisterPage() {
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 font-sans overflow-hidden">
       
       {/* LEFT SIDE: Form */}
-      <div className="flex flex-col justify-center px-8 py-12 sm:px-16 md:px-24 bg-[#FDFCFB] overflow-y-auto">
+      <div className="flex flex-col justify-center px-8 py-12 sm:px-16 md:px-24 bg-[#ffffff] overflow-y-auto">
         <div className="max-w-md w-full mx-auto my-auto">
           {/* Header */}
           <Link href="/" className="flex items-center gap-2 mb-12 group w-fit">
             <img src="/Brand/Vertixa.png" alt="Verixa Logo" className="h-8 w-auto object-contain rounded-sm" />
-            <span className="text-xl font-bold tracking-tighter uppercase font-serif text-[#1A1A1A]">Verixa</span>
+            <span className="text-xl font-bold tracking-tighter uppercase font-serif text-[#1A1F2B]">Verixa</span>
           </Link>
 
           {/* Titles */}
           <div className="mb-10">
-            <h1 className="text-3xl md:text-4xl font-bold font-serif text-[#1A1A1A] mb-3">Create an account</h1>
+            <h1 className="text-3xl md:text-4xl font-bold font-serif text-[#1A1F2B] mb-3">Create an account</h1>
             <p className="text-gray-500">Join the verified immigration ecosystem.</p>
           </div>
 
@@ -91,12 +91,12 @@ export default function RegisterPage() {
                 onClick={() => setRole('client')}
                 className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
                   role === 'client' 
-                    ? 'border-[#C29967] bg-[#FDF8F0] shadow-sm' 
+                    ? 'border-[#2FA4A9] bg-[#F5F7FA] shadow-sm' 
                     : 'border-gray-100 bg-white hover:border-gray-200 hover:bg-gray-50'
                 }`}
               >
-                <User className={`w-6 h-6 mb-2 ${role === 'client' ? 'text-[#C29967]' : 'text-gray-400'}`} />
-                <span className={`text-sm font-bold ${role === 'client' ? 'text-[#C29967]' : 'text-gray-600'}`}>I am a Client</span>
+                <User className={`w-6 h-6 mb-2 ${role === 'client' ? 'text-[#2FA4A9]' : 'text-gray-400'}`} />
+                <span className={`text-sm font-bold ${role === 'client' ? 'text-[#2FA4A9]' : 'text-gray-600'}`}>I am a Client</span>
               </button>
               
               <button
@@ -123,7 +123,7 @@ export default function RegisterPage() {
                   value={formData.firstName}
                   onChange={e => setFormData(p => ({...p, firstName: e.target.value}))}
                   required
-                  className="w-full bg-white border border-gray-200 px-4 py-3.5 rounded-xl focus:border-[#C29967] focus:ring-1 focus:ring-[#C29967] focus:outline-none transition-colors shadow-sm"
+                  className="w-full bg-white border border-gray-200 px-4 py-3.5 rounded-xl focus:border-[#2FA4A9] focus:ring-1 focus:ring-[#2FA4A9] focus:outline-none transition-colors shadow-sm"
                 />
               </div>
               <div className="space-y-1.5">
@@ -134,7 +134,7 @@ export default function RegisterPage() {
                   value={formData.lastName}
                   onChange={e => setFormData(p => ({...p, lastName: e.target.value}))}
                   required
-                  className="w-full bg-white border border-gray-200 px-4 py-3.5 rounded-xl focus:border-[#C29967] focus:ring-1 focus:ring-[#C29967] focus:outline-none transition-colors shadow-sm"
+                  className="w-full bg-white border border-gray-200 px-4 py-3.5 rounded-xl focus:border-[#2FA4A9] focus:ring-1 focus:ring-[#2FA4A9] focus:outline-none transition-colors shadow-sm"
                 />
               </div>
             </div>
@@ -148,7 +148,7 @@ export default function RegisterPage() {
                 onChange={e => setFormData(p => ({...p, email: e.target.value}))}
                 required
                 placeholder="you@example.com"
-                className="w-full bg-white border border-gray-200 px-4 py-3.5 rounded-xl focus:border-[#C29967] focus:ring-1 focus:ring-[#C29967] focus:outline-none transition-colors shadow-sm"
+                className="w-full bg-white border border-gray-200 px-4 py-3.5 rounded-xl focus:border-[#2FA4A9] focus:ring-1 focus:ring-[#2FA4A9] focus:outline-none transition-colors shadow-sm"
               />
             </div>
             
@@ -179,7 +179,7 @@ export default function RegisterPage() {
                 onChange={e => setFormData(p => ({...p, password: e.target.value}))}
                 required
                 placeholder="Create a strong password"
-                className="w-full bg-white border border-gray-200 px-4 py-3.5 rounded-xl focus:border-[#C29967] focus:ring-1 focus:ring-[#C29967] focus:outline-none transition-colors shadow-sm"
+                className="w-full bg-white border border-gray-200 px-4 py-3.5 rounded-xl focus:border-[#2FA4A9] focus:ring-1 focus:ring-[#2FA4A9] focus:outline-none transition-colors shadow-sm"
               />
             </div>
 
@@ -187,7 +187,7 @@ export default function RegisterPage() {
               type="submit" 
               disabled={isLoading}
               className={`w-full text-white py-4 rounded-xl font-bold text-lg transition-all shadow-lg mt-4 flex items-center justify-center gap-2 group disabled:opacity-70 ${
-                role === 'consultant' ? 'bg-[#0D9488] hover:bg-[#0f766d] shadow-[#0D9488]/20' : 'bg-[#1A1A1A] hover:bg-black shadow-black/10'
+                role === 'consultant' ? 'bg-[#0D9488] hover:bg-[#0f766d] shadow-[#0D9488]/20' : 'bg-[#0F2A44] hover:bg-black shadow-black/10'
               }`}
             >
               {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Construct Account"}
@@ -204,7 +204,7 @@ export default function RegisterPage() {
           {/* Footer */}
           <p className="text-center text-gray-500 mt-8">
             Already have an account?{' '}
-            <Link href="/login" className="text-[#C29967] font-bold hover:underline">
+            <Link href="/login" className="text-[#2FA4A9] font-bold hover:underline">
               Sign in
             </Link>
           </p>
@@ -212,9 +212,9 @@ export default function RegisterPage() {
       </div>
 
       {/* RIGHT SIDE: Branding (Hidden on mobile) */}
-      <div className="hidden lg:flex relative bg-[#1A1A1A] items-center justify-center p-12 overflow-hidden">
+      <div className="hidden lg:flex relative bg-[#0F2A44] items-center justify-center p-12 overflow-hidden">
         {/* Subtle glow effect */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#C29967]/10 rounded-full blur-[100px]"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#2FA4A9]/10 rounded-full blur-[100px]"></div>
         
         <div className="relative z-10 w-full max-w-xl">
            <div className="grid grid-cols-2 gap-6 relative">
@@ -232,7 +232,7 @@ export default function RegisterPage() {
              </div>
              
              <div className="bg-white/5 border border-white/10 p-8 rounded-3xl backdrop-blur-md transform translate-y-8 hover:translate-y-0 transition-transform duration-700 delay-100">
-                <ShieldCheck className="w-8 h-8 text-[#C29967] mb-4" />
+                <ShieldCheck className="w-8 h-8 text-[#2FA4A9] mb-4" />
                 <h3 className="text-white font-bold mb-2">Verified Profiles</h3>
                 <p className="text-white/50 text-sm">Every consultant is authenticated against the CICC registry hourly.</p>
              </div>

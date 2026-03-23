@@ -56,7 +56,7 @@ export default function CountrySelect({ value, onChange, className = "", placeho
             {/* Mobile Handle & Header */}
             <div className="w-full flex flex-col items-center pt-3 pb-2 md:hidden shrink-0">
               <div className="w-12 h-1.5 bg-gray-200 rounded-full mb-3" />
-              <h3 className="font-bold text-[#1A1A1A] text-lg">Select Country</h3>
+              <h3 className="font-bold text-[#1A1F2B] text-lg">Select Country</h3>
             </div>
             
             <div className="p-4 md:p-3 border-b border-gray-100 bg-gray-50/30 shrink-0">
@@ -67,7 +67,7 @@ export default function CountrySelect({ value, onChange, className = "", placeho
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search country..."
-                  className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-3 md:py-2 text-base md:text-sm focus:outline-none focus:border-[#C29967] focus:ring-1 focus:ring-[#C29967] transition-all shadow-sm"
+                  className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-3 md:py-2 text-base md:text-sm focus:outline-none focus:border-[#2FA4A9] focus:ring-1 focus:ring-[#2FA4A9] transition-all shadow-sm"
                   autoFocus
                 />
               </div>
@@ -87,7 +87,7 @@ export default function CountrySelect({ value, onChange, className = "", placeho
                         setSearch("");
                       }}
                       className={`w-full text-left px-4 py-3.5 md:py-2.5 rounded-xl flex items-center justify-between transition-colors ${
-                        value === country ? "bg-[#C29967]/10 text-[#C29967] font-bold border border-[#C29967]/20" : "text-gray-700 hover:bg-white hover:shadow-sm border border-transparent"
+                        value === country ? "bg-[#2FA4A9]/10 text-[#2FA4A9] font-bold border border-[#2FA4A9]/20" : "text-gray-700 hover:bg-white hover:shadow-sm border border-transparent"
                       }`}
                     >
                       <span className="text-base md:text-sm">{country}</span>

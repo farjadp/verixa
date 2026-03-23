@@ -34,10 +34,10 @@ export default function PlatformSettingsClient({
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between bg-[#1A1A1A] text-white p-8 rounded-3xl shadow-2xl relative overflow-hidden border border-white/10">
+      <div className="flex items-center justify-between bg-[#0F2A44] text-white p-8 rounded-3xl shadow-2xl relative overflow-hidden border border-white/10">
         <div className="relative z-10 w-full flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-serif text-[#C29967] mb-2 flex items-center gap-3">
+            <h1 className="text-3xl font-serif text-[#2FA4A9] mb-2 flex items-center gap-3">
               <Settings className="w-8 h-8 text-white relative top-0.5" />
               Platform Configuration Engine
             </h1>
@@ -46,7 +46,7 @@ export default function PlatformSettingsClient({
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="hidden lg:flex items-center gap-2 bg-[#C29967] hover:bg-[#a88252] text-white px-8 py-4 rounded-xl font-bold transition-colors disabled:opacity-50"
+            className="hidden lg:flex items-center gap-2 bg-[#2FA4A9] hover:bg-[#a88252] text-white px-8 py-4 rounded-xl font-bold transition-colors disabled:opacity-50"
           >
             {isSaving ? <span className="animate-spin text-white">◒</span> : <Save className="w-5 h-5" />}
             {isSaving ? "Synchronizing..." : "Save Master Config"}
@@ -58,7 +58,7 @@ export default function PlatformSettingsClient({
         
         {/* NAV TABS (Future Expandable) */}
         <div className="lg:col-span-1 space-y-2">
-           <button className="w-full flex items-center gap-3 p-4 bg-white border border-[#C29967] text-[#C29967] rounded-2xl font-bold shadow-sm">
+           <button className="w-full flex items-center gap-3 p-4 bg-white border border-[#2FA4A9] text-[#2FA4A9] rounded-2xl font-bold shadow-sm">
              <Layout className="w-5 h-5" /> Front-Page UX
            </button>
            <button className="w-full flex items-center gap-3 p-4 hover:bg-white border border-transparent text-gray-500 rounded-2xl font-medium transition-colors cursor-not-allowed opacity-50">
@@ -78,9 +78,9 @@ export default function PlatformSettingsClient({
         {/* SETTINGS PANELS */}
         <div className="lg:col-span-3 space-y-8">
           
-          <div className="bg-white p-8 rounded-3xl border border-[#f5ecd8] shadow-sm">
-            <h2 className="text-xl font-bold text-[#1A1A1A] mb-6 flex items-center gap-2">
-              <ExternalLink className="w-5 h-5 text-[#C29967]" /> SEO Article Hub Limits
+          <div className="bg-white p-8 rounded-3xl border border-[#e5e7eb] shadow-sm">
+            <h2 className="text-xl font-bold text-[#1A1F2B] mb-6 flex items-center gap-2">
+              <ExternalLink className="w-5 h-5 text-[#2FA4A9]" /> SEO Article Hub Limits
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
@@ -92,7 +92,7 @@ export default function PlatformSettingsClient({
                   max="50"
                   value={formData.blogWidgetTopCount}
                   onChange={(e) => setFormData(f => ({...f, blogWidgetTopCount: e.target.value}))}
-                  className="w-full border-b-2 border-gray-200 focus:border-[#C29967] focus:outline-none py-3 text-[#1A1A1A] font-medium transition-colors bg-transparent"
+                  className="w-full border-b-2 border-gray-200 focus:border-[#2FA4A9] focus:outline-none py-3 text-[#1A1F2B] font-medium transition-colors bg-transparent"
                   placeholder="e.g. 5"
                 />
                 <p className="text-xs text-gray-400 mt-2">Maximum elements fetched dynamically into the Top Rated constraint.</p>
@@ -106,7 +106,7 @@ export default function PlatformSettingsClient({
                   max="50"
                   value={formData.blogWidgetRandomCount}
                   onChange={(e) => setFormData(f => ({...f, blogWidgetRandomCount: e.target.value}))}
-                  className="w-full border-b-2 border-gray-200 focus:border-[#C29967] focus:outline-none py-3 text-[#1A1A1A] font-medium transition-colors bg-transparent"
+                  className="w-full border-b-2 border-gray-200 focus:border-[#2FA4A9] focus:outline-none py-3 text-[#1A1F2B] font-medium transition-colors bg-transparent"
                   placeholder="e.g. 5"
                 />
                 <p className="text-xs text-gray-400 mt-2">Maximum elements shuffled organically into the Discovery limit container.</p>

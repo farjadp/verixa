@@ -49,16 +49,16 @@ export default async function LeadsInboxPage() {
       
       {/* HEADER */}
       <div>
-        <h1 className="text-2xl font-bold font-serif text-[#1A1A1A]">Leads & Inbox</h1>
+        <h1 className="text-2xl font-bold font-serif text-[#1A1F2B]">Leads & Inbox</h1>
         <p className="text-gray-500 text-sm mt-1">Manage your incoming consultation requests and messages.</p>
       </div>
 
-      <div className="bg-white rounded-3xl border border-[#f5ecd8] shadow-sm overflow-hidden flex flex-col min-h-[500px]">
+      <div className="bg-white rounded-3xl border border-[#e5e7eb] shadow-sm overflow-hidden flex flex-col min-h-[500px]">
         
         {/* INBOX TABS */}
-        <div className="border-b border-[#f5ecd8] bg-[#FDFCFB] px-6 py-4 flex gap-6">
-           <button className="text-sm font-bold text-[#1A1A1A] border-b-2 border-[#1A1A1A] pb-4 -mb-4">
-             Booking Requests <span className="ml-2 bg-[#C29967] text-white px-2 py-0.5 rounded-full text-[10px]">{pendingCount}</span>
+        <div className="border-b border-[#e5e7eb] bg-[#ffffff] px-6 py-4 flex gap-6">
+           <button className="text-sm font-bold text-[#1A1F2B] border-b-2 border-[#0F2A44] pb-4 -mb-4">
+             Booking Requests <span className="ml-2 bg-[#2FA4A9] text-white px-2 py-0.5 rounded-full text-[10px]">{pendingCount}</span>
            </button>
            <button className="text-sm font-bold text-gray-400 hover:text-gray-700 transition-colors pb-4 -mb-4">
              Messages
@@ -75,7 +75,7 @@ export default async function LeadsInboxPage() {
               <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mb-4">
                  <Inbox className="w-8 h-8 text-gray-300" />
               </div>
-              <h3 className="font-bold text-[#1A1A1A] mb-1">Your inbox is empty</h3>
+              <h3 className="font-bold text-[#1A1F2B] mb-1">Your inbox is empty</h3>
               <p className="text-sm text-gray-500 max-w-sm">When clients request a consultation from your profile, it will appear here.</p>
             </div>
           ) : (
@@ -97,7 +97,7 @@ export default async function LeadsInboxPage() {
                   return (
                   <tr key={booking.id} className="hover:bg-gray-50/50 transition-colors group">
                     <td className="py-5 pr-4">
-                      <p className="font-bold text-[#1A1A1A]">{booking.userFirstName} {booking.userLastName}</p>
+                      <p className="font-bold text-[#1A1F2B]">{booking.userFirstName} {booking.userLastName}</p>
                       <p className="text-xs text-gray-500 mt-0.5">{booking.userEmail}</p>
                       {booking.userPhone && <p className="text-xs text-gray-400">{booking.userPhone}</p>}
                       {hasSharedProfile && <ClientDossierModal clientProfile={clientProfile} />}

@@ -33,13 +33,13 @@ export default async function ClientProfilePage() {
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-8">
       <div>
-        <h1 className="text-3xl font-serif font-bold text-[#1A1A1A]">Immigration Profile</h1>
+        <h1 className="text-3xl font-serif font-bold text-[#1A1F2B]">Immigration Profile</h1>
         <p className="text-gray-500 mt-2">
           Your immigration resume. Providing this information helps us recommend the best consultants for your specific case and saves time during your actual consultation sessions.
         </p>
       </div>
 
-      <div className="bg-white rounded-[32px] border border-[#f5ecd8] p-8 shadow-sm">
+      <div className="bg-white rounded-[32px] border border-[#e5e7eb] p-8 shadow-sm">
          <ClientProfileForm initialData={user.clientProfile} />
       </div>
     </div>

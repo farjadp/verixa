@@ -25,13 +25,13 @@ async function logEmail(to: string, subject: string, type: string, status: "SENT
 // ==========================================
 export async function sendClientReceiptEmail(to: string, data: any) {
   const html = `
-    <div style="font-family: -apple-system, system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px; color: #1A1A1A; border: 1px solid #EAEAEA; border-radius: 12px;">
+    <div style="font-family: -apple-system, system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px; color: #0F2A44; border: 1px solid #EAEAEA; border-radius: 12px;">
       <div style="text-align: center; margin-bottom: 32px;">
         <h1 style="font-size: 24px; font-weight: 800; margin: 0;">Your booking request has been sent</h1>
         <p style="color: #F97316; font-size: 14px; font-weight: bold; margin-top: 8px; text-transform: uppercase;">Status: Pending</p>
       </div>
       
-      <div style="background: #FDFCFB; border: 1px solid #F6F3F0; padding: 24px; border-radius: 8px; margin-bottom: 32px;">
+      <div style="background: #ffffff; border: 1px solid #F5F7FA; padding: 24px; border-radius: 8px; margin-bottom: 32px;">
         <p style="margin: 0 0 16px 0;"><strong>Consultant:</strong> ${data.consultantName}</p>
         <p style="margin: 0 0 16px 0;"><strong>Service:</strong> ${data.serviceNeeded || 'Consultation'}</p>
         <p style="margin: 0 0 16px 0;"><strong>Proposed Time:</strong> ${new Date(data.scheduledStart).toLocaleString()}</p>
@@ -48,7 +48,7 @@ export async function sendClientReceiptEmail(to: string, data: any) {
       </div>
 
       <div style="text-align: center;">
-        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/client/bookings/${data.bookingId}" style="display: inline-block; background: #1A1A1A; color: #FFFFFF; font-weight: bold; text-decoration: none; padding: 14px 28px; border-radius: 8px;">View My Booking</a>
+        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/client/bookings/${data.bookingId}" style="display: inline-block; background: #0F2A44; color: #FFFFFF; font-weight: bold; text-decoration: none; padding: 14px 28px; border-radius: 8px;">View My Booking</a>
       </div>
     </div>
   `;
@@ -109,14 +109,14 @@ export async function sendEmail({
 
 const baseStyles = `
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  color: #1A1A1A;
+  color: #0F2A44;
   line-height: 1.6;
 `;
 
 const buttonStyle = `
   display: inline-block;
   padding: 12px 24px;
-  background-color: #1A1A1A;
+  background-color: #0F2A44;
   color: #FFFFFF;
   text-decoration: none;
   border-radius: 8px;
@@ -128,7 +128,7 @@ const buttonStyle = `
 export async function sendNewBookingEmail(consultantEmail: string, data: any) {
   const html = `
   <div style="${baseStyles}">
-    <h2 style="color: #1A1A1A;">New Booking Request</h2>
+    <h2 style="color: #0F2A44;">New Booking Request</h2>
     <p>You have received a new consultation request from <strong>${data.userFirstName} ${data.userLastName}</strong>.</p>
     
     <div style="background-color: #F8F9FA; padding: 16px; border-radius: 8px; margin: 16px 0;">
@@ -155,7 +155,7 @@ export async function sendNewBookingEmail(consultantEmail: string, data: any) {
 export async function sendBookingCancelledEmail(email: string, role: "CLIENT" | "CONSULTANT", data: any) {
   const html = `
   <div style="${baseStyles}">
-    <h2 style="color: #1A1A1A;">Booking Cancelled</h2>
+    <h2 style="color: #0F2A44;">Booking Cancelled</h2>
     <p>The scheduled consultation for <strong>${new Date(data.scheduledStart).toLocaleString()}</strong> has been cancelled.</p>
     
     <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard" style="${buttonStyle}">View Dashboard</a>
@@ -174,7 +174,7 @@ export async function sendBookingCancelledEmail(email: string, role: "CLIENT" | 
 export async function sendBookingConfirmedEmail(clientEmail: string, data: any) {
   const html = `
   <div style="${baseStyles}">
-    <h2 style="color: #1A1A1A;">Booking Confirmed!</h2>
+    <h2 style="color: #0F2A44;">Booking Confirmed!</h2>
     <p>Your consultation request has been confirmed by the consultant.</p>
     
     <div style="background-color: #F8F9FA; padding: 16px; border-radius: 8px; margin: 16px 0;">

@@ -28,7 +28,7 @@ export default async function ActionableQueues() {
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       
       {/* 1. Pending Verifications (Claims) */}
-      <div className="bg-[#1A1A1A] border border-orange-500/20 rounded-3xl p-5 shadow-2xl relative flex flex-col">
+      <div className="bg-[#0F2A44] border border-orange-500/20 rounded-3xl p-5 shadow-2xl relative flex flex-col">
         <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
           <ShieldAlert className="w-5 h-5 text-orange-400" />
           <h3 className="text-white font-bold font-serif text-sm">Verifications Awaiting</h3>
@@ -56,7 +56,7 @@ export default async function ActionableQueues() {
       </div>
 
       {/* 2. Flagged / Pending Reviews */}
-      <div className="bg-[#1A1A1A] border border-red-500/20 rounded-3xl p-5 shadow-2xl relative flex flex-col">
+      <div className="bg-[#0F2A44] border border-red-500/20 rounded-3xl p-5 shadow-2xl relative flex flex-col">
         <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
           <FileWarning className="w-5 h-5 text-red-500" />
           <h3 className="text-white font-bold font-serif text-sm">Review Moderation</h3>
@@ -84,7 +84,7 @@ export default async function ActionableQueues() {
       </div>
 
       {/* 3. Stuck Bookings */}
-      <div className="bg-[#1A1A1A] border border-yellow-500/20 rounded-3xl p-5 shadow-2xl relative flex flex-col">
+      <div className="bg-[#0F2A44] border border-yellow-500/20 rounded-3xl p-5 shadow-2xl relative flex flex-col">
         <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
           <Clock className="w-5 h-5 text-yellow-500" />
           <h3 className="text-white font-bold font-serif text-sm">Stuck / Unanswered Bookings</h3>

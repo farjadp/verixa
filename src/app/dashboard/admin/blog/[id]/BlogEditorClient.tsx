@@ -77,17 +77,17 @@ export default function BlogEditorClient({ initialPost, isNew }: { initialPost: 
   };
 
   return (
-    <div className="w-full flex flex-col h-full bg-[#111111] border border-gray-800 rounded-xl overflow-hidden shadow-2xl relative">
+    <div className="w-full flex flex-col h-full bg-[#0F2A44] border border-gray-800 rounded-xl overflow-hidden shadow-2xl relative">
       
       {/* HEADER */}
-      <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-[#161616] shrink-0">
+      <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-[#0F2A44] shrink-0">
         <div className="flex items-center gap-4">
           <Link href="/dashboard/admin/blog" className="p-2 bg-gray-900 border border-gray-800 hover:bg-gray-800 text-gray-400 hover:text-white rounded-lg transition-colors">
              <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
             <h2 className="text-sm font-bold text-gray-300 uppercase tracking-widest flex items-center gap-2">
-              <LayoutTemplate className="w-4 h-4 text-[#C29967]" />
+              <LayoutTemplate className="w-4 h-4 text-[#2FA4A9]" />
               {isNew ? "Create New Post" : "Edit Publication"}
             </h2>
           </div>
@@ -113,7 +113,7 @@ export default function BlogEditorClient({ initialPost, isNew }: { initialPost: 
           <button 
             onClick={handleSave} 
             disabled={isSaving}
-            className="bg-[#C29967] hover:bg-[#b08856] text-white px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors disabled:opacity-50"
+            className="bg-[#2FA4A9] hover:bg-[#258d92] text-white px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors disabled:opacity-50"
           >
             <Save className="w-4 h-4" /> {isSaving ? "Saving..." : "Save Content"}
           </button>
@@ -138,7 +138,7 @@ export default function BlogEditorClient({ initialPost, isNew }: { initialPost: 
                   name="title"
                   value={formData.title} 
                   onChange={handleChange}
-                  className="w-full bg-[#1A1A1A] border border-gray-800 rounded-lg p-3 text-white text-lg font-bold font-serif focus:outline-none focus:border-[#C29967] transition-colors"
+                  className="w-full bg-[#0F2A44] border border-gray-800 rounded-lg p-3 text-white text-lg font-bold font-serif focus:outline-none focus:border-[#2FA4A9] transition-colors"
                   placeholder="How to Choose a Licensed Immigration Consultant (2026 Guide)"
                 />
              </div>
@@ -157,7 +157,7 @@ export default function BlogEditorClient({ initialPost, isNew }: { initialPost: 
         {/* RIGHT COLUMN: SEO & METADATA SETTINGS */}
         <div className="w-full lg:w-[400px] shrink-0 space-y-6">
            
-           <div className="bg-[#161616] border border-gray-800 p-5 rounded-xl space-y-5">
+           <div className="bg-[#0F2A44] border border-gray-800 p-5 rounded-xl space-y-5">
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-800 pb-3">Publication Data</h3>
               
               <div>
@@ -167,7 +167,7 @@ export default function BlogEditorClient({ initialPost, isNew }: { initialPost: 
                   name="slug"
                   value={formData.slug} 
                   onChange={handleChange}
-                  className="w-full bg-[#1A1A1A] border border-gray-800 rounded-lg p-2.5 text-gray-300 text-sm focus:outline-none focus:border-[#C29967]"
+                  className="w-full bg-[#0F2A44] border border-gray-800 rounded-lg p-2.5 text-gray-300 text-sm focus:outline-none focus:border-[#2FA4A9]"
                   placeholder="how-to-choose-an-rcic"
                 />
              </div>
@@ -178,7 +178,7 @@ export default function BlogEditorClient({ initialPost, isNew }: { initialPost: 
                   name="category"
                   value={formData.category} 
                   onChange={handleChange}
-                  className="w-full bg-[#1A1A1A] border border-gray-800 rounded-lg p-2.5 text-gray-300 text-sm focus:outline-none focus:border-[#C29967] appearance-none"
+                  className="w-full bg-[#0F2A44] border border-gray-800 rounded-lg p-2.5 text-gray-300 text-sm focus:outline-none focus:border-[#2FA4A9] appearance-none"
                 >
                    {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
@@ -191,13 +191,13 @@ export default function BlogEditorClient({ initialPost, isNew }: { initialPost: 
                   name="coverImage"
                   value={formData.coverImage} 
                   onChange={handleChange}
-                  className="w-full bg-[#1A1A1A] border border-gray-800 rounded-lg p-2.5 text-gray-300 text-sm focus:outline-none focus:border-[#C29967]"
+                  className="w-full bg-[#0F2A44] border border-gray-800 rounded-lg p-2.5 text-gray-300 text-sm focus:outline-none focus:border-[#2FA4A9]"
                   placeholder="https://example.com/image.jpg"
                 />
              </div>
            </div>
 
-           <div className="bg-[#161616] border border-gray-800 p-5 rounded-xl space-y-5">
+           <div className="bg-[#0F2A44] border border-gray-800 p-5 rounded-xl space-y-5">
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-800 pb-3">SEO Override Layer</h3>
               <p className="text-[11px] text-gray-500 leading-relaxed -mt-1">Metadata is required. This dictates how Google AI and ChatGPT parse your insights.</p>
               
@@ -208,7 +208,7 @@ export default function BlogEditorClient({ initialPost, isNew }: { initialPost: 
                   value={formData.summary} 
                   onChange={handleChange}
                   rows={3}
-                  className="w-full bg-[#1A1A1A] border border-gray-800 rounded-lg p-2.5 text-gray-300 text-sm focus:outline-none focus:border-[#C29967] resize-none"
+                  className="w-full bg-[#0F2A44] border border-gray-800 rounded-lg p-2.5 text-gray-300 text-sm focus:outline-none focus:border-[#2FA4A9] resize-none"
                   placeholder="Quick answer for Google snippet..."
                 />
              </div>
@@ -220,7 +220,7 @@ export default function BlogEditorClient({ initialPost, isNew }: { initialPost: 
                   name="seoTitle"
                   value={formData.seoTitle} 
                   onChange={handleChange}
-                  className="w-full bg-[#1A1A1A] border border-gray-800 rounded-lg p-2.5 text-gray-300 text-sm focus:outline-none focus:border-[#C29967]"
+                  className="w-full bg-[#0F2A44] border border-gray-800 rounded-lg p-2.5 text-gray-300 text-sm focus:outline-none focus:border-[#2FA4A9]"
                   placeholder="Defaults to H1 Title"
                 />
              </div>
@@ -232,7 +232,7 @@ export default function BlogEditorClient({ initialPost, isNew }: { initialPost: 
                   value={formData.seoDesc} 
                   onChange={handleChange}
                   rows={2}
-                  className="w-full bg-[#1A1A1A] border border-gray-800 rounded-lg p-2.5 text-gray-300 text-sm focus:outline-none focus:border-[#C29967] resize-none"
+                  className="w-full bg-[#0F2A44] border border-gray-800 rounded-lg p-2.5 text-gray-300 text-sm focus:outline-none focus:border-[#2FA4A9] resize-none"
                   placeholder="Defaults to Summary"
                 />
              </div>

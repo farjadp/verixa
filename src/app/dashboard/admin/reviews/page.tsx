@@ -32,7 +32,7 @@ export default async function AdminReviewsPage() {
         </div>
       </div>
 
-      <div className="bg-[#1A1A1A] border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
+      <div className="bg-[#0F2A44] border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-[#222] text-gray-400 text-xs uppercase tracking-wider border-b border-gray-800">

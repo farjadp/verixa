@@ -39,10 +39,10 @@ export default async function AdminCmsHubPage() {
     <div className="p-4 md:p-8 max-w-[1600px] mx-auto min-h-screen flex flex-col">
       <div className="mb-6 shrink-0 flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-serif font-black text-white tracking-tight flex items-center gap-3">
+          <h1 className="text-3xl font-serif font-black text-gray-900 tracking-tight flex items-center gap-3">
             Unified Content Hub <Layers className="w-6 h-6 text-[#C29967]" />
           </h1>
-          <p className="text-gray-400 mt-1 font-light text-sm max-w-2xl">
+          <p className="text-gray-600 mt-1 font-light text-sm max-w-2xl">
             Command Center for all SEO Articles, Social Configurations, Categories, and AI Generation workflows.
           </p>
         </div>

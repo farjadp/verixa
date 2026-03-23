@@ -1,0 +1,302 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  hashedPassword String?
+  role          String    @default("USER") // USER, CONSULTANT, ADMIN
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  savedProfiles SavedProfile[]
+  reviews       Review[]
+  clientProfile     ClientProfile?
+  consultantProfile ConsultantProfile?
+  systemLogs        SystemLog[]
+  tickets           Ticket[]
+  sentMessages      TicketMessage[]
+  notifications     Notification[]
+}
+
+model ConsultantProfile {
+  id                        String   @id @default(cuid())
+  userId                    String?  @unique
+  user                      User?    @relation(fields: [userId], references: [id])
+  fullName                  String
+  slug                      String   @unique
+  licenseNumber             String   @unique
+  status                    String
+  company                   String?
+  city                      String?
+  province                  String?
+  country                   String?
+  timezone                  String   @default("America/Toronto")
+  bookingEnabled            Boolean  @default(true)
+  defaultMeetingMethod      String?
+  defaultMeetingLink        String?
+  customMeetingInstructions String?
+  languages                 String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  consultationTypes  ConsultationType[]
+  weeklyAvailability WeeklyAvailability[]
+  bookingSettings    BookingSettings?
+  bookings           Booking[]
+  savedBy            SavedProfile[]
+  reviews            Review[]
+  notifications      Notification[]
+}
+
+model ConsultationType {
+  id                  String   @id @default(cuid())
+  consultantProfileId String
+  title               String
+  description         String?
+  durationMinutes     Int
+  priceCents          Int
+  communicationType   String   // VIDEO, PHONE, IN_PERSON
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  profile ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+}
+
+model WeeklyAvailability {
+  id                  String  @id @default(cuid())
+  consultantProfileId String
+  dayOfWeek           Int     // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  startTime           String  // e.g. "09:00"
+  endTime             String  // e.g. "17:00"
+  isActive            Boolean @default(true)
+
+  profile ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+}
+
+model BookingSettings {
+  id                  String  @id @default(cuid())
+  consultantProfileId String  @unique
+  bufferMinutes       Int     @default(15)
+  minimumNoticeHours  Int     @default(24)
+  maxBookingsPerDay   Int?
+  bookingWindowDays   Int?    @default(60)
+  autoConfirm         Boolean @default(false)
+
+  // Phase 22: Meeting Delivery
+  defaultMeetingMethod       String? @default("VIDEO")
+  defaultMeetingProvider     String? @default("MANUAL")
+  defaultMeetingLink         String?
+  defaultMeetingInstructions String?
+
+  profile ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+}
+
+model Booking {
+  id                           String   @id @default(cuid())
+  consultantProfileId          String
+  consultationTypeId           String
+  status                       String   @default("PENDING") // PENDING, CONFIRMED, DECLINED, CANCELLED, COMPLETED, NO_SHOW
+  scheduledStart               DateTime
+  scheduledEnd                 DateTime
+  
+  // Client Details
+  userFirstName                String
+  userLastName                 String
+  userEmail                    String
+  userPhone                    String?
+  country                      String?
+  preferredLanguage            String?
+  serviceNeeded                String?
+  urgency                      String?
+  preferredCommunicationMethod String?
+  caseDescription              String?
+  
+  // Fulfillment
+  meetingMethod                String?
+  meetingProvider              String? @default("MANUAL")
+  meetingLink                  String?
+  meetingInstructions          String?
+  consultantNotes              String?
+  providerMetadata             String?
+  
+  // Financials
+  platformFeeCents             Int      @default(0)
+  grossAmountCents             Int      @default(0)
+  netAmountCents               Int      @default(0)
+  
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  profile ConsultantProfile @relation(fields: [consultantProfileId], references: [id])
+  type    ConsultationType  @relation(fields: [consultationTypeId], references: [id])
+  events  BookingEventLog[]
+  review  Review?
+}
+
+model BookingEventLog {
+  id        String   @id @default(cuid())
+  bookingId String
+  action    String
+  actorType String   // USER, CONSULTANT, SYSTEM
+  notes     String?
+  createdAt DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id                  String   @id @default(cuid())
+  userId              String
+  consultantProfileId String
+  bookingId           String?  @unique
+  rating              Int
+  comment             String?
+  status              String   @default("PUBLISHED") // PUBLISHED, PENDING_MODERATION
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+  booking Booking?          @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+}
+
+model SavedProfile {
+  id                  String   @id @default(cuid())
+  userId              String
+  consultantProfileId String
+  createdAt           DateTime @default(now())
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, consultantProfileId])
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model ClientProfile {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  nationality         String?
+  languages           String?  // e.g., "English, Persian"
+  currentCountry      String?
+  immigrationGoals    String?  // e.g., "Express Entry, Study Permit"
+  educationLevel      String?
+  maritalStatus       String?
+  age                 Int?
+  shareWithConsultant Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SystemLog {
+  id        String   @id @default(cuid())
+  userId    String? 
+  role      String?  // ADMIN, CONSULTANT, CLIENT, SYSTEM
+  action    String   // e.g., USER_LOGIN, BOOKING_CREATED
+  details   String?  // JSON serialized string for extra data
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Ticket {
+  id          String   @id @default(cuid())
+  userId      String
+  subject     String
+  category    String   // e.g., "General", "Dispute", "Technical", "Billing"
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  priority    String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    TicketMessage[]
+}
+
+model TicketMessage {
+  id          String   @id @default(cuid())
+  ticketId    String
+  senderId    String
+  content     String
+  isInternal  Boolean  @default(false) // If true, only visible to admins
+  createdAt   DateTime @default(now())
+
+  ticket      Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender      User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id              String   @id @default(cuid())
+  userId          String?
+  consultantId    String?
+  type            String   // e.g., "NEW_BOOKING", "BOOKING_CANCELLED", "BOOKING_CONFIRMED"
+  title           String
+  message         String
+  relatedEntityId String?  // e.g., bookingId
+  isRead          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  user            User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  consultant      ConsultantProfile? @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  to        String
+  subject   String?
+  type      String   // e.g., "NEW_BOOKING", "REMINDER"
+  status    String   // e.g., "SENT", "FAILED"
+  error     String?
+  sentAt    DateTime @default(now())
+}

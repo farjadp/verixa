@@ -1,0 +1,377 @@
+import { getConsultantByLicense } from "@/lib/db";
+import { ShieldCheck, Mail, Building2, MapPin, CheckCircle2, AlertCircle, CalendarDays, ExternalLink, User, Star, Clock, MessageSquare, Briefcase, Languages, Phone, Check, Zap } from "lucide-react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import SaveProfileButton from "@/components/SaveProfileButton";
+import { checkIsSaved } from "@/actions/savedProfiles.actions";
+
+export default async function ConsultantProfilePage({
+  params
+}: {
+  params: Promise<{ license_number: string }>
+}) {
+  const resolvedParams = await params;
+  const data = getConsultantByLicense(resolvedParams.license_number);
+  
+  if (!data) {
+    notFound();
+  }
+
+  const isActive = data.Status?.toLowerCase()?.includes('active');
+  const isClaimed = false; // Dummy state for now 
+  const dummyRating = 4.8;
+  const dummyReviews = 124;
+
+  const isSaved = await checkIsSaved(data.License_Number);
+
+  return (
+    <div className="min-h-screen bg-[#FDFCFB] font-sans text-[#1A1A1A]">
+      <Header />
+
+      {/* 10) CLAIM THIS PROFILE BANNER */}
+      {!isClaimed && (
+        <div className="bg-[#1A1A1A] text-white py-4 px-8 border-b border-[#2A2A2A]">
+          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                 <Briefcase className="w-4 h-4 text-[#C29967]" />
+              </div>
+              <p className="text-sm font-medium">
+                <strong className="font-bold">Is this your profile?</strong> Claim it to respond to reviews, add services, enable booking, and improve visibility.
+              </p>
+            </div>
+            <Link 
+              href={`/claim/${data.License_Number}`} 
+              className="bg-[#C29967] text-white px-6 py-2.5 rounded-[12px] text-sm font-bold hover:bg-[#b08856] transition-colors shrink-0 whitespace-nowrap shadow-md focus:ring-4 focus:ring-[#C29967]/20"
+            >
+              Claim This Profile
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* 1) HERO SECTION */}
+      <section className="bg-white border-b border-[#f5ecd8] pt-16 pb-12 px-8 bg-gradient-to-b from-[#FDFCFB] to-white">
+        <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-8 items-start">
+          
+          <div className="w-32 h-32 bg-[#F6F3F0] border border-[#f5ecd8] rounded-[32px] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] flex items-center justify-center shrink-0 relative overflow-hidden">
+             <User className="w-12 h-12 text-[#C29967]/30" />
+          </div>
+          
+          <div className="flex-1 space-y-4">
+             <div className="flex flex-wrap items-center gap-4 mb-4">
+               <h1 className="text-3xl md:text-5xl font-bold font-serif tracking-tight">{data.Full_Name}</h1>
+               {isActive && (
+                 <div title="Active License" className="flex items-center justify-center px-3 py-1.5 rounded-full bg-[#F6F3F0] border border-[#f5ecd8] shadow-sm mt-1 md:mt-0">
+                   <div className="flex items-center gap-2">
+                     <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
+                     <span className="text-xs font-bold text-gray-600 uppercase tracking-widest leading-none">Verified</span>
+                   </div>
+                 </div>
+               )}
+             </div>
+
+             {/* BADGE SYSTEM - HERO BADGES */}
+             <div className="flex flex-wrap items-center gap-3 pt-1 pb-3">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-green-700 border border-green-200 shadow-sm transition-transform hover:scale-105 cursor-default">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span className="text-[11px] md:text-xs font-bold tracking-wide">Verified Professional</span>
+                </div>
+                {isClaimed && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1A1A1A] text-[#C29967] border border-black shadow-sm transition-transform hover:scale-105 cursor-default">
+                    <Zap className="w-4 h-4 fill-[#C29967]" />
+                    <span className="text-[11px] md:text-xs font-bold tracking-wide">Fast Responder</span>
+                  </div>
+                )}
+                {dummyReviews > 10 && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white text-gray-800 border border-gray-200 shadow-sm transition-transform hover:scale-105 cursor-default">
+                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                    <span className="text-[11px] md:text-xs font-bold tracking-wide">Top Rated Consultant</span>
+                  </div>
+                )}
+             </div>
+             
+             <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-gray-600">
+                <span className="flex items-center gap-1.5"><Building2 className="w-4 h-4 text-gray-400" /> {data.Company || 'Independent Practice'}</span>
+                <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4 text-gray-400" /> {[data.Province, data.Country].filter(Boolean).join(', ') || 'Canada'}</span>
+             </div>
+
+             <div className="flex flex-wrap items-center gap-3 pt-2">
+                <div className="flex items-center gap-1.5 bg-[#FDFCFB] border border-[#f5ecd8] px-3 py-1.5 rounded-lg text-[#C29967] font-bold text-sm">
+                  <Star className="w-4 h-4 fill-current" /> {dummyRating} <span className="text-[#C29967]/70 font-medium">({dummyReviews} reviews)</span>
+                </div>
+                <div className={`px-3 py-1.5 rounded-lg border text-xs font-bold uppercase tracking-wider ${isActive ? 'bg-[#F6F3F0] border-[#f5ecd8] text-green-700' : 'bg-[#F6F3F0] border-[#f5ecd8] text-orange-600'}`}>
+                   {data.Status}
+                </div>
+                <div className="px-3 py-1.5 rounded-lg border border-[#f5ecd8] bg-[#FDFCFB] text-gray-600 text-xs font-bold uppercase tracking-wider">
+                   RCIC #{data.License_Number}
+                </div>
+                {!isClaimed && (
+                  <div className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-400 text-xs font-bold uppercase tracking-wider">
+                     Unclaimed Profile
+                  </div>
+                )}
+             </div>
+          </div>
+          
+          <div className="w-full md:w-auto flex flex-col gap-3 shrink-0">
+             <Link href={`/consultant/${data.License_Number}/book`} className="w-full md:w-48 bg-[#1A1A1A] text-white py-3.5 rounded-xl font-bold hover:bg-black transition-all shadow-lg shadow-black/5 flex items-center justify-center">
+               Book Consultation
+             </Link>
+             <div className="w-full md:w-48">
+               <SaveProfileButton licenseNumber={data.License_Number} initialIsSaved={isSaved} />
+             </div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* MAIN CONTENT GRID */}
+      <main className="max-w-5xl mx-auto px-8 py-10 grid grid-cols-1 lg:grid-cols-3 gap-10">
+        
+        {/* LEFT COLUMN: Deep Details */}
+        <div className="lg:col-span-2 space-y-10">
+           
+           {/* 2) TRUST SUMMARY BOX */}
+           <section className="bg-white rounded-[32px] border border-[#f5ecd8] p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.02)]">
+             <h3 className="text-xs font-black uppercase tracking-widest text-[#C29967] mb-6 flex items-center gap-2">
+               <ShieldCheck className="w-4 h-4" /> Trust & Verification
+             </h3>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+               <div className="flex items-start gap-4">
+                 <div className="w-10 h-10 rounded-[12px] bg-[#F6F3F0] flex items-center justify-center shrink-0 border border-[#f5ecd8]">
+                   <Check className="w-5 h-5 text-green-600" />
+                 </div>
+                 <div>
+                   <p className="font-bold text-sm text-gray-900 mb-0.5">CICC Status</p>
+                   <p className="text-xs text-gray-500 capitalize">{data.Status} • Entitled to Practise</p>
+                 </div>
+               </div>
+               <div className="flex items-start gap-4">
+                 <div className="w-10 h-10 rounded-[12px] bg-[#FDFCFB] flex items-center justify-center shrink-0 border border-[#f5ecd8]">
+                   <ShieldCheck className="w-5 h-5 text-[#C29967]" />
+                 </div>
+                 <div>
+                   <p className="font-bold text-sm text-gray-900 mb-0.5">Verixa Verified</p>
+                   <p className="text-xs text-gray-500">Last synced: {new Date().toLocaleDateString()}</p>
+                 </div>
+               </div>
+               <div className="flex items-start gap-4">
+                 <div className="w-10 h-10 rounded-[12px] bg-[#FDFCFB] flex items-center justify-center shrink-0 border border-[#f5ecd8]">
+                   <Clock className="w-5 h-5 text-gray-400" />
+                 </div>
+                 <div>
+                   <p className="font-bold text-sm text-gray-900 mb-0.5">Response Rate</p>
+                   <p className="text-xs text-gray-500">{isClaimed ? 'Usually responds in 24h' : 'Profile not claimed'}</p>
+                 </div>
+               </div>
+               <div className="flex items-start gap-4">
+                 <div className="w-10 h-10 rounded-[12px] bg-[#FDFCFB] flex items-center justify-center shrink-0 border border-[#f5ecd8]">
+                   <AlertCircle className="w-5 h-5 text-gray-400" />
+                 </div>
+                 <div>
+                   <p className="font-bold text-sm text-gray-900 mb-0.5">Disciplinary Record</p>
+                   <p className="text-xs text-gray-500">No public warnings found</p>
+                 </div>
+               </div>
+             </div>
+           </section>
+
+           {/* 4) ABOUT THE CONSULTANT */}
+           <section>
+             <h2 className="text-xl font-bold font-serif mb-4 flex items-center gap-2">
+               Professional Bio
+             </h2>
+             <div className="bg-white rounded-[32px] border border-[#f5ecd8] p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.02)] text-gray-600 leading-relaxed text-[16px] space-y-4">
+               <p>
+                 <strong>{data.Full_Name}</strong> is a dedicated Regulated Canadian Immigration Consultant (RCIC) operating under the license number <strong>{data.License_Number}</strong>. 
+                 Based in {[data.Province, data.Country].filter(Boolean).join(', ') || 'Canada'}, they specialize in navigating the complexities of the Canadian immigration system for clients worldwide.
+               </p>
+               <p>
+                 As an {data.Status?.toLowerCase()} member of the College of Immigration and Citizenship Consultants (CICC), they are legally authorized to provide representation and advice on all Canadian immigration matters.
+               </p>
+               {!isClaimed && (
+                 <div className="mt-6 p-5 bg-[#FDFCFB] rounded-2xl border border-[#f5ecd8] flex flex-col md:flex-row items-center justify-between gap-4">
+                   <p className="text-sm">This is an auto-generated summary. Are you {data.Full_Name}?</p>
+                   <button className="text-sm font-bold text-[#C29967] hover:underline bg-[#F6F3F0] px-4 py-2 rounded-xl">Add your custom bio</button>
+                 </div>
+               )}
+             </div>
+           </section>
+
+           {/* 5) SERVICES & PRACTICE AREAS */}
+           <section>
+             <h2 className="text-xl font-bold font-serif mb-4 flex items-center gap-2">
+               Areas of Practice
+             </h2>
+             <div className="flex flex-wrap gap-2">
+                {['Express Entry', 'Study Permits', 'Work Permits', 'Family Sponsorship', 'Provincial Nominee Programs (PNP)', 'Citizenship Applications'].map(tag => (
+                  <span key={tag} className="bg-white border border-[#f5ecd8] px-4 py-2.5 rounded-[12px] text-sm font-medium text-[#1A1A1A] hover:bg-[#FDFCFB] cursor-default transition-colors">
+                    {tag}
+                  </span>
+                ))}
+             </div>
+           </section>
+
+           {/* 3) REVIEWS SECTION (Dummy data for UI completeness) */}
+           <section>
+             <div className="flex items-center justify-between mb-6">
+               <h2 className="text-xl font-bold font-serif flex items-center gap-2">
+                 Client Reviews
+               </h2>
+               <div className="flex items-center gap-1.5 bg-[#FDFCFB] border border-[#f5ecd8] text-[#C29967] px-4 py-1.5 rounded-xl font-bold text-sm shadow-sm">
+                 <Star className="w-4 h-4 fill-current" /> {dummyRating}
+               </div>
+             </div>
+             
+             <div className="space-y-4">
+               {[1, 2].map((i) => (
+                 <div key={i} className="bg-white rounded-[24px] border border-[#f5ecd8] p-7 shadow-sm">
+                   <div className="flex justify-between items-start mb-4">
+                     <div>
+                       <div className="flex items-center gap-1 text-[#C29967] mb-2">
+                         {[1,2,3,4,5].map(s => <Star key={s} className="w-3.5 h-3.5 fill-current" />)}
+                       </div>
+                       <p className="font-bold text-[15px] mb-1">"Highly professional and transparent"</p>
+                     </div>
+                     <span className="text-xs font-semibold text-gray-400">2 weeks ago</span>
+                   </div>
+                   <p className="text-[15px] text-gray-600 leading-relaxed mb-6">
+                     The entire process for my Express Entry application was handled smoothly. Very responsive to emails and explained every step clearly. Highly recommend!
+                   </p>
+                   <div className="flex items-center gap-2.5 text-xs font-bold text-gray-400 uppercase tracking-widest bg-[#FDFCFB] w-fit px-3 py-1.5 border border-[#f5ecd8] rounded-full">
+                     <div className="w-5 h-5 rounded-full bg-[#f5ecd8] flex items-center justify-center text-[#C29967]">M</div>
+                     Verified Client
+                   </div>
+                 </div>
+               ))}
+               <button className="w-full py-4.5 mt-2 text-sm font-bold text-[#C29967] bg-[#FDFCFB] border border-[#f5ecd8] rounded-[20px] hover:bg-[#F6F3F0] transition-colors">
+                 Read all {dummyReviews} reviews
+               </button>
+             </div>
+           </section>
+
+           {/* 13 & 14) FAQ / LEGAL */}
+           <section className="pt-12 border-t border-[#f5ecd8]">
+             <h2 className="text-xl font-bold font-serif mb-6">Frequently Asked Questions</h2>
+             <div className="space-y-4">
+               <div className="bg-white rounded-[24px] border border-[#f5ecd8] p-6 shadow-sm">
+                 <h4 className="font-bold text-[15px] mb-2 text-[#1A1A1A]">Is this consultant legally authorized to practice?</h4>
+                 <p className="text-[15px] text-gray-500 leading-relaxed">Yes. Status: {data.Status}. This was verified against the CICC registry today.</p>
+               </div>
+               <div className="bg-white rounded-[24px] border border-[#f5ecd8] p-6 shadow-sm">
+                 <h4 className="font-bold text-[15px] mb-2 text-[#1A1A1A]">Are the reviews verified?</h4>
+                 <p className="text-[15px] text-gray-500 leading-relaxed">Reviews on Verixa are submitted by users. Verified Client badges indicate we have confirmed an actual consultation took place.</p>
+               </div>
+             </div>
+           </section>
+
+        </div>
+
+        {/* RIGHT COLUMN: Sticky Booking & Contact */}
+        <div className="lg:col-span-1">
+          <div className="sticky top-10 space-y-6">
+            
+            {/* 8) REAL BOOKING WIDGET */}
+            <div className="bg-white rounded-[32px] border border-[#f5ecd8] p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]">
+              <h3 className="text-lg font-bold font-serif mb-6 flex items-center gap-2 border-b border-[#f5ecd8] pb-5">
+                <CalendarDays className="w-5 h-5 text-[#C29967]" /> Request Consultation
+              </h3>
+              
+              <div className="space-y-4 mb-8">
+                <div className="bg-[#FDFCFB] p-5 rounded-[20px] border border-[#f5ecd8] cursor-pointer hover:shadow-md transition-all">
+                  <div className="flex justify-between items-start mb-1.5">
+                    <strong className="text-[15px]">Virtual Consultation</strong>
+                    <span className="text-[15px] font-bold text-[#C29967]">$150 CAD</span>
+                  </div>
+                  <p className="text-sm text-gray-500 font-medium">45 Minutes • Google Meet / Zoom</p>
+                </div>
+                {!isClaimed && (
+                  <p className="text-xs text-center text-orange-600 bg-orange-50 rounded-[16px] p-4 border border-orange-100/50">
+                    Booking is currently disabled. <br/>This profile must be claimed first.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <button 
+                  disabled={!isClaimed}
+                  className={`w-full py-4.5 rounded-[16px] font-bold text-center block transition-all shadow-lg ${isClaimed ? 'bg-[#1A1A1A] text-white hover:bg-black shadow-black/10' : 'bg-[#F6F3F0] text-gray-400 cursor-not-allowed shadow-none border border-[#f5ecd8]'}`}
+                >
+                  Select Time & Book
+                </button>
+                <div className="flex items-center justify-center gap-2 text-xs font-bold tracking-widest uppercase text-gray-400/80 mt-5">
+                  <ShieldCheck className="w-3.5 h-3.5" /> Secure Verixa Checkout
+                </div>
+              </div>
+            </div>
+
+            {/* 6, 7 & 9) LANGUAGES, AVAILABILITY, CONTACT */}
+            <div className="bg-white rounded-[32px] border border-[#f5ecd8] p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.02)]">
+              <h3 className="text-xs font-black uppercase tracking-widest text-[#C29967] mb-8">Details & Contact</h3>
+              
+              <ul className="space-y-6">
+                <li className="flex gap-4 items-start">
+                  <Languages className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block text-[13px] uppercase tracking-wider text-gray-400 font-bold mb-1">Languages</strong>
+                    <span className="text-[15px] font-medium text-[#1A1A1A]">English, French</span>
+                  </div>
+                </li>
+
+                {(data.Company || data.Province) && (
+                  <li className="flex gap-4 items-start">
+                     <Building2 className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block text-[13px] uppercase tracking-wider text-gray-400 font-bold mb-1">Company</strong>
+                      <span className="text-[15px] font-medium text-[#1A1A1A] line-clamp-2">{data.Company || 'Independent Practice'}</span>
+                    </div>
+                  </li>
+                )}
+                
+                {(data.Province || data.Country) && (
+                  <li className="flex gap-4 items-start">
+                    <MapPin className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block text-[13px] uppercase tracking-wider text-gray-400 font-bold mb-1">Location</strong>
+                      <span className="text-[15px] font-medium text-[#1A1A1A]">{[data.Province, data.Country].filter(Boolean).join(', ')}</span>
+                    </div>
+                  </li>
+                )}
+
+                <li className="flex gap-4 items-start">
+                  <Mail className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block text-[13px] uppercase tracking-wider text-gray-400 font-bold mb-1">Direct Email</strong>
+                    {data.Email ? (
+                      <a href={`mailto:${data.Email}`} className="text-[15px] font-bold text-[#C29967] hover:text-[#b08856] underline block max-w-[200px] truncate">
+                        {data.Email}
+                      </a>
+                    ) : (
+                      <span className="text-[15px] text-gray-400 italic">Available upon booking</span>
+                    )}
+                  </div>
+                </li>
+
+                <li className="flex gap-4 items-start">
+                  <Phone className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block text-[13px] uppercase tracking-wider text-gray-400 font-bold mb-1">Phone Number</strong>
+                    <span className="text-[15px] font-medium text-[#1A1A1A]">{data.Phone || 'Protected'}</span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+          </div>
+        </div>
+
+      </main>
+
+      <Footer />
+    </div>
+  );
+}

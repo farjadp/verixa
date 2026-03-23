@@ -1,0 +1,196 @@
+import { Resend } from 'resend';
+import { prisma } from './prisma';
+
+const resend = new Resend(process.env.RESEND_API_KEY || "re_dummy_key_for_dev");
+
+// Helper to log emails
+async function logEmail(to: string, subject: string, type: string, status: "SENT" | "FAILED", error?: string) {
+  try {
+    await prisma.emailLog.create({
+      data: {
+        to,
+        subject,
+        type,
+        status,
+        error
+      }
+    });
+  } catch (e) {
+    console.error("Failed to log email", e);
+  }
+}
+
+// ==========================================
+// 4. NEW BOOKING REQUEST (To Client: Receipt)
+// ==========================================
+export async function sendClientReceiptEmail(to: string, data: any) {
+  const html = `
+    <div style="font-family: -apple-system, system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px; color: #1A1A1A; border: 1px solid #EAEAEA; border-radius: 12px;">
+      <div style="text-align: center; margin-bottom: 32px;">
+        <h1 style="font-size: 24px; font-weight: 800; margin: 0;">Your booking request has been sent</h1>
+        <p style="color: #F97316; font-size: 14px; font-weight: bold; margin-top: 8px; text-transform: uppercase;">Status: Pending</p>
+      </div>
+      
+      <div style="background: #FDFCFB; border: 1px solid #F6F3F0; padding: 24px; border-radius: 8px; margin-bottom: 32px;">
+        <p style="margin: 0 0 16px 0;"><strong>Consultant:</strong> ${data.consultantName}</p>
+        <p style="margin: 0 0 16px 0;"><strong>Service:</strong> ${data.serviceNeeded || 'Consultation'}</p>
+        <p style="margin: 0 0 16px 0;"><strong>Proposed Time:</strong> ${new Date(data.scheduledStart).toLocaleString()}</p>
+        <p style="margin: 0;"><strong>Method:</strong> ${data.preferredCommunicationMethod || 'Online'}</p>
+      </div>
+
+      <div style="margin-bottom: 32px;">
+        <h3 style="font-size: 16px; font-weight: bold; margin-bottom: 12px;">What happens next?</h3>
+        <ol style="margin: 0; padding-left: 20px; color: #444; line-height: 1.6;">
+          <li style="margin-bottom: 8px;">The consultant will review your request shortly.</li>
+          <li style="margin-bottom: 8px;">You will receive an email once it is approved or declined.</li>
+          <li>If approved, you'll receive the meeting link to join the session.</li>
+        </ol>
+      </div>
+
+      <div style="text-align: center;">
+        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/client/bookings/${data.bookingId}" style="display: inline-block; background: #1A1A1A; color: #FFFFFF; font-weight: bold; text-decoration: none; padding: 14px 28px; border-radius: 8px;">View My Booking</a>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Booking Request Sent: ${data.consultantName}`,
+    html,
+    type: "BOOKING_RECEIPT_CLIENT"
+  });
+}
+
+// Generic Sender
+export async function sendEmail({
+  to,
+  subject,
+  html,
+  type
+}: {
+  to: string;
+  subject: string;
+  html: string;
+  type: string;
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[MAILER MOCK RUN] Sending ${type} to ${to}\nSubject: ${subject}`);
+    await logEmail(to, subject, type, "SENT");
+    return { success: true };
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'Verixa <notifications@verixa.io>',
+      to: [to],
+      subject: subject,
+      html: html,
+    });
+
+    if (error) {
+      console.error("Resend API Error:", error);
+      await logEmail(to, subject, type, "FAILED", JSON.stringify(error));
+      return { success: false, error };
+    }
+
+    await logEmail(to, subject, type, "SENT");
+    return { success: true, data };
+
+  } catch (error: any) {
+    console.error("Email Sending Exception:", error);
+    await logEmail(to, subject, type, "FAILED", error.message);
+    return { success: false, error };
+  }
+}
+
+// ------------------------------------------------------------------
+// TEMPLATES
+// ------------------------------------------------------------------
+
+const baseStyles = `
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #1A1A1A;
+  line-height: 1.6;
+`;
+
+const buttonStyle = `
+  display: inline-block;
+  padding: 12px 24px;
+  background-color: #1A1A1A;
+  color: #FFFFFF;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: bold;
+  margin-top: 24px;
+  margin-bottom: 24px;
+`;
+
+export async function sendNewBookingEmail(consultantEmail: string, data: any) {
+  const html = `
+  <div style="${baseStyles}">
+    <h2 style="color: #1A1A1A;">New Booking Request</h2>
+    <p>You have received a new consultation request from <strong>${data.userFirstName} ${data.userLastName}</strong>.</p>
+    
+    <div style="background-color: #F8F9FA; padding: 16px; border-radius: 8px; margin: 16px 0;">
+      <p style="margin: 0 0 8px 0;"><strong>Service:</strong> ${data.serviceNeeded || 'General Consultation'}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Requested Time:</strong> ${new Date(data.scheduledStart).toLocaleString()}</p>
+      <p style="margin: 0;"><strong>Short Case Summary:</strong> <br/> ${data.caseDescription || 'No description provided.'}</p>
+    </div>
+
+    <p>Please review and confirm or decline this request as soon as possible.</p>
+
+    <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/consultant/bookings" style="${buttonStyle}">Review & Respond</a>
+    
+    <p style="font-size: 12px; color: #6c757d;">This is an automated notification from Verixa.</p>
+  </div>`;
+
+  return sendEmail({
+    to: consultantEmail,
+    subject: `New booking request from ${data.userFirstName}`,
+    html,
+    type: "NEW_BOOKING_REQUEST"
+  });
+}
+
+export async function sendBookingCancelledEmail(email: string, role: "CLIENT" | "CONSULTANT", data: any) {
+  const html = `
+  <div style="${baseStyles}">
+    <h2 style="color: #1A1A1A;">Booking Cancelled</h2>
+    <p>The scheduled consultation for <strong>${new Date(data.scheduledStart).toLocaleString()}</strong> has been cancelled.</p>
+    
+    <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard" style="${buttonStyle}">View Dashboard</a>
+    
+    <p style="font-size: 12px; color: #6c757d;">This is an automated notification from Verixa.</p>
+  </div>`;
+
+  return sendEmail({
+    to: email,
+    subject: `Booking Cancelled - ${new Date(data.scheduledStart).toLocaleDateString()}`,
+    html,
+    type: "BOOKING_CANCELLED"
+  });
+}
+
+export async function sendBookingConfirmedEmail(clientEmail: string, data: any) {
+  const html = `
+  <div style="${baseStyles}">
+    <h2 style="color: #1A1A1A;">Booking Confirmed!</h2>
+    <p>Your consultation request has been confirmed by the consultant.</p>
+    
+    <div style="background-color: #F8F9FA; padding: 16px; border-radius: 8px; margin: 16px 0;">
+      <p style="margin: 0 0 8px 0;"><strong>Date & Time:</strong> ${new Date(data.scheduledStart).toLocaleString()}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Meeting Link:</strong> ${data.meetingLink ? `<a href="${data.meetingLink}">Join Meeting</a>` : 'Will be provided shortly.'}</p>
+    </div>
+
+    <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/client/bookings/${data.id}" style="${buttonStyle}">View Meeting Details</a>
+    
+    <p style="font-size: 12px; color: #6c757d;">This is an automated notification from Verixa.</p>
+  </div>`;
+
+  return sendEmail({
+    to: clientEmail,
+    subject: `Booking Confirmed for ${new Date(data.scheduledStart).toLocaleDateString()}`,
+    html,
+    type: "BOOKING_CONFIRMED"
+  });
+}

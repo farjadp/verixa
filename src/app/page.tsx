@@ -13,6 +13,7 @@ import Link from "next/link";
 import { getTotalConsultantsCount, getFeaturedConsultants } from "@/lib/db";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import LatestArticles from "@/components/home/LatestArticles";
 
 export const revalidate = 3600; // Refetch data every hour (Static generation optimization)
 
@@ -219,6 +220,9 @@ export default async function Home() {
 
         </div>
       </section>
+
+      {/* ---------------- 4.5 LATEST ARTICLES / INTELLIGENCE ---------------- */}
+      <LatestArticles />
 
       {/* ---------------- 5. THE PROMISE ---------------- */}
       <section className="max-w-4xl mx-auto px-8 py-32 text-center space-y-12">

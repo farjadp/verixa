@@ -14,6 +14,7 @@ import {
   sendBookingConfirmedEmail, 
   sendClientReceiptEmail
 } from "@/lib/mailer";
+import { capturePaymentAction, cancelPaymentAction } from "@/actions/stripe.actions";
 
 export async function getConsultantBookingConfig(licenseNumber: string) {
   let profile = await prisma.consultantProfile.findUnique({
@@ -135,6 +136,7 @@ export async function createBookingRequest(data: {
   urgency?: string;
   preferredCommunicationMethod?: string;
   caseDescription?: string;
+  stripePaymentIntentId?: string;
 }) {
   const profile = await getConsultantBookingConfig(data.licenseNumber);
   const type = profile.consultationTypes.find(t => t.id === data.consultationTypeId);
@@ -183,6 +185,8 @@ export async function createBookingRequest(data: {
       urgency: data.urgency,
       preferredCommunicationMethod: data.preferredCommunicationMethod,
       caseDescription: data.caseDescription,
+      stripePaymentIntentId: data.stripePaymentIntentId || null,
+      paymentStatus: data.stripePaymentIntentId ? "REQUIRES_CAPTURE" : "PENDING",
       grossAmountCents: type.priceCents,
       platformFeeCents: Math.floor(type.priceCents * 0.21), // MVP default 21%
       netAmountCents: Math.floor(type.priceCents * 0.79),
@@ -245,10 +249,27 @@ export async function updateBookingStatus(
     consultantNotes?: string;
   }
 ) {
+  const existingBooking = await prisma.booking.findUnique({ where: { id: bookingId } });
+  if (!existingBooking) throw new Error("Booking not found");
+
+  let paymentStatusUpdate = existingBooking.paymentStatus;
+  
+  if (existingBooking.stripePaymentIntentId && existingBooking.paymentStatus === "REQUIRES_CAPTURE") {
+     if (newStatus === "CONFIRMED") {
+         const cap = await capturePaymentAction(existingBooking.stripePaymentIntentId);
+         if (!cap.success) throw new Error("Failed to capture funds from Escrow: " + cap.error);
+         paymentStatusUpdate = "CAPTURED";
+     } else if (["DECLINED", "CANCELLED", "CANCELLED_BY_CONSULTANT", "CANCELLED_BY_USER"].includes(newStatus)) {
+         await cancelPaymentAction(existingBooking.stripePaymentIntentId);
+         paymentStatusUpdate = "CANCELED";
+     }
+  }
+
   const booking = await prisma.booking.update({
     where: { id: bookingId },
     data: { 
       status: newStatus,
+      ...(paymentStatusUpdate ? { paymentStatus: paymentStatusUpdate } : {}),
       ...(options?.meetingLink ? { meetingLink: options.meetingLink } : {}),
       ...(options?.meetingMethod ? { meetingMethod: options.meetingMethod } : {}),
       ...(options?.consultantNotes ? { consultantNotes: options.consultantNotes } : {})
@@ -309,9 +330,17 @@ export async function cancelBookingRequest(bookingId: string) {
     throw new Error("Cannot cancel this booking");
   }
 
+  // Void Escrow if still pending capture
+  if (booking.stripePaymentIntentId && booking.paymentStatus === "REQUIRES_CAPTURE") {
+    await cancelPaymentAction(booking.stripePaymentIntentId);
+  }
+
   const updatedBooking = await prisma.booking.update({
     where: { id: bookingId },
-    data: { status: "CANCELLED_BY_USER" }
+    data: { 
+      status: "CANCELLED_BY_USER",
+      ...(booking.paymentStatus === "REQUIRES_CAPTURE" && { paymentStatus: "CANCELED" })
+    }
   });
 
   await prisma.bookingEventLog.create({

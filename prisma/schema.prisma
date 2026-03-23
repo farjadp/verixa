@@ -134,6 +134,8 @@ model Booking {
   providerMetadata             String?
   
   // Financials
+  paymentStatus                String?  @default("PENDING") // PENDING, REQUIRES_CAPTURE, CAPTURED, CANCELED
+  stripePaymentIntentId        String?  @unique
   platformFeeCents             Int      @default(0)
   grossAmountCents             Int      @default(0)
   netAmountCents               Int      @default(0)

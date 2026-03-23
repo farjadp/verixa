@@ -8,6 +8,29 @@ import Footer from "@/components/Footer";
 import SaveProfileButton from "@/components/SaveProfileButton";
 import { checkIsSaved } from "@/actions/savedProfiles.actions";
 
+import { Metadata } from "next";
+
+export async function generateMetadata({
+  params
+}: {
+  params: Promise<{ license_number: string }>
+}): Promise<Metadata> {
+  const resolvedParams = await params;
+  const data = getConsultantByLicense(resolvedParams.license_number);
+  
+  if (!data) return { title: 'Consultant Not Found | Verixa' };
+  
+  return {
+    title: `${data.Full_Name} - Canadian Immigration Consultant | Verixa`,
+    description: `Book a consultation with ${data.Full_Name}, an active RCIC consultant in ${data.Province || 'Canada'} specializing in Canadian Immigration.`,
+    openGraph: {
+      title: `${data.Full_Name} - Verixa Verified Consultant`,
+      description: `Book a secure consultation with ${data.Full_Name} (${data.License_Number}).`,
+      images: ['/Brand/Vertixa3.png']
+    }
+  };
+}
+
 export default async function ConsultantProfilePage({
   params
 }: {

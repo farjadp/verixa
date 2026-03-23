@@ -6,6 +6,13 @@ import { format, addDays, startOfToday } from "date-fns";
 import { getAvailableSlots, createBookingRequest } from "@/actions/booking.actions";
 import CountrySelect from "@/components/ui/CountrySelect";
 
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
+import { createPaymentIntentAction } from "@/actions/stripe.actions";
+import StripePaymentForm from "./StripePaymentForm";
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
+
 export default function BookingFlow({ profile, sessionUser }: { profile: any; sessionUser?: any }) {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [selectedType, setSelectedType] = useState<any | null>(null);
@@ -32,6 +39,10 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  
+  // Stripe States
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [isPreparingPayment, setIsPreparingPayment] = useState(false);
 
   const steps = ["Session", "Time", "Details", "Review", "Done"];
 
@@ -57,12 +68,37 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
     }
   };
 
-  const handleProceedToReview = (e: React.FormEvent) => {
+  const handleProceedToReview = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedType) return;
+    
+    setIsPreparingPayment(true);
+    setSubmitError("");
     setStep(4);
+    
+    try {
+      // Generate the Hold PaymentIntent based strictly on the selected Consultation Type price
+      const res = await createPaymentIntentAction(selectedType.priceCents, {
+        licenseNumber: profile.licenseNumber,
+        clientEmail: formData.email,
+        consultationTypeId: selectedType.id
+      });
+      
+      if (res.success && res.clientSecret) {
+        setClientSecret(res.clientSecret);
+      } else {
+        setSubmitError(res.error || "Failed to initialize secure payment gateway. Please try again.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setSubmitError("Failed to initialize payment gateway.");
+    } finally {
+      setIsPreparingPayment(false);
+    }
   };
 
-  const handleSubmit = async () => {
+  // Now only called AFTER Stripe Elements successfully authorizes the hold
+  const handleFinalBookingSubmission = async (paymentIntentId: string) => {
     if (!selectedType || !selectedSlot) return;
 
     setIsSubmitting(true);
@@ -83,14 +119,14 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
         urgency: formData.urgency,
         preferredCommunicationMethod: formData.preferredCommunicationMethod,
         caseDescription: formData.caseDescription,
+        stripePaymentIntentId: paymentIntentId, // <--- Attach the Escrow Hold ID
       });
       window.location.href = `/dashboard/client/bookings/${newBooking.id}/success`;
     } catch (e: any) {
       console.error(e);
-      setSubmitError(e.message || "An unexpected error occurred. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+      setSubmitError(e.message || "An unexpected error occurred finalizing your booking. Please contact support.");
+      setIsSubmitting(false); // only re-enable if failed
+    } 
   };
 
   if (step === 5) {
@@ -386,6 +422,23 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
                <p>By submitting this request, you agree to Verixa's terms of service and the consultant's cancellation policy. Meeting details will be provided upon confirmation.</p>
              </div>
 
+             <div className="mt-8 border-t border-gray-100 pt-6">
+                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Secure Payment Authorization</h4>
+                {isPreparingPayment ? (
+                  <div className="p-10 border border-gray-100 rounded-2xl flex items-center justify-center bg-gray-50">
+                    <div className="w-6 h-6 border-2 border-[#1A1A1A] border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : clientSecret ? (
+                  <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'flat' } }}>
+                    <StripePaymentForm priceCents={selectedType?.priceCents || 0} onSuccess={handleFinalBookingSubmission} />
+                  </Elements>
+                ) : (
+                  <div className="p-6 bg-red-50 text-red-600 rounded-xl text-sm border border-red-200">
+                    Failed to connect to gateway. Please go back and try again.
+                  </div>
+                )}
+             </div>
+
              {submitError && (
                <div className="mt-4 p-4 rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm flex items-start gap-2 font-medium">
                  <AlertCircle className="w-5 h-5 shrink-0" />
@@ -395,10 +448,8 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
            </div>
 
            <div className="flex items-center justify-between pt-6 border-t border-gray-100 shrink-0">
-             <button type="button" onClick={() => setStep(3)} disabled={isSubmitting} className="text-sm font-bold text-gray-400 hover:text-gray-800 disabled:opacity-50">Back</button>
-             <button onClick={handleSubmit} disabled={isSubmitting} className="bg-[#1A1A1A] text-white px-8 py-3.5 rounded-xl font-bold shadow-xl shadow-black/10 hover:bg-black transition-all flex items-center justify-center gap-2 disabled:bg-gray-400">
-               {isSubmitting ? "Submitting..." : "Submit Booking Request"}
-             </button>
+             <button type="button" onClick={() => setStep(3)} disabled={isSubmitting || isPreparingPayment} className="text-sm font-bold text-gray-400 hover:text-gray-800 disabled:opacity-50">Back to Details</button>
+             {/* Note: The submission button is now safely handled natively inside the StripePaymentForm component above */}
            </div>
          </div>
        )}

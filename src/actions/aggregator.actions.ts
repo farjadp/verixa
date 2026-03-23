@@ -8,6 +8,7 @@ import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 import Parser from "rss-parser";
 import * as cheerio from "cheerio";
+import { processMidRollImages } from "@/actions/ai-blog.actions";
 
 // Initialize Subsystems
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -160,6 +161,8 @@ export async function processPendingRawArticle(rawArticleId: string) {
     - Never plagiarize. Synthesize and reframe fundamentally.
     - Start immediately with standard H2/H3 tags (no H1).
     - Provide a "Direct Answer" summary at the top.
+    - IMPORTANT: If explaining data, statistics, requirements, or comparisons, you MUST use a Markdown Data Table.
+    - IMPORTANT: Throughout the article, intelligently insert 1, 2, or 3 Mid-Roll Images depending on the length of the text. To insert an image, use the exact syntax: ![IMAGE_PROMPT: <detailed editorial description of the image>](). Be highly descriptive. DO NOT put actual URLs in these tags.
     - At the VERY END of the article, include a Markdown Source Attribution block:
       "### Sources & References \n - [${raw.source.name}](${raw.sourceUrl})"
     - Always include a high-converting Call-to-Action to manually book an RCIC on Verixa.
@@ -178,7 +181,8 @@ export async function processPendingRawArticle(rawArticleId: string) {
       { role: "user", content: articlePrompt }
     ]
   });
-  const finalMarkdown = articleCompletion.choices[0].message.content;
+  let finalMarkdown = articleCompletion.choices[0].message.content || "";
+  finalMarkdown = await processMidRollImages(finalMarkdown);
 
   // 4. GENERATE SOCIAL POSTS
   const socialPrompt = `Create 3 platform-specific posts for this new article focusing on the angle: ${brief?.angle}. \n\n Article snippet: \n ${finalMarkdown?.substring(0, 3000)}`;

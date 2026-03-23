@@ -83,6 +83,8 @@ export async function generateArticle(brief: z.infer<typeof ContentBriefSchema>)
     - Do NOT include an H1 (it will be rendered natively). Start with the Summary or directly into the first H2.
     - Start with a Direct Answer section.
     - Include bullet points, practical steps.
+    - IMPORTANT: If explaining data, statistics, requirements, or comparisons, you MUST use a Markdown Data Table.
+    - IMPORTANT: Throughout the article, intelligently insert 1, 2, or 3 Mid-Roll Images depending on the length of the text. To insert an image, use the exact syntax: ![IMAGE_PROMPT: <detailed editorial description of the image>](). Be highly descriptive (e.g. "Minimalist 3D architectural rendering of a Canadian passport"). DO NOT put actual URLs in these tags.
     - End with a strong CTA to find verified consultants on Verixa.
     - Provide 3-5 FAQs at the end.
     
@@ -165,6 +167,33 @@ export async function generateEditorialImage(imagePrompt: string) {
   }
   
   throw new Error("Invalid response from fal.ai image generation.");
+}
+
+// 4.5. MID-ROLL IMAGE PARSER
+export async function processMidRollImages(markdown: string) {
+  await verifyAdmin();
+  const imgRegex = /!\[IMAGE_PROMPT:\s*(.*?)\]\(\)/g;
+  let processed = markdown;
+  const matches = [...markdown.matchAll(imgRegex)];
+  
+  // To avoid FAL rate limits or timeouts, execute prompts sequentially (or small parallel chunks)
+  for (const match of matches) {
+    const fullMatch = match[0];
+    const imagePrompt = match[1];
+    try {
+      const url = await generateEditorialImage(imagePrompt);
+      if (url) {
+        processed = processed.replace(fullMatch, `![${imagePrompt}](${url})`);
+      } else {
+        processed = processed.replace(fullMatch, ""); // Remove if generation failed
+      }
+    } catch (e) {
+      console.error("Failed mid-roll image generation:", e);
+      processed = processed.replace(fullMatch, "");
+    }
+  }
+
+  return processed;
 }
 
 // 5. CMS INJECTION LAYER

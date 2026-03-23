@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { generateBrief, generateArticle, generateSocials, generateEditorialImage, publishDraftToCMS } from "@/actions/ai-blog.actions";
+import { generateBrief, generateArticle, generateSocials, generateEditorialImage, publishDraftToCMS, processMidRollImages } from "@/actions/ai-blog.actions";
 import { Sparkles, ArrowRight, CheckCircle2, Loader2, Image as ImageIcon, Send, Save } from "lucide-react";
 import Link from "next/link";
 
@@ -54,7 +54,7 @@ export default function AIFactoryWizard() {
     try {
       // Run generation in parallel chunks to save time (Pipeline Orchestration)
       const [mk, soc, img] = await Promise.all([
-        generateArticle(brief),
+        generateArticle(brief).then(mk => processMidRollImages(mk || "")),
         generateSocials(brief.summary), // we pass the summary/brief context
         generateEditorialImage(brief.imagePrompt)
       ]);

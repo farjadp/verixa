@@ -1,3 +1,13 @@
+// ============================================================================
+// Hardware Source: search/page.tsx
+// Route: /search
+// Version: 1.0.0 — 2026-03-23
+// Why: Route entry for /search (structured for SEO, trust, and conversion)
+// Env / Identity: React Server Component
+// Owner: Verixa Web
+// Notes: Keep structure consistent; every section must support Traffic -> Trust -> Booking
+// ============================================================================
+
 import { searchConsultants, getUniqueProvinces, getUniqueStatuses } from "@/lib/db";
 import { Search as SearchIcon, ShieldCheck, Mail, Building2, ChevronLeft, ChevronRight, MapPin, Filter, AlertCircle, Globe, ArrowRight } from "lucide-react";
 import Link from "next/link";

@@ -1,3 +1,13 @@
+// ============================================================================
+// Hardware Source: dashboard/client/profile/page.tsx
+// Route: /dashboard/client/profile
+// Version: 1.0.0 — 2026-03-23
+// Why: Route entry for /dashboard/client/profile (structured for SEO, trust, and conversion)
+// Env / Identity: React Server Component
+// Owner: Verixa Web
+// Notes: Keep structure consistent; every section must support Traffic -> Trust -> Booking
+// ============================================================================
+
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { redirect } from "next/navigation";

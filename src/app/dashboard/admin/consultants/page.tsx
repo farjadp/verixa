@@ -1,3 +1,13 @@
+// ============================================================================
+// Hardware Source: dashboard/admin/consultants/page.tsx
+// Route: /dashboard/admin/consultants
+// Version: 1.0.0 — 2026-03-23
+// Why: Route entry for /dashboard/admin/consultants (structured for SEO, trust, and conversion)
+// Env / Identity: React Server Component
+// Owner: Verixa Web
+// Notes: Keep structure consistent; every section must support Traffic -> Trust -> Booking
+// ============================================================================
+
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { Search, Filter, MoreVertical, ShieldCheck, FileText, CheckCircle, XCircle } from "lucide-react";

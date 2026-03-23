@@ -1,3 +1,13 @@
+// ============================================================================
+// Hardware Source: consultant/[license_number]/page.tsx
+// Route: /consultant/[license_number]
+// Version: 1.0.0 — 2026-03-23
+// Why: Route entry for /consultant/[license_number] (structured for SEO, trust, and conversion)
+// Env / Identity: React Server Component
+// Owner: Verixa Web
+// Notes: Keep structure consistent; every section must support Traffic -> Trust -> Booking
+// ============================================================================
+
 import { getConsultantByLicense } from "@/lib/db";
 import { ShieldCheck, Mail, Building2, MapPin, CheckCircle2, AlertCircle, CalendarDays, ExternalLink, User, Star, Clock, MessageSquare, Briefcase, Languages, Phone, Check, Zap } from "lucide-react";
 import Link from "next/link";

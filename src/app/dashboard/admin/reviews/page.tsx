@@ -1,3 +1,13 @@
+// ============================================================================
+// Hardware Source: dashboard/admin/reviews/page.tsx
+// Route: /dashboard/admin/reviews
+// Version: 1.0.0 — 2026-03-23
+// Why: Route entry for /dashboard/admin/reviews (structured for SEO, trust, and conversion)
+// Env / Identity: React Server Component
+// Owner: Verixa Web
+// Notes: Keep structure consistent; every section must support Traffic -> Trust -> Booking
+// ============================================================================
+
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { Search, Eye, AlertCircle, CheckCircle, Trash2 } from "lucide-react";

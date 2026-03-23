@@ -1,3 +1,13 @@
+// ============================================================================
+// Hardware Source: dashboard/admin/bookings/[id]/page.tsx
+// Route: /dashboard/admin/bookings/[id]
+// Version: 1.0.0 — 2026-03-23
+// Why: Route entry for /dashboard/admin/bookings/[id] (structured for SEO, trust, and conversion)
+// Env / Identity: React Server Component
+// Owner: Verixa Web
+// Notes: Keep structure consistent; every section must support Traffic -> Trust -> Booking
+// ============================================================================
+
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";

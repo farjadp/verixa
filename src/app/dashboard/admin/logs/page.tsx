@@ -1,3 +1,13 @@
+// ============================================================================
+// Hardware Source: dashboard/admin/logs/page.tsx
+// Route: /dashboard/admin/logs
+// Version: 1.0.0 — 2026-03-23
+// Why: Route entry for /dashboard/admin/logs (structured for SEO, trust, and conversion)
+// Env / Identity: React Server Component
+// Owner: Verixa Web
+// Notes: Keep structure consistent; every section must support Traffic -> Trust -> Booking
+// ============================================================================
+
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { redirect } from "next/navigation";

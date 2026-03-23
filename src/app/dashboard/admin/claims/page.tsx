@@ -1,3 +1,13 @@
+// ============================================================================
+// Hardware Source: dashboard/admin/claims/page.tsx
+// Route: /dashboard/admin/claims
+// Version: 1.0.0 — 2026-03-23
+// Why: Route entry for /dashboard/admin/claims (structured for SEO, trust, and conversion)
+// Env / Identity: React Server Component
+// Owner: Verixa Web
+// Notes: Keep structure consistent; every section must support Traffic -> Trust -> Booking
+// ============================================================================
+
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { Search, Filter, ShieldAlert, CheckCircle, XCircle, FileText, ShieldCheck } from "lucide-react";

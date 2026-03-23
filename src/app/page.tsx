@@ -1,3 +1,13 @@
+// ============================================================================
+// Hardware Source: page.tsx
+// Route: /page.tsx
+// Version: 1.0.0 — 2026-03-23
+// Why: Route entry for /page.tsx (structured for SEO, trust, and conversion)
+// Env / Identity: React Server Component
+// Owner: Verixa Web
+// Notes: Keep structure consistent; every section must support Traffic -> Trust -> Booking
+// ============================================================================
+
 import { Search, ShieldCheck, Star, ArrowRight, Check, MapPin, Globe, Shield, User } from "lucide-react";
 import Link from "next/link";
 import { getTotalConsultantsCount, getFeaturedConsultants } from "@/lib/db";

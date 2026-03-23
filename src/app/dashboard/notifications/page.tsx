@@ -1,3 +1,13 @@
+// ============================================================================
+// Hardware Source: dashboard/notifications/page.tsx
+// Route: /dashboard/notifications
+// Version: 1.0.0 — 2026-03-23
+// Why: Route entry for /dashboard/notifications (structured for SEO, trust, and conversion)
+// Env / Identity: React Server Component
+// Owner: Verixa Web
+// Notes: Keep structure consistent; every section must support Traffic -> Trust -> Booking
+// ============================================================================
+
 import { getUserNotifications } from "@/actions/notification.actions";
 import ClientNotificationList from "./ClientNotificationList";
 import { getServerSession } from "next-auth";

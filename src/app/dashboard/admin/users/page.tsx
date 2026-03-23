@@ -1,3 +1,13 @@
+// ============================================================================
+// Hardware Source: dashboard/admin/users/page.tsx
+// Route: /dashboard/admin/users
+// Version: 1.0.0 — 2026-03-23
+// Why: Route entry for /dashboard/admin/users (structured for SEO, trust, and conversion)
+// Env / Identity: React Server Component
+// Owner: Verixa Web
+// Notes: Keep structure consistent; every section must support Traffic -> Trust -> Booking
+// ============================================================================
+
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { Search, ShieldAlert, UserX, Activity, Mail } from "lucide-react";

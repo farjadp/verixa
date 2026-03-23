@@ -1,3 +1,13 @@
+// ============================================================================
+// Hardware Source: login/page.tsx
+// Route: /login
+// Version: 1.0.0 — 2026-03-23
+// Why: Route entry for /login (structured for SEO, trust, and conversion)
+// Env / Identity: React Client Component
+// Owner: Verixa Web
+// Notes: Keep structure consistent; every section must support Traffic -> Trust -> Booking
+// ============================================================================
+
 "use client";
 
 import Link from "next/link";

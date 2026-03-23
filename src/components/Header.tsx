@@ -15,6 +15,7 @@ export default function Header() {
         <Link href="/#how" className="hover:text-black transition">The Standard</Link>
         <Link href="/#verify" className="hover:text-black transition">Verification</Link>
         <Link href="/#consultants" className="hover:text-black transition">For Professionals</Link>
+        <Link href="/blog" className="hover:text-black transition">Blog</Link>
       </div>
 
       <div className="flex gap-6 items-center">

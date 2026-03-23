@@ -911,7 +911,7 @@ export default function PrivacyPolicyPage() {
               <p className="text-[13px] text-gray-600">For privacy-related inquiries:</p>
               <ul className="text-[13px] list-disc pl-4 text-gray-600 space-y-1">
                 <li>Privacy Officer</li>
-                <li>Email: <em>legal@verixa.com</em></li>
+                <li>Email: <em>legal@getverixa.com</em></li>
                 <li>Platform contact form</li>
               </ul>
             </div>

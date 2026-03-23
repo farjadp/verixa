@@ -337,7 +337,7 @@ export default function ConsultantAgreementPage() {
                 
                 <section className="bg-gray-50 border p-5 rounded-2xl">
                   <h4 className="font-bold text-[#0F2A44] mb-2 text-sm">22. Contact Details</h4>
-                  <p className="text-xs font-medium mt-1">Email: <em>legal@verixa.com</em></p>
+                  <p className="text-xs font-medium mt-1">Email: <em>legal@getverixa.com</em></p>
                   <p className="text-xs font-medium">Platform support</p>
                 </section>
              </div>

@@ -57,7 +57,7 @@ export async function igniteSocialEngine(blogPostId: string) {
 
   try {
     const rawContent = post.content.substring(0, 10000); // Prevent token overload
-    const articleLink = `https://verixa.ca/blog/${post.slug}`;
+    const articleLink = `https://getverixa.ca/blog/${post.slug}`;
 
     // ---------------------------------------------------------
     // PROMPT 1: INPUT NORMALIZER (Extraction)

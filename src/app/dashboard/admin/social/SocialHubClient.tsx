@@ -131,7 +131,7 @@ export default function SocialHubClient({ initialPosts }: { initialPosts: any[] 
                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-white border border-[#e5e7eb] px-2 py-1 rounded inline-block mb-2">Selected Subject</span>
                      <h2 className="text-lg font-black text-gray-900">{selectedPost.title}</h2>
                      <a href={`/blog/${selectedPost.slug}`} target="_blank" className="text-[11px] text-blue-600 font-bold flex items-center gap-1 mt-1 hover:underline">
-                        <Link2 className="w-3 h-3" /> verixa.ca/blog/{selectedPost.slug}
+                        <Link2 className="w-3 h-3" /> getverixa.ca/blog/{selectedPost.slug}
                      </a>
                   </div>
                   

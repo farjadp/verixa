@@ -304,7 +304,7 @@ export default function TermsPage() {
                 <section className="bg-gray-50 border p-5 rounded-2xl">
                   <h4 className="font-bold text-[#0F2A44] mb-2 text-sm">21. Contact Information</h4>
                   <p className="text-xs text-gray-600 mb-2">For legal inquiries regarding these terms:</p>
-                  <p className="text-sm font-medium mt-1">Email: <em>legal@verixa.com</em></p>
+                  <p className="text-sm font-medium mt-1">Email: <em>legal@getverixa.com</em></p>
                   <p className="text-sm font-medium">Platform contact form</p>
                 </section>
              </div>

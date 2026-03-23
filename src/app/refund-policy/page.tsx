@@ -310,7 +310,7 @@ export default function RefundPolicyPage() {
                 
                 <section className="bg-gray-50 border p-5 rounded-2xl">
                   <h4 className="font-bold text-[#0F2A44] mb-2 text-sm">16. Resolution Contact</h4>
-                  <p className="text-xs font-medium mt-1">Email: <em>finance@verixa.com</em></p>
+                  <p className="text-xs font-medium mt-1">Email: <em>finance@getverixa.com</em></p>
                   <p className="text-xs font-medium">Dashboard Support Terminal</p>
                 </section>
              </div>

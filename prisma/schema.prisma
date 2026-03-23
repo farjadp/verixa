@@ -307,6 +307,10 @@ model BlogPost {
   seoTitle    String?
   seoDesc     String?
   
+  // Phase 26: AI Factory Metadata
+  imagePrompt String?
+  socialHooks String?   // JSON object with variants
+  
   authorId    String?
   author      User?    @relation(fields: [authorId], references: [id])
 

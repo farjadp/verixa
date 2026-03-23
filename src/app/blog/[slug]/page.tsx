@@ -14,7 +14,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowLeft, Share2, Facebook, Twitter, Linkedin, ChevronDown } from "lucide-react";
+import { ArrowLeft, Share2, Facebook, Twitter, Linkedin, ChevronDown, Printer, Mail, Clock } from "lucide-react";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 
@@ -112,6 +112,16 @@ export default async function BlogPostPage({
   let firstHalf = paragraphs.slice(0, midIndex).join('\n\n');
   let secondHalf = paragraphs.slice(midIndex).join('\n\n');
 
+  // 4.5. Extract Table of Contents (H2 & H3)
+  const headings = Array.from(mainText.matchAll(/^(##|###)\s+([^\n]+)$/gm)).map((match, idx) => {
+    const text = match[2].trim().replace(/\*/g, '').replace(/_/g, '').replace(/\[|\]|\(.*\)/g, '');
+    return {
+      level: match[1].length,
+      text,
+      id: text.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    };
+  });
+
   // 5. Naive Internal Auto-Linking (Safety: Only replacing if not in Markdown syntax)
   const linkDict = [
     { key: "express entry", url: "/search?q=Express+Entry" },
@@ -128,7 +138,24 @@ export default async function BlogPostPage({
 
   const articleUrl = `https://verixa.co/blog/${post.slug}`;
   const wordCount = post.content.split(/\s+/).length;
-  const readingTime = Math.ceil(wordCount / 200);
+  const readingTime = Math.ceil(wordCount / 200) || 1;
+
+  // AST Text Extractor for IDs
+  const extractText = (children: any): string => {
+    if (typeof children === 'string') return children;
+    if (Array.isArray(children)) return children.map(extractText).join('');
+    if (children && typeof children === 'object' && children.props && children.props.children) {
+      return extractText(children.props.children);
+    }
+    return '';
+  };
+
+  const renderHeading = (level: number) => ({ node, children, ...props }: any) => {
+    const text = extractText(children).replace(/\*/g, '').replace(/_/g, '').replace(/\[|\]|\(.*\)/g, '');
+    const id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const Tag = `h${level}` as any;
+    return <Tag id={id} className="scroll-mt-32" {...props}>{children}</Tag>;
+  };
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] font-sans flex flex-col">
@@ -193,7 +220,13 @@ export default async function BlogPostPage({
 
                {/* FIRST HALF */}
                <article className="prose prose-lg prose-slate max-w-none prose-headings:font-serif prose-headings:font-black prose-headings:text-[#0F2A44] prose-a:text-[#2FA4A9] prose-a:font-bold prose-a:no-underline hover:prose-a:underline prose-img:rounded-3xl prose-img:shadow-xl">
-                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                 <ReactMarkdown 
+                   remarkPlugins={[remarkGfm]}
+                   components={{
+                     h2: renderHeading(2),
+                     h3: renderHeading(3)
+                   }}
+                 >
                    {firstHalf}
                  </ReactMarkdown>
                </article>
@@ -224,7 +257,13 @@ export default async function BlogPostPage({
 
                {/* SECOND HALF */}
                <article className="prose prose-lg prose-slate max-w-none prose-headings:font-serif prose-headings:font-black prose-headings:text-[#0F2A44] prose-a:text-[#2FA4A9] prose-a:font-bold prose-a:no-underline hover:prose-a:underline prose-img:rounded-3xl prose-img:shadow-xl mt-8">
-                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                 <ReactMarkdown 
+                   remarkPlugins={[remarkGfm]}
+                   components={{
+                     h2: renderHeading(2),
+                     h3: renderHeading(3)
+                   }}
+                 >
                    {secondHalf}
                  </ReactMarkdown>
                </article>
@@ -253,12 +292,48 @@ export default async function BlogPostPage({
 
              </div>
 
-             {/* DYNAMIC SIDEBAR (Consultants) */}
-             <aside className="w-full lg:w-[350px] shrink-0 flex flex-col gap-12">
+             {/* DYNAMIC SIDEBAR (Consultants & Navigation) */}
+             <aside className="w-full lg:w-[350px] shrink-0 flex flex-col gap-8 lg:sticky lg:top-24 self-start">
                
+               {/* BEFORE YOU READ WIDGET */}
+               <div className="bg-white rounded-[32px] border border-gray-200 p-8 shadow-sm">
+                 <h3 className="text-sm font-black text-[#1A1F2B] uppercase tracking-widest mb-4">Before You Read</h3>
+                 <p className="text-sm text-gray-500 leading-relaxed mb-4">{post.summary}</p>
+                 <div className="flex items-center gap-2 text-xs font-bold text-[#2FA4A9] bg-[#E5F5F5] px-3 py-2 rounded-lg w-fit">
+                   <span>Knowledge Level:</span>
+                   <span className="text-[#0F2A44]">Accessible</span>
+                 </div>
+               </div>
+
+               {/* TABLE OF CONTENTS (ON THIS PAGE) */}
+               {headings.length > 0 && (
+                 <div className="bg-[#0F2A44] rounded-[32px] p-8 shadow-xl relative overflow-hidden text-white hidden lg:block">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-[#2FA4A9] rounded-full blur-[50px] opacity-20 -translate-y-1/2 translate-x-1/2"></div>
+                    
+                    <div className="flex items-center justify-between mb-6 relative z-10">
+                      <h3 className="text-sm font-black uppercase tracking-widest text-blue-200">On this page</h3>
+                      <div className="flex items-center gap-1.5 text-xs font-bold bg-[#2FA4A9] px-2.5 py-1 rounded text-white shadow-sm">
+                        <Clock className="w-3 h-3" /> {readingTime} min
+                      </div>
+                    </div>
+
+                    <nav className="flex flex-col gap-3 relative z-10 text-sm">
+                      {headings.map(h => (
+                        <a 
+                          key={h.id} 
+                          href={`#${h.id}`} 
+                          className={`hover:text-[#2FA4A9] transition-colors line-clamp-2 ${h.level === 3 ? 'pl-4 text-blue-200/70 border-l border-blue-800' : 'text-blue-100 font-medium'}`}
+                        >
+                          {h.text}
+                        </a>
+                      ))}
+                    </nav>
+                 </div>
+               )}
+
                {/* TOP RATED WIDGET */}
                {topConsultants.length > 0 && (
-                 <div className="bg-white rounded-[32px] border border-gray-200 p-8 shadow-sm">
+                 <div className="bg-white rounded-[32px] border border-gray-200 p-8 shadow-sm hidden lg:block">
                    <h3 className="text-xl font-serif font-black text-[#0F2A44] mb-6">Top Rated Consultants</h3>
                    <div className="space-y-6">
                      {topConsultants.map(c => (
@@ -286,7 +361,7 @@ export default async function BlogPostPage({
 
                {/* RANDOM DISCOVER WIDGET */}
                {randomConsultants.length > 0 && (
-                 <div className="bg-[#0F2A44] rounded-[32px] p-8 shadow-xl relative overflow-hidden">
+                 <div className="bg-[#0F2A44] rounded-[32px] p-8 shadow-xl relative overflow-hidden hidden lg:block">
                    <div className="absolute top-0 right-0 w-40 h-40 bg-[#2FA4A9] rounded-full blur-[60px] opacity-30 -translate-y-1/2 translate-x-1/2"></div>
                    <h3 className="text-xl font-serif font-black text-white mb-6 relative z-10">Discover Experts</h3>
                    <div className="space-y-6 relative z-10">
@@ -310,13 +385,25 @@ export default async function BlogPostPage({
                )}
 
                {/* SHARE DESKTOP */}
-               <div className="bg-white rounded-[32px] border border-gray-200 p-8 shadow-sm flex flex-col items-center justify-center text-center">
-                 <h3 className="text-sm font-bold text-[#1A1F2B] mb-2">Share this Article</h3>
-                 <p className="text-xs text-gray-400 mb-6">Help others find the right insights.</p>
-                 <div className="flex gap-3">
-                   <a href={`https://twitter.com/intent/tweet?url=${articleUrl}&text=${encodeURIComponent(post.title)}`} target="_blank" rel="noopener noreferrer" className="w-10 h-10 flex items-center justify-center bg-gray-50 hover:bg-[#2FA4A9] hover:text-white rounded-full transition-colors text-gray-500"><Twitter className="w-4 h-4" /></a>
-                   <a href={`https://www.linkedin.com/shareArticle?mini=true&url=${articleUrl}&title=${encodeURIComponent(post.title)}`} target="_blank" rel="noopener noreferrer" className="w-10 h-10 flex items-center justify-center bg-gray-50 hover:bg-[#2FA4A9] hover:text-white rounded-full transition-colors text-gray-500"><Linkedin className="w-4 h-4" /></a>
-                   <a href={`https://www.facebook.com/sharer/sharer.php?u=${articleUrl}`} target="_blank" rel="noopener noreferrer" className="w-10 h-10 flex items-center justify-center bg-gray-50 hover:bg-[#2FA4A9] hover:text-white rounded-full transition-colors text-gray-500"><Facebook className="w-4 h-4" /></a>
+               <div className="bg-white rounded-[32px] border border-gray-200 p-8 shadow-sm flex flex-col gap-5">
+                 <div className="text-center">
+                    <h3 className="text-sm font-black text-[#1A1F2B] uppercase tracking-widest mb-1">Export & Share</h3>
+                    <p className="text-xs text-gray-400">Help others find the right insights.</p>
+                 </div>
+                 
+                 <div className="grid grid-cols-2 gap-2">
+                   <button className="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold text-xs transition-colors shadow-sm border border-gray-100" onClick={() => {/* Will map to print functionality natively via client-component if needed, or simple plain CSS print block */}}>
+                     <Printer className="w-4 h-4" /> Print PDF
+                   </button>
+                   <a href={`mailto:?subject=${encodeURIComponent(post.title)}&body=${encodeURIComponent("Read this great article on Verixa:\n" + articleUrl)}`} className="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold text-xs transition-colors shadow-sm border border-gray-100">
+                     <Mail className="w-4 h-4" /> Email
+                   </a>
+                 </div>
+
+                 <div className="flex justify-center gap-3 mt-2">
+                   <a href={`https://twitter.com/intent/tweet?url=${articleUrl}&text=${encodeURIComponent(post.title)}`} target="_blank" rel="noopener noreferrer" className="w-10 h-10 flex items-center justify-center bg-gray-50 border border-gray-200 hover:bg-[#2FA4A9] hover:text-white hover:border-transparent rounded-full transition-all text-gray-500"><Twitter className="w-4 h-4" /></a>
+                   <a href={`https://www.linkedin.com/shareArticle?mini=true&url=${articleUrl}&title=${encodeURIComponent(post.title)}`} target="_blank" rel="noopener noreferrer" className="w-10 h-10 flex items-center justify-center bg-gray-50 border border-gray-200 hover:bg-[#2FA4A9] hover:text-white hover:border-transparent rounded-full transition-all text-gray-500"><Linkedin className="w-4 h-4" /></a>
+                   <a href={`https://www.facebook.com/sharer/sharer.php?u=${articleUrl}`} target="_blank" rel="noopener noreferrer" className="w-10 h-10 flex items-center justify-center bg-gray-50 border border-gray-200 hover:bg-[#2FA4A9] hover:text-white hover:border-transparent rounded-full transition-all text-gray-500"><Facebook className="w-4 h-4" /></a>
                  </div>
                </div>
 

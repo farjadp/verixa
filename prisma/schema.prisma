@@ -316,6 +316,61 @@ model BlogPost {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  
+  socialJobs  SocialJob[]
+}
+
+// ==========================================
+// PHASE 28: Autonomous News Aggregator Engine
+// ==========================================
+
+model ContentSource {
+  id              String       @id @default(cuid())
+  name            String
+  url             String
+  type            String       // RSS, SITEMAP, HTML
+  enabled         Boolean      @default(true)
+  lastCheckedAt   DateTime?
+  trustScore      Int          @default(100)
+  createdAt       DateTime     @default(now())
+  
+  rawArticles     RawArticle[]
+}
+
+model RawArticle {
+  id              String       @id @default(cuid())
+  sourceId        String
+  source          ContentSource @relation(fields: [sourceId], references: [id])
+  sourceUrl       String       @unique
+  title           String?
+  publishedAt     DateTime?
+  rawHtml         String?
+  extractedText   String?
+  status          String       @default("PENDING") // PENDING, DUPLICATE, PARSED, PROCESSED, FAILED
+  checksum        String?
+  createdAt       DateTime     @default(now())
+
+  contentJob      ContentJob?
+}
+
+model ContentJob {
+  id              String       @id @default(cuid())
+  rawArticleId    String       @unique
+  rawArticle      RawArticle   @relation(fields: [rawArticleId], references: [id])
+  status          String       @default("QUEUED") // QUEUED, GENERATING, REVIEW, COMPLETED
+  createdAt       DateTime     @default(now())
+  finalArticleId  String?      // Reference back to BlogPost after generation
+}
+
+model SocialJob {
+  id              String       @id @default(cuid())
+  blogPostId      String       @unique
+  blogPost        BlogPost     @relation(fields: [blogPostId], references: [id])
+  linkedinCopy    String?
+  twitterCopy     String?
+  instagramCopy   String?
+  status          String       @default("PENDING") // PENDING, POSTED, FAILED
+  createdAt       DateTime     @default(now())
 }
 
 model EmailLog {

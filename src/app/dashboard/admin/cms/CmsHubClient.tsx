@@ -63,6 +63,14 @@ export default function CmsHubClient({ initialPosts }: { initialPosts: any[] }) 
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors" />
               </Link>
+
+              <Link href="/dashboard/admin/news-aggregator" className="w-full bg-[#1A1A1A] hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex items-center justify-between group transition-all">
+                <div>
+                  <h4 className="font-bold text-white flex items-center gap-2"><Globe className="w-4 h-4 text-blue-400" /> RSS AI Aggregator</h4>
+                  <p className="text-[11px] text-gray-400 mt-1">Auto-fetch external news into Drafts.</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors" />
+              </Link>
               
               <Link href="/dashboard/admin/blog/new" className="w-full bg-[#1A1A1A] hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex items-center justify-between group transition-all">
                 <div>

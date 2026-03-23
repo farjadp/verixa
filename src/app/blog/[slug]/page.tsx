@@ -14,9 +14,10 @@ import Link from "next/link";
 import { format } from "date-fns";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowLeft, Share2, Facebook, Twitter, Linkedin, ChevronDown, Printer, Mail, Clock } from "lucide-react";
+import { ArrowLeft, Share2, Facebook, Twitter, Linkedin, ChevronDown, Mail, Clock } from "lucide-react";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import PrintButton from "@/components/blog/PrintButton";
 
 export async function generateStaticParams() {
   const posts = await getBlogPosts(true);
@@ -392,9 +393,7 @@ export default async function BlogPostPage({
                  </div>
                  
                  <div className="grid grid-cols-2 gap-2">
-                   <button className="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold text-xs transition-colors shadow-sm border border-gray-100" onClick={() => {/* Will map to print functionality natively via client-component if needed, or simple plain CSS print block */}}>
-                     <Printer className="w-4 h-4" /> Print PDF
-                   </button>
+                   <PrintButton />
                    <a href={`mailto:?subject=${encodeURIComponent(post.title)}&body=${encodeURIComponent("Read this great article on Verixa:\n" + articleUrl)}`} className="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold text-xs transition-colors shadow-sm border border-gray-100">
                      <Mail className="w-4 h-4" /> Email
                    </a>

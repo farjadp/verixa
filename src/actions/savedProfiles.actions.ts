@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { revalidatePath } from "next/cache";
 import { getConsultantBookingConfig } from "./booking.actions";
+import { trackEvent } from "./analytics.actions";
 
 export async function toggleSaveProfile(consultantLicenseNumber: string) {
   const session = await getServerSession(authOptions);
@@ -50,6 +51,12 @@ export async function toggleSaveProfile(consultantLicenseNumber: string) {
         userId: user.id,
         consultantProfileId: consultant.id
       }
+    });
+
+    // Analytics: track profile_save
+    await trackEvent({
+      eventName: "profile_save",
+      consultantId: consultant.id
     });
   }
 

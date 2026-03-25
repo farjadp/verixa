@@ -4,8 +4,9 @@ import AdminDashboardCharts from "./AdminDashboardCharts";
 import RegistryStatsPanel from "./RegistryStatsPanel";
 import ActionableQueues from "./ActionableQueues";
 import { getRegistryStats } from "@/lib/db";
+import { getPlatformAnalytics } from "@/lib/analytics";
 import { format } from "date-fns";
-import { ShieldAlert, Activity, Users, ShieldCheck, ChevronRight } from "lucide-react";
+import { ShieldAlert, Activity, Users, ShieldCheck, ChevronRight, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 
 export default async function AdminHome() {
@@ -15,7 +16,8 @@ export default async function AdminHome() {
     totalBookings,
     totalLogs,
     recentLogs,
-    recentConsultants
+    recentConsultants,
+    platformAnalytics,
   ] = await Promise.all([
     prisma.user.count({ where: { role: "CLIENT" } }),
     prisma.consultantProfile.count(),
@@ -29,13 +31,14 @@ export default async function AdminHome() {
     prisma.consultantProfile.findMany({
       take: 5,
       orderBy: { createdAt: "desc" }
-    })
+    }),
+    getPlatformAnalytics(30),
   ]);
 
   const registryStats = getRegistryStats();
 
-  // Mock revenue for MVP
-  const platformRevenue = totalBookings * 45; // e.g. $45 avg fee per booking
+  // Real revenue from Stripe captured payments
+  const platformRevenue = Math.round(platformAnalytics.totalRevenueCents / 100);
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">

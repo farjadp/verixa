@@ -100,10 +100,27 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
   // Now only called AFTER Stripe Elements successfully authorizes the hold
   const handleFinalBookingSubmission = async (paymentIntentId: string) => {
     if (!selectedType || !selectedSlot) return;
-
-    setIsSubmitting(true);
     setSubmitError("");
+    setIsPreparingPayment(true);
+    
+    // TRACK: Payment Authorized (Escrow lock succeeded)
     try {
+      const vid = localStorage.getItem("vx_visitor_id");
+      await fetch("/api/analytics/event", {
+        method: "POST",
+        body: JSON.stringify({
+          eventName: "payment_authorized",
+          consultantId: profile.id,
+          sessionId: vid,
+          specialization: selectedType?.title,
+        }),
+        headers: { "Content-Type": "application/json" }
+      });
+    } catch (e) { /* ignore */ }
+
+    try {
+      setIsSubmitting(true);
+      setSubmitError("");
       const newBooking = await createBookingRequest({
         licenseNumber: profile.licenseNumber,
         consultationTypeId: selectedType.id,

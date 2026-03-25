@@ -17,6 +17,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SaveProfileButton from "@/components/SaveProfileButton";
 import { checkIsSaved } from "@/actions/savedProfiles.actions";
+import TrackPageView from "@/components/TrackPageView";
 
 import { Metadata } from "next";
 
@@ -62,6 +63,11 @@ export default async function ConsultantProfilePage({
 
   return (
     <div className="min-h-screen bg-[#ffffff] font-sans text-[#1A1F2B]">
+      {/* Analytics Tracking (client-side, captures UTM params) */}
+      <TrackPageView
+        eventName="profile_view"
+        specialization="Immigration Consulting"
+      />
       <Header />
 
       {/* 10) CLAIM THIS PROFILE BANNER */}

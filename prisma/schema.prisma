@@ -29,6 +29,7 @@ model User {
   sentMessages      TicketMessage[]
   notifications     Notification[]
   blogPosts         BlogPost[]
+  subscription      Subscription?
 }
 
 model ConsultantProfile {
@@ -59,6 +60,7 @@ model ConsultantProfile {
   savedBy            SavedProfile[]
   reviews            Review[]
   notifications      Notification[]
+  dailySummaries     ConsultantDailySummary[]
 }
 
 model ConsultationType {
@@ -391,4 +393,135 @@ model EmailLog {
   status    String   // e.g., "SENT", "FAILED"
   error     String?
   sentAt    DateTime @default(now())
+}
+
+// ==========================================
+// ANALYTICS SYSTEM
+// ==========================================
+
+model AnalyticsEvent {
+  id              String   @id @default(cuid())
+  eventName       String   // e.g., 'page_view', 'booking_started', 'search_performed'
+  sessionId       String?  // Unique identifier for the visitor's session
+  userId          String?  // nullable — anonymous users allowed
+  consultantId    String?  // consultantProfileId when relevant
+  articleId       String?  // blogPostId when relevant
+
+  // Traffic Attribution
+  source          String?  // organic, linkedin, telegram, direct, google_ads
+  utmSource       String?  // utm_source param
+  utmMedium       String?  // utm_medium param
+  utmCampaign     String?  // utm_campaign param
+  utmContent      String?  // utm_content param
+  utmTerm         String?  // utm_term param
+  referrer        String?  // raw referrer URL
+
+  // Context
+  device          String?  // mobile, desktop, tablet
+  city            String?
+  province        String?
+  country         String?
+
+  // Specialization context (for competitor insight by expertise)
+  specialization  String?  // e.g. "Express Entry", "Study Permit"
+
+  // Flexible extra data
+  metadata        String?  // JSON string
+
+  createdAt       DateTime @default(now())
+
+  @@index([consultantId, createdAt])
+  @@index([eventName, createdAt])
+  @@index([articleId, createdAt])
+}
+
+model ConsultantDailySummary {
+  id                  String   @id @default(cuid())
+  consultantProfileId String
+  date                DateTime // date only — stored as start of day UTC
+
+  // Core metrics
+  profileViews         Int      @default(0)
+  profileClicks        Int      @default(0)
+  bookingStarts        Int      @default(0)
+  bookingsCompleted    Int      @default(0)
+  revenueCents         Int      @default(0)
+  reviewsReceived      Int      @default(0)
+
+  // Computed
+  visibilityScore      Int      @default(0)
+  searchImpressions    Int      @default(0)
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  profile ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([consultantProfileId, date])
+  @@index([consultantProfileId, date])
+}
+
+// ==========================================
+// SAAS PLAN & FEATURE SYSTEM
+// ==========================================
+
+model Feature {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g. "review_response", "advanced_analytics"
+  name        String
+  description String?
+  category    String   // visibility | booking | trust | analytics | financial | premium
+  type        String   @default("boolean") // "boolean" | "limit"
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  planFeatures PlanFeature[]
+}
+
+model Plan {
+  id              String   @id @default(cuid())
+  name            String   // Free, Starter, Growth, Pro
+  slug            String   @unique // free, starter, growth, pro
+  description     String?
+  priceCents      Int      @default(0)  // monthly price in cents
+  yearlyPriceCents Int?                 // yearly price in cents (if null, yearly = monthly × 12)
+  commission      Int      @default(21) // platform fee percent
+  isActive        Boolean  @default(true)
+  isRecommended   Boolean  @default(false)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  planFeatures  PlanFeature[]
+  subscriptions Subscription[]
+}
+
+model PlanFeature {
+  id        String  @id @default(cuid())
+  planId    String
+  featureId String
+  enabled   Boolean @default(true)
+  value     String? // "3", "unlimited", "basic", "advanced" etc.
+
+  plan    Plan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, featureId])
+}
+
+model Subscription {
+  id         String    @id @default(cuid())
+  userId     String    @unique  // one active subscription per user
+  planId     String
+
+  status     String    @default("active") // active | cancelled | expired
+  startDate  DateTime  @default(now())
+  endDate    DateTime?
+  notes      String?   // admin notes
+  assignedBy String?   // admin userId who assigned it
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id])
 }

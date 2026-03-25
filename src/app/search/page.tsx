@@ -13,6 +13,7 @@ import { Search as SearchIcon, ShieldCheck, Mail, Building2, ChevronLeft, Chevro
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import TrackPageView from "@/components/TrackPageView";
 
 export default async function SearchPage({
   searchParams,
@@ -43,6 +44,10 @@ export default async function SearchPage({
 
   return (
     <div className="min-h-screen bg-[#ffffff] font-sans text-[#1A1F2B] flex flex-col">
+      <TrackPageView 
+        eventName="search_performed" 
+        metadata={{ q, statusFilter, provinceFilter, page }} 
+      />
       <Header />
 
       {/* SEARCH AREA - متمرکز و مدرن */}

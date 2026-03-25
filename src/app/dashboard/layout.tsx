@@ -9,7 +9,7 @@ import Link from "next/link";
 import { 
   LayoutDashboard, User, MessageSquare, CalendarDays, Inbox, Presentation, 
   CreditCard, ShieldCheck, Share2, LogOut, LifeBuoy, HelpCircle, Settings, 
-  Bookmark, UserCircle, Activity, ShieldAlert, CheckCircle, DollarSign, Bell, Flag, Award, RefreshCw, FileText, Search, Users
+  Bookmark, UserCircle, Activity, ShieldAlert, CheckCircle, DollarSign, Bell, Flag, Award, RefreshCw, FileText, Search, Users, BarChart2, Zap
 } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
@@ -37,17 +37,18 @@ export default async function DashboardLayout({
   });
 
   const consultantNavItems = [
-    { label: "Dashboard Home", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Profile Management", href: "/dashboard/profile", icon: User },
-    { label: "Reviews", href: "/dashboard/reviews", icon: MessageSquare },
-    { label: "Booking", href: "/dashboard/booking", icon: CalendarDays },
-    { label: "Leads & Inbox", href: "/dashboard/leads", icon: Inbox },
-    { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
-    { label: "Performance", href: "/dashboard/performance", icon: Presentation },
-    { label: "Activity Feed", href: "/dashboard/activity", icon: Activity },
-    { label: "Billing", href: "/dashboard/billing", icon: CreditCard },
-    { label: "Support (AI & Chat)", href: "/dashboard/support", icon: LifeBuoy },
-    { label: "Platform Guide", href: "/dashboard/help", icon: HelpCircle },
+    { label: "Dashboard Home",    href: "/dashboard",              icon: LayoutDashboard },
+    { label: "Profile Management",href: "/dashboard/profile",      icon: User },
+    { label: "Reviews",           href: "/dashboard/reviews",      icon: MessageSquare },
+    { label: "Booking",           href: "/dashboard/booking",      icon: CalendarDays },
+    { label: "Leads & Inbox",     href: "/dashboard/leads",        icon: Inbox },
+    { label: "Notifications",     href: "/dashboard/notifications",icon: Bell },
+    { label: "Performance",       href: "/dashboard/performance",  icon: Presentation },
+    { label: "Analytics",         href: "/dashboard/analytics",    icon: BarChart2 },
+    { label: "Activity Feed",     href: "/dashboard/activity",     icon: Activity },
+    { label: "Billing",           href: "/dashboard/billing",      icon: CreditCard },
+    { label: "Support (AI & Chat)",href: "/dashboard/support",     icon: LifeBuoy },
+    { label: "Platform Guide",    href: "/dashboard/help",         icon: HelpCircle },
   ];
 
   const clientNavItems = [
@@ -63,20 +64,22 @@ export default async function DashboardLayout({
   ];
 
   const adminNavItems = [
-    { label: "Mission Control", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Consultants", href: "/dashboard/admin/consultants", icon: Users },
-    { label: "Claim Requests", href: "/dashboard/admin/claims", icon: CheckCircle },
-    { label: "Bookings", href: "/dashboard/admin/bookings", icon: CalendarDays },
-    { label: "Reviews", href: "/dashboard/admin/reviews", icon: MessageSquare },
-    { label: "Users / Clients", href: "/dashboard/admin/users", icon: User },
-    { label: "Revenue", href: "/dashboard/admin/revenue", icon: DollarSign },
-    { label: "Notifications", href: "/dashboard/admin/notifications", icon: Bell },
-    { label: "Audit Logs", href: "/dashboard/admin/logs", icon: ShieldAlert },
-    { label: "Flags & Disputes", href: "/dashboard/admin/disputes", icon: Flag },
-    { label: "Badge Management", href: "/dashboard/admin/badges", icon: Award },
-    { label: "Registry Sync", href: "/dashboard/admin/sync", icon: RefreshCw },
-    { label: "CMS Content", href: "/dashboard/admin/cms", icon: FileText },
-    { label: "Platform Settings", href: "/dashboard/admin/settings", icon: Settings },
+    { label: "Mission Control",     href: "/dashboard",                      icon: LayoutDashboard },
+    { label: "Platform Analytics",  href: "/dashboard/admin/analytics",      icon: BarChart2 },
+    { label: "Consultants",         href: "/dashboard/admin/consultants",    icon: Users },
+    { label: "Claim Requests",      href: "/dashboard/admin/claims",         icon: CheckCircle },
+    { label: "Bookings",            href: "/dashboard/admin/bookings",       icon: CalendarDays },
+    { label: "Reviews",             href: "/dashboard/admin/reviews",        icon: MessageSquare },
+    { label: "Users / Clients",     href: "/dashboard/admin/users",          icon: User },
+    { label: "Revenue",             href: "/dashboard/admin/revenue",        icon: DollarSign },
+    { label: "Notifications",       href: "/dashboard/admin/notifications",  icon: Bell },
+    { label: "Audit Logs",          href: "/dashboard/admin/logs",           icon: ShieldAlert },
+    { label: "Flags & Disputes",    href: "/dashboard/admin/disputes",       icon: Flag },
+    { label: "Badge Management",    href: "/dashboard/admin/badges",         icon: Award },
+    { label: "Registry Sync",       href: "/dashboard/admin/sync",           icon: RefreshCw },
+    { label: "CMS Content",         href: "/dashboard/admin/cms",            icon: FileText },
+    { label: "Plans & Features",    href: "/dashboard/admin/plans",          icon: Zap },
+    { label: "Platform Settings",   href: "/dashboard/admin/settings",       icon: Settings },
   ];
 
   let navItems = isConsultant ? consultantNavItems : clientNavItems;

@@ -15,6 +15,8 @@ import {
   sendClientReceiptEmail
 } from "@/lib/mailer";
 import { capturePaymentAction, cancelPaymentAction } from "@/actions/stripe.actions";
+import { trackEvent } from "@/actions/analytics.actions";
+import { getPlanCommission } from "@/lib/subscription";
 
 export async function getConsultantBookingConfig(licenseNumber: string) {
   let profile = await prisma.consultantProfile.findUnique({
@@ -168,6 +170,24 @@ export async function createBookingRequest(data: {
     throw new Error("This time slot is no longer available. Please select another time.");
   }
 
+  // Fetch platform settings (maintenance mode only — commission is per-plan)
+  const platformSettings = await prisma.platformSetting.findMany({
+    where: { key: { in: ["maintenanceMode"] } }
+  });
+  const settingsMap = platformSettings.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {} as Record<string, string>);
+
+  if (settingsMap.maintenanceMode === "true") {
+    throw new Error("The platform is currently undergoing maintenance. Please try again in a few minutes.");
+  }
+
+  // Commission comes from the consultant's active plan subscription (Plan.commission %).
+  // Falls back to 21% (Free tier) if no subscription exists.
+  const consultantUserId = profile.userId ?? null;
+  const commissionPercent = consultantUserId
+    ? await getPlanCommission(consultantUserId)
+    : 21;
+  const feePercent = commissionPercent / 100;
+
   const booking = await prisma.booking.create({
     data: {
       consultantProfileId: profile.id,
@@ -188,8 +208,8 @@ export async function createBookingRequest(data: {
       stripePaymentIntentId: data.stripePaymentIntentId || null,
       paymentStatus: data.stripePaymentIntentId ? "REQUIRES_CAPTURE" : "PENDING",
       grossAmountCents: type.priceCents,
-      platformFeeCents: Math.floor(type.priceCents * 0.21), // MVP default 21%
-      netAmountCents: Math.floor(type.priceCents * 0.79),
+      platformFeeCents: Math.floor(type.priceCents * feePercent), 
+      netAmountCents: type.priceCents - Math.floor(type.priceCents * feePercent),
     }
   });
 
@@ -235,6 +255,14 @@ export async function createBookingRequest(data: {
     ...data,
     consultantName: consultantUser?.name || "Verixa Consultant",
     bookingId: booking.id
+  });
+
+  // Analytics: booking_request_submitted event
+  await trackEvent({
+    eventName: "booking_request_submitted",
+    consultantId: profile.id,
+    specialization: type.title,
+    metadata: { bookingId: booking.id, typeId: type.id },
   });
 
   return booking;
@@ -311,6 +339,15 @@ export async function updateBookingStatus(
     await sendBookingConfirmedEmail(booking.userEmail, booking);
   } else if (newStatus === "CANCELLED" || newStatus === "CANCELLED_BY_CONSULTANT" || newStatus === "DECLINED") {
     await sendBookingCancelledEmail(booking.userEmail, "CLIENT", booking);
+  }
+
+  // Analytics: track booking_completed when payment is captured
+  if (newStatus === "CONFIRMED" || newStatus === "COMPLETED") {
+    await trackEvent({
+      eventName: "booking_completed",
+      consultantId: booking.consultantProfileId,
+      metadata: { bookingId: bookingId, newStatus },
+    });
   }
 
   return booking;

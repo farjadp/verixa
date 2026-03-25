@@ -27,6 +27,21 @@ export async function updatePlatformSettings(settings: { key: string; value: str
   return { success: true };
 }
 
+export async function updateBillingMode(mode: "monthly" | "yearly" | "both") {
+  const session = await getServerSession(authOptions);
+  if ((session?.user as any)?.role !== "ADMIN") throw new Error("Unauthorized");
+
+  await prisma.platformSetting.upsert({
+    where: { key: "billingMode" },
+    update: { value: mode },
+    create: { key: "billingMode", value: mode },
+  });
+
+  revalidatePath("/dashboard/admin/plans/pricing");
+  revalidatePath("/pricing");
+  return { success: true };
+}
+
 export async function updateProfileSettings(data: { name: string; email: string }) {
   const session = await getServerSession(authOptions);
   if (!(session?.user as any)?.id) throw new Error("Unauthorized");

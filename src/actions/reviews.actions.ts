@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { revalidatePath } from "next/cache";
 import { logEvent } from "@/lib/logger";
+import { trackEvent } from "./analytics.actions";
 
 export async function submitReview(data: {
   bookingId: string;
@@ -60,6 +61,13 @@ export async function submitReview(data: {
     role: user.role,
     action: "REVIEW_SUBMITTED",
     details: { bookingId: booking.id, consultantProfileId: data.consultantProfileId, rating: data.rating }
+  });
+
+  // Analytics: track review_submitted
+  await trackEvent({
+    eventName: "review_submitted",
+    consultantId: data.consultantProfileId,
+    metadata: { rating: data.rating }
   });
 
   return review;

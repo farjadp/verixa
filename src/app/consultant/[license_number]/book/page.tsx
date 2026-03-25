@@ -12,6 +12,7 @@ import { notFound } from "next/navigation";
 import BookingFlow from "./BookingFlow";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
+import TrackPageView from "@/components/TrackPageView";
 
 export default async function ClientBookingPage({ params }: { params: Promise<{ license_number: string }> }) {
   const session = await getServerSession(authOptions);
@@ -27,6 +28,7 @@ export default async function ClientBookingPage({ params }: { params: Promise<{ 
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col font-sans text-gray-900">
+      <TrackPageView eventName="booking_flow_started" consultantId={data.id} />
       
       {/* HEADER */}
       <header className="bg-white border-b border-[#e5e7eb] h-20 flex items-center px-8 z-20 sticky top-0">

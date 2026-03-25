@@ -18,6 +18,7 @@ import { ArrowLeft, Share2, Facebook, Twitter, Linkedin, ChevronDown, Mail, Cloc
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import PrintButton from "@/components/blog/PrintButton";
+import TrackPageView from "@/components/TrackPageView";
 
 export async function generateStaticParams() {
   const posts = await getBlogPosts(true);
@@ -160,6 +161,7 @@ export default async function BlogPostPage({
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] font-sans flex flex-col">
+      <TrackPageView eventName="article_view" articleId={post.id} />
       <Header />
       
       <main className="flex-1">

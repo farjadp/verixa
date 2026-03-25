@@ -99,11 +99,11 @@ export default function RegistrySyncClient({ preview, lastSync }: Props) {
           {preview.demographics && preview.demographics.length > 0 && (
             <div className="xl:col-span-2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="font-bold text-[#0F2A44]">Demographics Estimate</h2>
-                <div className="text-[10px] font-bold text-[#2FA4A9] bg-[#E5F5F5] px-2 py-1 rounded uppercase tracking-widest border border-[#2FA4A9]/20">Name-based ML Heuristic</div>
+                <h2 className="font-bold text-[#0F2A44]">Top 5 Nationalities & Native Languages</h2>
+                <div className="text-[10px] font-bold text-[#2FA4A9] bg-[#E5F5F5] px-2 py-1 rounded uppercase tracking-widest border border-[#2FA4A9]/20">Name-based Heuristic</div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-5 flex-1 content-start">
-                {preview.demographics.map((demo, idx) => {
+                {preview.demographics.slice(0, 5).map((demo, idx) => {
                   const percentage = ((demo.count / preview.registryDone) * 100).toFixed(1);
                   return (
                     <div key={idx} className="space-y-1.5 flex flex-col justify-end">

@@ -84,6 +84,7 @@ const FEATURES = [
   { key: "no_competitor_ads",    name: "No Competitor Ads",        category: "premium",    type: "boolean", description: "Competitors won't appear on your profile page.",  sortOrder: 0 },
   { key: "priority_support",     name: "Priority Support",         category: "premium",    type: "boolean", description: "Dedicated support channel with faster response.",  sortOrder: 1 },
   { key: "custom_availability",  name: "Custom Availability",      category: "premium",    type: "boolean", description: "Block dates, set seasonal schedules.",            sortOrder: 2 },
+  { key: "unlimited_messengers", name: "Unlimited Messengers",     category: "premium",    type: "boolean", description: "Add multiple messaging apps to your profile.",     sortOrder: 3 },
 ];
 
 // ─── PLAN × FEATURE MATRIX ─────────────────────────────────────────────────
@@ -113,6 +114,7 @@ const MATRIX: Record<string, { free: string | boolean; starter: string | boolean
   no_competitor_ads:   { free: false,    starter: false,       growth: false,       pro: true        },
   priority_support:    { free: false,    starter: false,       growth: true,        pro: true        },
   custom_availability: { free: false,    starter: true,        growth: true,        pro: true        },
+  unlimited_messengers:{ free: false,    starter: false,       growth: false,       pro: true        },
 };
 
 async function main() {

@@ -50,6 +50,13 @@ model ConsultantProfile {
   defaultMeetingLink        String?
   customMeetingInstructions String?
   languages                 String?
+  
+  // Customization
+  coverImage                String?
+  avatarImage               String?
+  website                   String?
+  messengers                Json?    // [{ type: "whatsapp", value: "..." }]
+
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 

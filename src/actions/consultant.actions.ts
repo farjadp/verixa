@@ -13,6 +13,7 @@ export async function getMyConsultantProfile() {
 
   const profile = await prisma.consultantProfile.findUnique({
     where: { userId: userId },
+    include: { companyEnrichments: true }
   });
 
   if (!profile) throw new Error("Profile not found");

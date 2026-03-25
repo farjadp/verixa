@@ -65,9 +65,13 @@ model ConsultantProfile {
   bookingSettings    BookingSettings?
   bookings           Booking[]
   savedBy            SavedProfile[]
-  reviews            Review[]
-  notifications      Notification[]
-  dailySummaries     ConsultantDailySummary[]
+  reviews              Review[]
+  notifications        Notification[]
+  dailySummaries       ConsultantDailySummary[]
+
+  // Business Enrichment
+  companyEnrichments   ConsultantCompanyEnrichment[]
+  enrichmentJobs       CompanyEnrichmentJob[]
 }
 
 model ConsultationType {
@@ -531,4 +535,53 @@ model Subscription {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan Plan @relation(fields: [planId], references: [id])
+}
+
+// ============================================================================
+// ENRICHMENT SYSTEM
+// ============================================================================
+
+model ConsultantCompanyEnrichment {
+  id                 String   @id @default(cuid())
+  consultantProfileId String
+  rawCompanyName     String
+  normalizedName     String
+
+  matchStatus        String   // pending, matched, ambiguous, not_found, error
+  confidenceScore    Float?
+
+  matchedLegalName   String?
+  registrySource     String?  // federal_api, mras, ontario_registry, etc.
+  jurisdiction       String?  // federal, ontario, british_columbia, ...
+  registryNumber     String?
+  businessNumber     String?
+  incorporationDate  DateTime?
+  registeredAddress  String?
+  status             String?  // active, dissolved, etc.
+  sourceUrl          String?
+
+  rawPayload         Json?
+  lastCheckedAt      DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  consultantProfile  ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+
+  @@index([consultantProfileId])
+  @@index([matchStatus])
+  @@index([jurisdiction])
+}
+
+model CompanyEnrichmentJob {
+  id                 String   @id @default(cuid())
+  consultantProfileId String
+  rawCompanyName     String
+  status             String   // queued, processing, done, failed, ambiguous
+  attempts           Int      @default(0)
+  errorMessage       String?
+  runAfter           DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  consultantProfile  ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
 }

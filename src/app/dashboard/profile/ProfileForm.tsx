@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, UploadCloud, Save, X } from "lucide-react";
+import { Lock, UploadCloud, Save, X, CheckCircle } from "lucide-react";
 import { updateConsultantProfile } from "@/actions/consultant.actions";
 import { uploadConsultantImageAction } from "@/actions/upload.actions";
 import { useRouter } from "next/navigation";
@@ -195,6 +195,44 @@ export default function ProfileForm({ profile, unlimitedMessengers }: { profile:
             </div>
           </div>
       </div>
+
+      {/* SECTION: COMPANY ENRICHMENT SNAPSHOT */}
+      {profile?.companyEnrichments?.filter((e: any) => e.matchStatus === 'matched').map((enrichment: any) => (
+        <div key={enrichment.id} className="bg-gradient-to-br from-[#0F2A44] to-[#1A3A5A] rounded-3xl border border-[#e5e7eb] p-6 shadow-sm relative overflow-hidden text-white">
+          <div className="absolute top-0 right-0 bg-white/10 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-bl-xl flex items-center gap-1.5 border-b border-l border-white/10">
+            <CheckCircle className="w-3 h-3 text-green-400" /> Verified Record
+          </div>
+          
+          <h2 className="text-lg font-bold mb-5 flex items-center gap-2">Official Business Registration Snapshot</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 text-sm">
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-white/50 block mb-1">Legal Name</label>
+              <div className="font-semibold">{enrichment.matchedLegalName}</div>
+            </div>
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-white/50 block mb-1">Jurisdiction</label>
+              <div className="font-semibold">{enrichment.jurisdiction}</div>
+            </div>
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-white/50 block mb-1">Registry Number</label>
+              <div className="font-semibold">{enrichment.registryNumber}</div>
+            </div>
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-white/50 block mb-1">Incorporated On</label>
+              <div className="font-semibold">{enrichment.incorporationDate ? new Date(enrichment.incorporationDate).toLocaleDateString() : 'N/A'}</div>
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-white/50 block mb-1">Registered Address</label>
+              <div className="font-semibold">{enrichment.registeredAddress || 'N/A'}</div>
+            </div>
+            <div className="md:col-span-2 mt-4 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-white/50">
+               <div>Source: {enrichment.registrySource === 'federal_api' ? 'Federal Corporation API' : 'Canada Business Registries (MRAS)'}</div>
+               <div>Last Checked: {new Date(enrichment.lastCheckedAt).toLocaleDateString()}</div>
+            </div>
+          </div>
+        </div>
+      ))}
 
       {/* SECTION: LANGUAGES */}
       <div className="bg-white rounded-3xl border border-[#e5e7eb] p-6 shadow-sm">

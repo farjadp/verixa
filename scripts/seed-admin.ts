@@ -4,8 +4,6 @@
  * Creates the admin user if it doesn't already exist.
  */
 
-// Force the correct DB path (Prisma resolves relative to prisma/ directory)
-process.env.DATABASE_URL = "file:./prisma/dev.db";
 
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";

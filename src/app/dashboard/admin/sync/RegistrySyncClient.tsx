@@ -92,6 +92,39 @@ export default function RegistrySyncClient({ preview, lastSync }: Props) {
         </div>
       )}
 
+      {/* DEMOGRAPHICS ESTIMATE */}
+      {preview && preview.demographics && preview.demographics.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-bold text-[#0F2A44]">Demographics Estimate</h2>
+            <div className="text-[10px] font-bold text-[#2FA4A9] bg-[#E5F5F5] px-2 py-1 rounded uppercase tracking-widest border border-[#2FA4A9]/20">Name-based ML Heuristic</div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-5">
+            {preview.demographics.map((demo, idx) => {
+              const percentage = ((demo.count / preview.registryDone) * 100).toFixed(1);
+              return (
+                <div key={idx} className="space-y-1.5 flex flex-col justify-end">
+                  <div className="flex items-end justify-between text-sm">
+                    <div className="font-bold text-[#1A1F2B] truncate pr-2 leading-none">
+                      {demo.region} <span className="text-gray-400 font-medium ml-1">· {demo.language}</span>
+                    </div>
+                    <div className="text-gray-500 font-mono text-xs shrink-0 leading-none">
+                      {demo.count.toLocaleString()} ({percentage}%)
+                    </div>
+                  </div>
+                  <div className="h-1.5 mt-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-[#2FA4A9] rounded-full transition-all duration-1000" 
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* SYNC OPTIONS + RUN */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
         <h2 className="font-bold text-[#0F2A44] mb-4">Sync Options</h2>

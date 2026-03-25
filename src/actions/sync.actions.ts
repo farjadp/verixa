@@ -13,6 +13,7 @@ import { authOptions } from "@/lib/authOptions";
 import { revalidatePath } from "next/cache";
 import Database from "better-sqlite3";
 import path from "path";
+import { guessDemographics } from "@/lib/demographics";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,12 @@ export interface SyncResult {
   durationMs: number;
 }
 
+export interface DemographicsBreakdown {
+  language: string;
+  region: string;
+  count: number;
+}
+
 export interface SyncPreview {
   registryTotal: number;
   registryActive: number;
@@ -34,6 +41,7 @@ export interface SyncPreview {
   verixaTotal: number;
   newCount: number;       // in scraper but not in verixa
   updateCount: number;    // in both but data differs
+  demographics: DemographicsBreakdown[];
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -83,7 +91,19 @@ export async function getRegistrySyncPreview(): Promise<SyncPreview> {
     const newCount = allScraperDone.filter((r) => !verixaSet.has(r.License_Number)).length;
     const updateCount = allScraperDone.filter((r) => verixaSet.has(r.License_Number)).length;
 
-    return { registryTotal, registryActive, registryDone, registryPending, verixaTotal, newCount, updateCount };
+    const demoMap = new Map<string, DemographicsBreakdown>();
+    for (const r of allScraperDone) {
+      const name = r.Full_Name || "";
+      const { region, language } = guessDemographics(name);
+      const key = `${region}|${language}`;
+      if (!demoMap.has(key)) {
+        demoMap.set(key, { region, language, count: 0 });
+      }
+      demoMap.get(key)!.count++;
+    }
+    const demographics = Array.from(demoMap.values()).sort((a, b) => b.count - a.count);
+
+    return { registryTotal, registryActive, registryDone, registryPending, verixaTotal, newCount, updateCount, demographics };
   } finally {
     scraperDb?.close();
   }

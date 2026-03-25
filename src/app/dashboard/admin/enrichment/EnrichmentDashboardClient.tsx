@@ -17,14 +17,24 @@ export default function EnrichmentDashboardClient({ initialEnrichments, initialJ
   const handleQueueAll = async () => {
     if (!confirm("Are you sure you want to queue all eligible companies?")) return;
     setLoading(true);
-    await queueAllCompanies();
+    try {
+      const res = await queueAllCompanies();
+      alert(`Successfully queued ${res.queuedCount} companies!`);
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    }
     setLoading(false);
     router.refresh();
   };
 
   const handleProcessBatch = async () => {
     setLoading(true);
-    await processNextBatchAction(10);
+    try {
+      const res = await processNextBatchAction(10);
+      alert(`Processed ${res.processed} jobs from the queue.`);
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    }
     setLoading(false);
     router.refresh();
   };

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { 
   LayoutDashboard, User, MessageSquare, CalendarDays, Inbox, Presentation, 
   CreditCard, ShieldCheck, Share2, LogOut, LifeBuoy, HelpCircle, Settings, 
-  Bookmark, UserCircle, Activity, ShieldAlert, CheckCircle, DollarSign, Bell, Flag, Award, RefreshCw, FileText, Search, Users, BarChart2, Zap
+  Bookmark, UserCircle, Activity, ShieldAlert, CheckCircle, DollarSign, Bell, Flag, Award, RefreshCw, FileText, Search, Users, BarChart2, Zap, Building
 } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
@@ -96,8 +96,10 @@ export default async function DashboardLayout({
     { label: "Plans & Features",    href: "/dashboard/admin/plans",          icon: Zap },
     { label: "Revenue",             href: "/dashboard/admin/revenue",        icon: DollarSign },
     
-    { type: "group", label: "System & Config" },
-    { label: "Platform Settings",   href: "/dashboard/admin/settings",       icon: Settings },
+    { type: "group", label: "Platform Settings" },
+    { label: "Database Sync",       href: "/dashboard/admin/sync",           icon: RefreshCw },
+    { label: "Company Enrichment",  href: "/dashboard/admin/enrichment",     icon: Building },
+    { label: "General Settings",    href: "/dashboard/admin/settings",       icon: Settings },
   ];
 
   let navItems = isConsultant ? consultantNavItems : clientNavItems;

@@ -12,7 +12,7 @@ async function requireAdmin() {
   }
 }
 
-export async function queueAllCompanies() {
+export async function queueAllCompanies(limit?: number) {
   await requireAdmin();
 
   const consultants = await prisma.consultantProfile.findMany({
@@ -24,6 +24,7 @@ export async function queueAllCompanies() {
 
   let queuedCount = 0;
   for (const c of consultants) {
+    if (limit && queuedCount >= limit) break;
     if (!c.company) continue;
 
     const existingJob = await prisma.companyEnrichmentJob.findFirst({

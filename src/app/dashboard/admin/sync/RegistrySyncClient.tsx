@@ -92,36 +92,74 @@ export default function RegistrySyncClient({ preview, lastSync }: Props) {
         </div>
       )}
 
-      {/* DEMOGRAPHICS ESTIMATE */}
-      {preview && preview.demographics && preview.demographics.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="font-bold text-[#0F2A44]">Demographics Estimate</h2>
-            <div className="text-[10px] font-bold text-[#2FA4A9] bg-[#E5F5F5] px-2 py-1 rounded uppercase tracking-widest border border-[#2FA4A9]/20">Name-based ML Heuristic</div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-5">
-            {preview.demographics.map((demo, idx) => {
-              const percentage = ((demo.count / preview.registryDone) * 100).toFixed(1);
-              return (
-                <div key={idx} className="space-y-1.5 flex flex-col justify-end">
-                  <div className="flex items-end justify-between text-sm">
-                    <div className="font-bold text-[#1A1F2B] truncate pr-2 leading-none">
-                      {demo.region} <span className="text-gray-400 font-medium ml-1">· {demo.language}</span>
+      {/* DEMOGRAPHICS & COUNTRIES ESTIMATE */}
+      {preview && (
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          {/* Demographics Estimate */}
+          {preview.demographics && preview.demographics.length > 0 && (
+            <div className="xl:col-span-2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="font-bold text-[#0F2A44]">Demographics Estimate</h2>
+                <div className="text-[10px] font-bold text-[#2FA4A9] bg-[#E5F5F5] px-2 py-1 rounded uppercase tracking-widest border border-[#2FA4A9]/20">Name-based ML Heuristic</div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-5 flex-1 content-start">
+                {preview.demographics.map((demo, idx) => {
+                  const percentage = ((demo.count / preview.registryDone) * 100).toFixed(1);
+                  return (
+                    <div key={idx} className="space-y-1.5 flex flex-col justify-end">
+                      <div className="flex items-end justify-between text-sm">
+                        <div className="font-bold text-[#1A1F2B] truncate pr-2 leading-none">
+                          {demo.region} <span className="text-gray-400 font-medium ml-1">· {demo.language}</span>
+                        </div>
+                        <div className="text-gray-500 font-mono text-xs shrink-0 leading-none">
+                          {demo.count.toLocaleString()} ({percentage}%)
+                        </div>
+                      </div>
+                      <div className="h-1.5 mt-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-[#2FA4A9] rounded-full transition-all duration-1000" 
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="text-gray-500 font-mono text-xs shrink-0 leading-none">
-                      {demo.count.toLocaleString()} ({percentage}%)
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Top Countries */}
+          {preview.topCountries && preview.topCountries.length > 0 && (
+            <div className="xl:col-span-1 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="font-bold text-[#0F2A44]">Top Locations</h2>
+                <div className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded uppercase tracking-widest border border-gray-200">Declared</div>
+              </div>
+              <div className="space-y-5 flex-1 content-start">
+                {preview.topCountries.map((country, idx) => {
+                  const percentage = ((country.count / preview.registryDone) * 100).toFixed(1);
+                  return (
+                    <div key={idx} className="space-y-1.5 flex flex-col justify-end">
+                      <div className="flex items-end justify-between text-sm">
+                        <div className="font-bold text-[#1A1F2B] truncate pr-2 leading-none flex items-center gap-2">
+                           <span className="text-gray-400 font-mono text-xs">{idx + 1}.</span> {country.name}
+                        </div>
+                        <div className="text-gray-500 font-mono text-xs shrink-0 leading-none">
+                          {country.count.toLocaleString()} ({percentage}%)
+                        </div>
+                      </div>
+                      <div className="h-1.5 mt-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-[#0F2A44] rounded-full transition-all duration-1000" 
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="h-1.5 mt-1 w-full bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-[#2FA4A9] rounded-full transition-all duration-1000" 
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -33,6 +33,11 @@ export interface DemographicsBreakdown {
   count: number;
 }
 
+export interface TopCountry {
+  name: string;
+  count: number;
+}
+
 export interface SyncPreview {
   registryTotal: number;
   registryActive: number;
@@ -42,6 +47,7 @@ export interface SyncPreview {
   newCount: number;       // in scraper but not in verixa
   updateCount: number;    // in both but data differs
   demographics: DemographicsBreakdown[];
+  topCountries: TopCountry[];
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -92,6 +98,8 @@ export async function getRegistrySyncPreview(): Promise<SyncPreview> {
     const updateCount = allScraperDone.filter((r) => verixaSet.has(r.License_Number)).length;
 
     const demoMap = new Map<string, DemographicsBreakdown>();
+    const countryMap = new Map<string, number>();
+    
     for (const r of allScraperDone) {
       const name = r.Full_Name || "";
       const { region, language } = guessDemographics(name);
@@ -100,10 +108,19 @@ export async function getRegistrySyncPreview(): Promise<SyncPreview> {
         demoMap.set(key, { region, language, count: 0 });
       }
       demoMap.get(key)!.count++;
+      
+      const cRaw = r.Country?.trim();
+      const country = cRaw ? (cRaw.toUpperCase() === "CAN" ? "Canada" : cRaw) : "Canada";
+      countryMap.set(country, (countryMap.get(country) || 0) + 1);
     }
     const demographics = Array.from(demoMap.values()).sort((a, b) => b.count - a.count);
+    
+    const topCountries = Array.from(countryMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
 
-    return { registryTotal, registryActive, registryDone, registryPending, verixaTotal, newCount, updateCount, demographics };
+    return { registryTotal, registryActive, registryDone, registryPending, verixaTotal, newCount, updateCount, demographics, topCountries };
   } finally {
     scraperDb?.close();
   }

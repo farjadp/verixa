@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Settings, Save, Layout, CreditCard, Users, Shield, Cpu, ExternalLink } from "lucide-react";
+import { Settings, Save, Layout, CreditCard, Users, Shield, Cpu, ExternalLink, RefreshCw, Bell, ShieldAlert } from "lucide-react";
 import { updatePlatformSettings } from "@/actions/settings.actions";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function PlatformSettingsClient({
   initialSettings
@@ -195,6 +196,45 @@ export default function PlatformSettingsClient({
                 />
                 <p className="text-xs text-gray-400 mt-2">Maximum elements shuffled organically into the Discovery limit container.</p>
               </div>
+
+            </div>
+          </div>
+
+          <div className="bg-white p-8 rounded-3xl border border-[#e5e7eb] shadow-sm">
+            <h2 className="text-xl font-bold text-[#1A1F2B] mb-6 flex items-center gap-2">
+              <Cpu className="w-5 h-5 text-[#2FA4A9]" /> System Tools & Logs
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
+              <Link href="/dashboard/admin/sync" className="group p-6 rounded-2xl border border-gray-100 bg-gray-50 hover:bg-white hover:border-[#2FA4A9] hover:shadow-md transition-all flex flex-col items-center text-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  <RefreshCw className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-[#1A1F2B]">Registry Sync</h3>
+                  <p className="text-xs text-gray-500 mt-1">CICC database synchronization</p>
+                </div>
+              </Link>
+              
+              <Link href="/dashboard/admin/notifications" className="group p-6 rounded-2xl border border-gray-100 bg-gray-50 hover:bg-white hover:border-[#2FA4A9] hover:shadow-md transition-all flex flex-col items-center text-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                  <Bell className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-[#1A1F2B]">Global Notifications</h3>
+                  <p className="text-xs text-gray-500 mt-1">System broadcasts & alerts</p>
+                </div>
+              </Link>
+
+              <Link href="/dashboard/admin/logs" className="group p-6 rounded-2xl border border-gray-100 bg-gray-50 hover:bg-white hover:border-[#2FA4A9] hover:shadow-md transition-all flex flex-col items-center text-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-colors">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-[#1A1F2B]">Audit Logs</h3>
+                  <p className="text-xs text-gray-500 mt-1">Security & system events</p>
+                </div>
+              </Link>
 
             </div>
           </div>

@@ -97,9 +97,6 @@ export default async function DashboardLayout({
     { label: "Revenue",             href: "/dashboard/admin/revenue",        icon: DollarSign },
     
     { type: "group", label: "System & Config" },
-    { label: "Registry Sync",       href: "/dashboard/admin/sync",           icon: RefreshCw },
-    { label: "Notifications",       href: "/dashboard/admin/notifications",  icon: Bell },
-    { label: "Audit Logs",          href: "/dashboard/admin/logs",           icon: ShieldAlert },
     { label: "Platform Settings",   href: "/dashboard/admin/settings",       icon: Settings },
   ];
 

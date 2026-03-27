@@ -4,8 +4,8 @@ import path from 'path';
 import fs from 'fs';
 
 // Resolve the absolute path to the SQLite database
-// In dev, process.cwd() is the Next.js root. We go up one level to the crawler dir.
-const DB_PATH = path.resolve(process.cwd(), '../cicc_scraper/cicc_data.db');
+// In dev, process.cwd() is the Next.js root.
+const DB_PATH = path.join(process.cwd(), 'prisma', 'cicc_data.db');
 
 let db: any;
 

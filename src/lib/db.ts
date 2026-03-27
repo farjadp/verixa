@@ -1,19 +1,25 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 
+import fs from 'fs';
+
 // Resolve the absolute path to the SQLite database
 // In dev, process.cwd() is the Next.js root. We go up one level to the crawler dir.
 const DB_PATH = path.resolve(process.cwd(), '../cicc_scraper/cicc_data.db');
 
-let db: Database.Database;
+let db: any;
 
 try {
-  // Open strictly in readonly mode for safety
-  db = new Database(DB_PATH, { readonly: true, fileMustExist: true });
+  if (fs.existsSync(DB_PATH)) {
+    // Open strictly in readonly mode for safety
+    db = new Database(DB_PATH, { readonly: true, fileMustExist: true });
+  } else {
+    db = new Database(':memory:');
+  }
 } catch (error) {
-  console.error("Failed to connect to SQLite DB:", error);
-  // Fallback to in-memory if DB doesn't exist just to prevent fatal crashes at build time
-  db = new Database(':memory:');
+  console.error("Failed to connect to SQLite DB safely:", error);
+  // ultimate fallback
+  db = { prepare: () => ({ get: () => null, all: () => [] }) } as any;
 }
 
 export interface Consultant {

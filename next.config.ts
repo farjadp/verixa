@@ -3,9 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  serverExternalPackages: ["better-sqlite3"],
   typescript: {
     ignoreBuildErrors: true,
   },

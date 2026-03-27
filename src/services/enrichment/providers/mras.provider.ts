@@ -37,6 +37,7 @@ export class MrasSearchProvider implements CompanyRegistryProvider {
     registryNumber?: string;
     businessNumber?: string;
     sourceUrl?: string;
+    legalName?: string;
   }): Promise<RegistryCandidate | null> {
     console.log(`[MRAS Mock] Fetching details for registryNumber: ${input.registryNumber}`);
     
@@ -45,7 +46,7 @@ export class MrasSearchProvider implements CompanyRegistryProvider {
     if (!input.registryNumber) return null;
 
     return {
-      legalName: "MOCK COMPANY INC.",
+      legalName: input.legalName || "Unknown Corporate Entity INC.",
       jurisdiction: input.jurisdiction,
       registrySource: this.sourceName,
       registryNumber: input.registryNumber,

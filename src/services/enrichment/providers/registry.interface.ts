@@ -34,5 +34,6 @@ export interface CompanyRegistryProvider {
     registryNumber?: string;
     businessNumber?: string;
     sourceUrl?: string;
+    legalName?: string;
   }): Promise<RegistryCandidate | null>;
 }

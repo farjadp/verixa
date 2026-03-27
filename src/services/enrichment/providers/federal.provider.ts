@@ -22,13 +22,19 @@ export class FederalCorporationProvider implements CompanyRegistryProvider {
     return [];
   }
 
-  async getDetails(input: { registryNumber?: string }): Promise<RegistryCandidate | null> {
+  async getDetails(input: {
+    jurisdiction?: string;
+    registryNumber?: string;
+    businessNumber?: string;
+    sourceUrl?: string;
+    legalName?: string;
+  }): Promise<RegistryCandidate | null> {
     await new Promise((resolve) => setTimeout(resolve, 400));
     
     if (!input.registryNumber) return null;
 
     return {
-      legalName: "MOCK FEDERAL COMPANY LTD.",
+      legalName: input.legalName || "Unknown Federal Entity LTD.",
       jurisdiction: "Federal",
       registrySource: this.sourceName,
       registryNumber: input.registryNumber,

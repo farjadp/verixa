@@ -9,7 +9,7 @@
 // ============================================================================
 
 import { getConsultantByLicense } from "@/lib/db";
-import { ShieldCheck, Mail, Building2, MapPin, CheckCircle2, AlertCircle, CalendarDays, ExternalLink, User, Star, Clock, MessageSquare, Briefcase, Languages, Phone, Check, Zap, CheckCircle } from "lucide-react";
+import { ShieldCheck, Mail, Building2, MapPin, CheckCircle2, AlertCircle, CalendarDays, ExternalLink, User, Star, Clock, MessageSquare, Briefcase, Languages, Phone, Check, Zap, CheckCircle, Info, Shield } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -68,7 +68,9 @@ export default async function ConsultantProfilePage({
     include: { companyEnrichments: true }
   });
 
-  const verifiedEnrichments = dbProfile?.companyEnrichments?.filter(e => e.matchStatus === 'matched') || [];
+  const displayEnrichments = dbProfile?.companyEnrichments?.filter(e => 
+    (e.matchStatus === 'ambiguous' || e.matchStatus === 'matched' || e.matchStatus === 'consultant_verified') && e.registryNumber
+  ) || [];
 
   return (
     <div className="min-h-screen bg-[#ffffff] font-sans text-[#1A1F2B]">
@@ -229,45 +231,76 @@ export default async function ConsultantProfilePage({
            </section>
 
            {/* 3) VERIFIED BUSINESS SNAPSHOT (IF EXISTS) */}
-           {verifiedEnrichments.length > 0 && (
+           {displayEnrichments.length > 0 && (
              <section>
                <h2 className="text-xl font-bold font-serif mb-4 flex items-center gap-2">
-                 Official Corporate Records <span className="text-xs bg-green-100 text-green-700 font-bold px-2 py-1 rounded-full uppercase tracking-wider font-sans mt-1">Verified</span>
+                 Official Corporate Records 
                </h2>
                <div className="space-y-4">
-                 {verifiedEnrichments.map((enrichment: any) => (
-                   <div key={enrichment.id} className="bg-gradient-to-br from-[#0F2A44] to-[#1A3A5A] rounded-3xl border border-[#e5e7eb] p-6 shadow-sm relative overflow-hidden text-white">
-                     <div className="absolute top-0 right-0 bg-white/10 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-bl-xl flex items-center gap-1.5 border-b border-l border-white/10">
-                       <CheckCircle className="w-3 h-3 text-green-400" /> Government Verified
+                 {displayEnrichments.map((enrichment: any) => {
+                   const isAuto = enrichment.matchStatus === 'ambiguous';
+                   const isAdmin = enrichment.matchStatus === 'matched';
+                   const isConsultant = enrichment.matchStatus === 'consultant_verified';
+
+                   let themeClass = "bg-gradient-to-br from-[#0F2A44] to-[#1A3A5A] text-white border-transparent";
+                   let badgeClass = "bg-white/10 text-white border-white/10";
+                   let icon = <CheckCircle className="w-3 h-3 text-green-400" />;
+                   let label = "Government Verified";
+
+                   if (isAuto) {
+                     themeClass = "bg-[#F8FAFC] text-[#1A1F2B] border-[#e5e7eb]";
+                     badgeClass = "bg-orange-100 text-orange-800 border-orange-200";
+                     icon = <Info className="w-3 h-3 text-orange-600" />;
+                     label = "Auto-Matched (Unverified)";
+                   } else if (isConsultant) {
+                     themeClass = "bg-gradient-to-br from-[#FFD700]/10 to-[#FFF8DC] text-[#1A1F2B] border-[#FFD700]/30 shadow-[0_0_15px_rgba(255,215,0,0.1)]";
+                     badgeClass = "bg-[#FFD700] text-[#8B6508] border-[#DAA520]";
+                     icon = <Shield className="w-3 h-3 text-[#8B6508] fill-current" />;
+                     label = "Consultant Verified";
+                   }
+
+                   return (
+                     <div key={enrichment.id} className={`rounded-3xl border p-6 shadow-sm relative overflow-hidden ${themeClass}`}>
+                       <div className={`absolute top-0 right-0 backdrop-blur-md text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-bl-xl flex items-center gap-1.5 border-b border-l ${badgeClass}`}>
+                         {icon} {label}
+                       </div>
+                       
+                       {isAuto && (
+                         <div className="mb-4 text-xs bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 rounded-xl flex items-start gap-2 max-w-[95%]">
+                           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                           <p><strong>Disclaimer:</strong> This record was automatically extracted from public registry databases utilizing AI matching algorithms. It has not been manually reviewed or verified yet.</p>
+                         </div>
+                       )}
+
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 text-sm mt-2">
+                         <div>
+                           <label className={`text-xs font-bold uppercase tracking-wider block mb-1 ${isAuto || isConsultant ? 'text-gray-500' : 'text-white/50'}`}>Legal Name</label>
+                           <div className="font-semibold text-base">{enrichment.matchedLegalName}</div>
+                         </div>
+                         <div>
+                           <label className={`text-xs font-bold uppercase tracking-wider block mb-1 ${isAuto || isConsultant ? 'text-gray-500' : 'text-white/50'}`}>Jurisdiction</label>
+                           <div className="font-semibold">{enrichment.jurisdiction}</div>
+                         </div>
+                         <div>
+                           <label className={`text-xs font-bold uppercase tracking-wider block mb-1 ${isAuto || isConsultant ? 'text-gray-500' : 'text-white/50'}`}>Registry Number</label>
+                           <div className="font-semibold">{enrichment.registryNumber}</div>
+                         </div>
+                         <div>
+                           <label className={`text-xs font-bold uppercase tracking-wider block mb-1 ${isAuto || isConsultant ? 'text-gray-500' : 'text-white/50'}`}>Incorporated On</label>
+                           <div className="font-semibold">{enrichment.incorporationDate ? new Date(enrichment.incorporationDate).toLocaleDateString() : 'N/A'}</div>
+                         </div>
+                         <div className="md:col-span-2">
+                           <label className={`text-xs font-bold uppercase tracking-wider block mb-1 ${isAuto || isConsultant ? 'text-gray-500' : 'text-white/50'}`}>Registered Address</label>
+                           <div className="font-semibold">{enrichment.registeredAddress || 'N/A'}</div>
+                         </div>
+                         <div className={`md:col-span-2 mt-2 pt-4 border-t flex items-center justify-between text-[11px] uppercase tracking-wider font-bold ${isAuto || isConsultant ? 'border-gray-200 text-gray-400' : 'border-white/10 text-white/50'}`}>
+                            <div>Source: {enrichment.registrySource === 'federal_api' ? 'Federal Corporation API' : 'Canada Business Registries'}</div>
+                            <div>Checked: {new Date(enrichment.lastCheckedAt).toLocaleDateString()}</div>
+                         </div>
+                       </div>
                      </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 text-sm mt-2">
-                       <div>
-                         <label className="text-xs font-bold uppercase tracking-wider text-white/50 block mb-1">Legal Name</label>
-                         <div className="font-semibold text-base">{enrichment.matchedLegalName}</div>
-                       </div>
-                       <div>
-                         <label className="text-xs font-bold uppercase tracking-wider text-white/50 block mb-1">Jurisdiction</label>
-                         <div className="font-semibold">{enrichment.jurisdiction}</div>
-                       </div>
-                       <div>
-                         <label className="text-xs font-bold uppercase tracking-wider text-white/50 block mb-1">Registry Number</label>
-                         <div className="font-semibold">{enrichment.registryNumber}</div>
-                       </div>
-                       <div>
-                         <label className="text-xs font-bold uppercase tracking-wider text-white/50 block mb-1">Incorporated On</label>
-                         <div className="font-semibold">{enrichment.incorporationDate ? new Date(enrichment.incorporationDate).toLocaleDateString() : 'N/A'}</div>
-                       </div>
-                       <div className="md:col-span-2">
-                         <label className="text-xs font-bold uppercase tracking-wider text-white/50 block mb-1">Registered Address</label>
-                         <div className="font-semibold">{enrichment.registeredAddress || 'N/A'}</div>
-                       </div>
-                       <div className="md:col-span-2 mt-2 pt-4 border-t border-white/10 flex items-center justify-between text-[11px] text-white/50 uppercase tracking-wider font-bold">
-                          <div>Source: {enrichment.registrySource === 'federal_api' ? 'Federal Corporation API' : 'Canada Business Registries'}</div>
-                          <div>Verified On: {new Date(enrichment.lastCheckedAt).toLocaleDateString()}</div>
-                       </div>
-                     </div>
-                   </div>
-                 ))}
+                   );
+                 })}
                </div>
              </section>
            )}

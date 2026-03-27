@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, XCircle, RefreshCw, Eye, AlertTriangle, Building, ArrowRight } from "lucide-react";
-import { approveAmbiguousMatch, rejectAmbiguousMatch, queueAllCompanies, processNextBatchAction } from "@/actions/enrichment.actions";
+import { CheckCircle, XCircle, RefreshCw, AlertTriangle, Building, ArrowRight, Edit2, Save } from "lucide-react";
+import { approveAmbiguousMatch, rejectAmbiguousMatch, queueAllCompanies, processNextBatchAction, updateEnrichmentRecord } from "@/actions/enrichment.actions";
 import { useRouter } from "next/navigation";
 
 export default function EnrichmentDashboardClient({ initialEnrichments, initialJobs }: { initialEnrichments: any[], initialJobs: any[] }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("ambiguous");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editData, setEditData] = useState({ matchedLegalName: "", registryNumber: "", jurisdiction: "" });
 
   const ambiguous = initialEnrichments.filter(e => e.matchStatus === "ambiguous");
   const matched = initialEnrichments.filter(e => e.matchStatus === "matched");
@@ -43,6 +45,29 @@ export default function EnrichmentDashboardClient({ initialEnrichments, initialJ
     setLoading(true);
     if (action === 'approve') await approveAmbiguousMatch(id);
     else await rejectAmbiguousMatch(id);
+    setLoading(false);
+    router.refresh();
+  };
+
+  const startEditing = (e: any) => {
+    setEditingId(e.id);
+    setEditData({
+      matchedLegalName: e.matchedLegalName || "",
+      registryNumber: e.registryNumber || "",
+      jurisdiction: e.jurisdiction || "",
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return;
+    setLoading(true);
+    try {
+      await updateEnrichmentRecord(editingId, editData);
+      setEditingId(null);
+      alert("Record updated successfully!");
+    } catch (err: any) {
+      alert("Failed to update: " + err.message);
+    }
     setLoading(false);
     router.refresh();
   };
@@ -132,23 +157,57 @@ export default function EnrichmentDashboardClient({ initialEnrichments, initialJ
                  {ambiguous.length === 0 ? (
                    <tr><td colSpan={4} className="p-8 text-center text-gray-400 italic">No ambiguous matches pending review.</td></tr>
                  ) : ambiguous.map(e => (
-                   <tr key={e.id} className="hover:bg-gray-50">
-                     <td className="px-6 py-4">
+                   <tr key={e.id} className="hover:bg-gray-50 border-t border-gray-100">
+                     <td className="px-6 py-4 align-top w-1/4">
                         <div className="font-bold text-[#1A1F2B]">{e.rawCompanyName}</div>
                         <div className="text-xs text-gray-500">{e.consultantProfile.fullName} ({e.consultantProfile.province || 'Unknown Prov.'})</div>
                      </td>
-                     <td className="px-6 py-4">
-                        <div className="font-bold text-[#2FA4A9] flex items-center gap-2">
-                           <ArrowRight className="w-4 h-4" /> {e.matchedLegalName}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">{e.registrySource} • {e.status}</div>
+                     <td className="px-6 py-4 align-top w-2/4">
+                        {editingId === e.id ? (
+                          <div className="space-y-3 p-3 bg-white border border-[#e5e7eb] rounded-xl shadow-sm">
+                            <div>
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Legal Name</label>
+                               <input type="text" value={editData.matchedLegalName} onChange={ev => setEditData({...editData, matchedLegalName: ev.target.value})} className="w-full text-sm font-bold border rounded-md px-3 py-1.5 focus:ring-2 focus:ring-[#2FA4A9] outline-none" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Registry Number</label>
+                                 <input type="text" value={editData.registryNumber} onChange={ev => setEditData({...editData, registryNumber: ev.target.value})} className="w-full text-sm border rounded-md px-3 py-1.5 focus:ring-2 focus:ring-[#2FA4A9] outline-none" />
+                              </div>
+                              <div>
+                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Jurisdiction</label>
+                                 <input type="text" value={editData.jurisdiction} onChange={ev => setEditData({...editData, jurisdiction: ev.target.value})} className="w-full text-sm border rounded-md px-3 py-1.5 focus:ring-2 focus:ring-[#2FA4A9] outline-none" />
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="font-bold text-[#2FA4A9] flex items-center gap-2">
+                               <ArrowRight className="w-4 h-4 shrink-0" /> {e.matchedLegalName}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                               <span><strong className="text-gray-400 font-medium">Source:</strong> {e.registrySource}</span> 
+                               <span><strong className="text-gray-400 font-medium">Jurisdiction:</strong> {e.jurisdiction}</span>
+                               <span><strong className="text-gray-400 font-medium">Number:</strong> {e.registryNumber}</span>
+                            </div>
+                          </>
+                        )}
                      </td>
-                     <td className="px-6 py-4">
+                     <td className="px-6 py-4 align-top">
                         <span className="bg-orange-100 text-orange-700 font-bold px-2 py-1 rounded text-xs">{e.confidenceScore} / 100</span>
                      </td>
-                     <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
-                        <button onClick={() => handleAction(e.id, 'approve')} disabled={loading} className="p-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition-all"><CheckCircle className="w-4 h-4" /></button>
-                        <button onClick={() => handleAction(e.id, 'reject')} disabled={loading} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-all"><XCircle className="w-4 h-4" /></button>
+                     <td className="px-6 py-4 text-right align-top">
+                        {editingId === e.id ? (
+                           <div className="flex items-center justify-end gap-2">
+                             <button onClick={handleSaveEdit} disabled={loading} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-all" title="Save Changes"><Save className="w-4 h-4" /></button>
+                             <button onClick={() => setEditingId(null)} disabled={loading} className="p-2 bg-gray-50 text-gray-500 hover:bg-gray-100 rounded-lg transition-all" title="Cancel"><XCircle className="w-4 h-4" /></button>
+                           </div>
+                        ) : (
+                           <div className="flex items-center justify-end gap-2">
+                             <button onClick={() => startEditing(e)} disabled={loading} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit Company Details"><Edit2 className="w-4 h-4" /></button>
+                             <button onClick={() => handleAction(e.id, 'approve')} disabled={loading} className="p-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition-all" title="Approve & Publish"><CheckCircle className="w-4 h-4" /></button>
+                           </div>
+                        )}
                      </td>
                    </tr>
                  ))}

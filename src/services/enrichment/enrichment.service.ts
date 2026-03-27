@@ -62,9 +62,9 @@ export class CompanyEnrichmentService {
         
         let details = null;
         if (bestMatch.registrySource === "mras") {
-           details = await this.mrasProvider.getDetails({ jurisdiction: bestMatch.jurisdiction, registryNumber: bestMatch.registryNumber });
+           details = await this.mrasProvider.getDetails({ jurisdiction: bestMatch.jurisdiction, registryNumber: bestMatch.registryNumber, legalName: bestMatch.legalName });
         } else if (bestMatch.registrySource === "federal_api") {
-           details = await this.federalProvider.getDetails({ registryNumber: bestMatch.registryNumber });
+           details = await this.federalProvider.getDetails({ registryNumber: bestMatch.registryNumber, jurisdiction: bestMatch.jurisdiction, legalName: bestMatch.legalName });
         }
 
         if (details) {

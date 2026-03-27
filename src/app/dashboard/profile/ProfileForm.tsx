@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, UploadCloud, Save, X, CheckCircle } from "lucide-react";
+import { Lock, UploadCloud, Save, X, CheckCircle, Info, Shield, ThumbsUp, AlertTriangle } from "lucide-react";
 import { updateConsultantProfile } from "@/actions/consultant.actions";
+import { consultantVerifyEnrichment } from "@/actions/enrichment.actions";
 import { uploadConsultantImageAction } from "@/actions/upload.actions";
 import { useRouter } from "next/navigation";
 
 export default function ProfileForm({ profile, unlimitedMessengers }: { profile: any; unlimitedMessengers: boolean }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
   
   // Customization fields
   const [avatarImage, setAvatarImage] = useState(profile?.avatarImage || "");
@@ -64,6 +66,27 @@ export default function ProfileForm({ profile, unlimitedMessengers }: { profile:
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleVerifyEnrichment = async (id: string, currentStatus: string) => {
+    if (currentStatus === 'consultant_verified') return;
+    setIsChecking(true);
+    try {
+      const res = await consultantVerifyEnrichment(id);
+      if (res.success) {
+        alert("Thank you! The record has been verified and permanently published to your profile.");
+        router.refresh();
+      } else {
+        alert("Failed to verify: " + res.error);
+      }
+    } catch (error) {
+      alert("Error processing verification.");
+    }
+    setIsChecking(false);
+  };
+
+  const handleRequestCorrection = () => {
+    alert("Support request sent! Our team will review the registry snapshot and contact you shortly to correct the record.");
   };
 
   return (
@@ -197,42 +220,87 @@ export default function ProfileForm({ profile, unlimitedMessengers }: { profile:
       </div>
 
       {/* SECTION: COMPANY ENRICHMENT SNAPSHOT */}
-      {profile?.companyEnrichments?.filter((e: any) => e.matchStatus === 'matched').map((enrichment: any) => (
-        <div key={enrichment.id} className="bg-gradient-to-br from-[#0F2A44] to-[#1A3A5A] rounded-3xl border border-[#e5e7eb] p-6 shadow-sm relative overflow-hidden text-white">
-          <div className="absolute top-0 right-0 bg-white/10 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-bl-xl flex items-center gap-1.5 border-b border-l border-white/10">
-            <CheckCircle className="w-3 h-3 text-green-400" /> Verified Record
+      {profile?.companyEnrichments?.filter((e: any) => e.matchStatus === 'ambiguous' || e.matchStatus === 'matched' || e.matchStatus === 'consultant_verified').map((enrichment: any) => {
+        const isVerified = enrichment.matchStatus === 'consultant_verified';
+        const isAuto = enrichment.matchStatus === 'ambiguous';
+
+        let themeClass = "bg-gradient-to-br from-[#0F2A44] to-[#1A3A5A] text-white border-transparent";
+        let badgeClass = "bg-white/10 text-white border-white/10";
+        let icon = <CheckCircle className="w-3 h-3 text-green-400" />;
+        let label = "Government Verified";
+
+        if (isAuto) {
+          themeClass = "bg-[#F8FAFC] text-[#1A1F2B] border-[#e5e7eb]";
+          badgeClass = "bg-orange-100 text-orange-800 border-orange-200";
+          icon = <Info className="w-3 h-3 text-orange-600" />;
+          label = "Auto-Matched (Pending Your Verification)";
+        } else if (isVerified) {
+          themeClass = "bg-gradient-to-br from-[#FFD700]/10 to-[#FFF8DC] text-[#1A1F2B] border-[#FFD700]/30 shadow-[0_0_15px_rgba(255,215,0,0.1)]";
+          badgeClass = "bg-[#FFD700] text-[#8B6508] border-[#DAA520]";
+          icon = <Shield className="w-3 h-3 text-[#8B6508] fill-current" />;
+          label = "Verified by You";
+        }
+
+        return (
+          <div key={enrichment.id} className={`rounded-3xl border p-6 shadow-sm relative overflow-hidden ${themeClass}`}>
+            <div className={`absolute top-0 right-0 backdrop-blur-md text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-bl-xl flex items-center gap-1.5 border-b border-l ${badgeClass}`}>
+              {icon} {label}
+            </div>
+            
+            <h2 className="text-lg font-bold mb-5 flex items-center gap-2">Official Business Registration Snapshot</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 text-sm">
+              <div>
+                <label className={`text-xs font-bold uppercase tracking-wider block mb-1 ${isAuto || isVerified ? 'text-gray-500' : 'text-white/50'}`}>Legal Name</label>
+                <div className="font-semibold">{enrichment.matchedLegalName}</div>
+              </div>
+              <div>
+                <label className={`text-xs font-bold uppercase tracking-wider block mb-1 ${isAuto || isVerified ? 'text-gray-500' : 'text-white/50'}`}>Jurisdiction</label>
+                <div className="font-semibold">{enrichment.jurisdiction}</div>
+              </div>
+              <div>
+                <label className={`text-xs font-bold uppercase tracking-wider block mb-1 ${isAuto || isVerified ? 'text-gray-500' : 'text-white/50'}`}>Registry Number</label>
+                <div className="font-semibold">{enrichment.registryNumber}</div>
+              </div>
+              <div>
+                <label className={`text-xs font-bold uppercase tracking-wider block mb-1 ${isAuto || isVerified ? 'text-gray-500' : 'text-white/50'}`}>Incorporated On</label>
+                <div className="font-semibold">{enrichment.incorporationDate ? new Date(enrichment.incorporationDate).toLocaleDateString() : 'N/A'}</div>
+              </div>
+              <div className="md:col-span-2">
+                <label className={`text-xs font-bold uppercase tracking-wider block mb-1 ${isAuto || isVerified ? 'text-gray-500' : 'text-white/50'}`}>Registered Address</label>
+                <div className="font-semibold">{enrichment.registeredAddress || 'N/A'}</div>
+              </div>
+              
+              <div className="md:col-span-2 mt-4 pt-4 border-t border-black/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+                 <div className={`text-xs ${isAuto || isVerified ? 'text-gray-500' : 'text-white/50'}`}>
+                    <div>Source: {enrichment.registrySource === 'federal_api' ? 'Federal Corporation API' : 'Canada Business Registries (MRAS)'}</div>
+                    <div>Last Checked: {new Date(enrichment.lastCheckedAt).toLocaleDateString()}</div>
+                 </div>
+
+                 {!isVerified && (
+                   <div className="flex items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
+                      <button 
+                        type="button"
+                        onClick={handleRequestCorrection}
+                        className={`flex-1 sm:flex-none px-4 py-2 border rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all ${isAuto ? 'border-orange-200 text-orange-700 hover:bg-orange-50' : 'border-white/20 hover:bg-white/10'}`}
+                      >
+                         <AlertTriangle className="w-4 h-4" /> Request Correction
+                      </button>
+                      <button 
+                        type="button"
+                        disabled={isChecking}
+                        onClick={() => handleVerifyEnrichment(enrichment.id, enrichment.matchStatus)}
+                        className={`flex-1 sm:flex-none px-5 py-2 rounded-xl text-sm font-bold shadow-lg flex items-center justify-center gap-2 transition-transform hover:scale-105 active:scale-95 ${isAuto ? 'bg-black text-white' : 'bg-[#2FA4A9] text-white hover:bg-[#258d92]'}`}
+                      >
+                         <ThumbsUp className="w-4 h-4" /> {isChecking ? 'Saving...' : 'Yes, This Is My Company'}
+                      </button>
+                   </div>
+                 )}
+              </div>
+            </div>
           </div>
-          
-          <h2 className="text-lg font-bold mb-5 flex items-center gap-2">Official Business Registration Snapshot</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 text-sm">
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-white/50 block mb-1">Legal Name</label>
-              <div className="font-semibold">{enrichment.matchedLegalName}</div>
-            </div>
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-white/50 block mb-1">Jurisdiction</label>
-              <div className="font-semibold">{enrichment.jurisdiction}</div>
-            </div>
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-white/50 block mb-1">Registry Number</label>
-              <div className="font-semibold">{enrichment.registryNumber}</div>
-            </div>
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-white/50 block mb-1">Incorporated On</label>
-              <div className="font-semibold">{enrichment.incorporationDate ? new Date(enrichment.incorporationDate).toLocaleDateString() : 'N/A'}</div>
-            </div>
-            <div className="md:col-span-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-white/50 block mb-1">Registered Address</label>
-              <div className="font-semibold">{enrichment.registeredAddress || 'N/A'}</div>
-            </div>
-            <div className="md:col-span-2 mt-4 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-white/50">
-               <div>Source: {enrichment.registrySource === 'federal_api' ? 'Federal Corporation API' : 'Canada Business Registries (MRAS)'}</div>
-               <div>Last Checked: {new Date(enrichment.lastCheckedAt).toLocaleDateString()}</div>
-            </div>
-          </div>
-        </div>
-      ))}
+        );
+      })}
 
       {/* SECTION: LANGUAGES */}
       <div className="bg-white rounded-3xl border border-[#e5e7eb] p-6 shadow-sm">

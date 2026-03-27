@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { CompanyEnrichmentService } from "@/services/enrichment/enrichment.service";
+import { revalidatePath } from "next/cache";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -95,4 +96,41 @@ export async function getEnrichments() {
     include: { consultantProfile: true },
     orderBy: { createdAt: "desc" }
   });
+}
+
+export async function updateEnrichmentRecord(id: string, data: {
+  matchedLegalName: string;
+  registryNumber: string;
+  jurisdiction: string;
+}) {
+  await requireAdmin();
+  try {
+    const record = await prisma.consultantCompanyEnrichment.update({
+      where: { id },
+      data: {
+        matchedLegalName: data.matchedLegalName,
+        registryNumber: data.registryNumber,
+        jurisdiction: data.jurisdiction,
+      }
+    });
+    
+    revalidatePath("/dashboard/admin/enrichment");
+    return { success: true, record };
+  } catch (error) {
+    return { success: false, error: "Failed to update record" };
+  }
+}
+
+export async function consultantVerifyEnrichment(id: string) {
+  // Assuming the user is authenticated from middleware
+  try {
+    await prisma.consultantCompanyEnrichment.update({
+      where: { id },
+      data: { matchStatus: "consultant_verified" }
+    });
+    revalidatePath("/dashboard/profile");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: "Failed to verify record" };
+  }
 }

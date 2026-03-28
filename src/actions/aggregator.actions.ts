@@ -381,14 +381,14 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
         if (response.data && response.data[0]?.url) imageUrl = response.data[0].url;
       } else if (aiSettings.imageModel === "FAL_FLUX_PRO") {
         const res = await fetch("https://fal.run/fal-ai/flux-pro/v1.1", {
-          method: "POST", headers: { "Authorization": `Key ${process.env.FAL_KEY}`, "Content-Type": "application/json" },
+          method: "POST", headers: { "Authorization": `Key ${(process.env.FAL_KEY || "").replace(/\\n/g, "").trim()}`, "Content-Type": "application/json" },
           body: JSON.stringify({ prompt: safePrompt, image_size: "landscape_16_9" })
         });
         const data = await res.json();
         if (data.images && data.images[0]?.url) imageUrl = data.images[0].url;
       } else {
         const res = await fetch("https://fal.run/fal-ai/flux/schnell", {
-          method: "POST", headers: { "Authorization": `Key ${process.env.FAL_KEY}`, "Content-Type": "application/json" },
+          method: "POST", headers: { "Authorization": `Key ${(process.env.FAL_KEY || "").replace(/\\n/g, "").trim()}`, "Content-Type": "application/json" },
           body: JSON.stringify({ prompt: safePrompt, image_size: "landscape_16_9", num_inference_steps: 4 })
         });
         const data = await res.json();

@@ -1,136 +1,158 @@
 import Link from "next/link";
 import Image from "next/image";
 import { format } from "date-fns";
-import { ArrowRight, BookOpen, Clock } from "lucide-react";
+import { ArrowUpRight, BookOpen, Clock, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 
 export default async function LatestArticles() {
-  const articles = await prisma.blogPost.findMany({
-    where: { isPublished: true },
-    orderBy: { createdAt: "desc" },
-    take: 3,
-  });
+  let articles: any[] = [];
+  try {
+    articles = await prisma.blogPost.findMany({
+      where: { isPublished: true },
+      orderBy: { createdAt: "desc" },
+      take: 4,
+    });
+  } catch (err) {
+    console.warn("⚠️ Skipping LatestArticles rendering due to DB connection failure during build.");
+    return null;
+  }
 
   if (!articles || articles.length === 0) return null;
 
   const featured = articles[0];
-  const secondary = articles.slice(1);
+  const sideArticles = articles.slice(1);
 
   return (
-    <section className="bg-white py-32 border-t border-gray-100 font-sans">
-      <div className="max-w-7xl mx-auto px-8">
+    <section className="bg-[#0F2A44] text-white py-32 font-sans relative overflow-hidden border-y-[6px] border-[#2FA4A9]/20">
+      
+      {/* Background Glowing Effects */}
+      <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-bl from-[#2FA4A9] via-[#2FA4A9]/20 to-transparent rounded-full blur-[120px] opacity-10 pointer-events-none -translate-y-1/2 translate-x-1/3" />
+      <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-[#2FA4A9] via-[#2FA4A9]/20 to-transparent rounded-full blur-[100px] opacity-10 pointer-events-none translate-y-1/2 -translate-x-1/3" />
+
+      <div className="max-w-7xl mx-auto px-8 relative z-10">
         
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
-          <div className="space-y-4 max-w-2xl">
-            <h4 className="text-sm font-bold uppercase tracking-widest text-[#2FA4A9] flex items-center gap-2">
-              <BookOpen className="w-4 h-4" /> Global Insights
-            </h4>
-            <h2 className="text-5xl font-medium tracking-tight font-serif text-[#1A1F2B]">
-              Stay ahead of Canadian Immigration.
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
+          <div className="space-y-6 max-w-2xl">
+            <div className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#2FA4A9] border border-[#2FA4A9]/30 bg-[#2FA4A9]/10 rounded-full px-4 py-1.5 shadow-[0_0_15px_rgba(47,164,169,0.2)]">
+              <Sparkles className="w-4 h-4" /> The Auto-Pilot Engine
+            </div>
+            <h2 className="text-5xl md:text-6xl font-black font-serif tracking-tight leading-[1.1] text-white Drop-shadow-lg">
+              Insights that <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-300 via-[#2FA4A9] to-blue-500">Accelerate</span> <br/> Your Future.
             </h2>
-            <p className="text-gray-500 text-lg leading-relaxed">
-              Expertly curated tactical guides, policy updates, and case-based strategies directly from our verification engine.
+            <p className="text-blue-200/80 text-lg leading-relaxed font-light">
+              Dive into our AI-driven intelligence hub. We analyze the latest Canadian Immigration trends, policies, and systems to give you a definitive edge.
             </p>
           </div>
           <Link 
             href="/blog" 
-            className="group flex items-center gap-2 font-bold text-[#1A1F2B] border-b-2 border-transparent hover:border-[#0F2A44] pb-1 transition-all whitespace-nowrap"
+            className="group flex items-center justify-center gap-3 bg-white text-[#0F2A44] font-black uppercase tracking-wider text-xs px-8 py-4 rounded-full shadow-[0_10px_40px_-10px_rgba(255,255,255,0.3)] hover:shadow-[0_10px_50px_-10px_rgba(255,255,255,0.5)] hover:-translate-y-1 transition-all duration-300"
           >
-            Explore the Hub <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            Access All Briefs <ArrowUpRight className="w-5 h-5 group-hover:rotate-45 transition-transform duration-300" />
           </Link>
         </div>
 
-        {/* Bento Grid layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[600px]">
+        {/* Premium Bento Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:h-[650px]">
           
-          {/* Main Featured Article (Left - 8 columns) */}
+          {/* HUGE HERO ARTICLE (8 Cols) */}
           <Link 
             href={`/blog/${featured.slug}`}
-            className="col-span-1 lg:col-span-7 relative rounded-[40px] overflow-hidden group shadow-sm hover:shadow-2xl transition-all duration-500 cursor-pointer h-full"
+            className="col-span-1 lg:col-span-8 relative rounded-[40px] overflow-hidden group border border-white/10 shadow-2xl h-[500px] lg:h-full block transform-gpu"
           >
+            {/* Image & Gradient Backdrop */}
             {featured.coverImage ? (
               <Image 
                 src={featured.coverImage} 
                 alt={featured.title} 
                 fill 
-                className="object-cover group-hover:scale-105 transition-transform duration-700 ease-in-out" 
+                className="object-cover group-hover:scale-105 transition-transform duration-1000 ease-out saturate-50 group-hover:saturate-100 mix-blend-overlay" 
               />
             ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-gray-800" />
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-900 to-[#0F2A44]" />
             )}
-            
-            {/* Dark Overlay for Text Readability */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0F2A44] via-[#0F2A44]/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0F2A44] via-[#0F2A44]/70 to-transparent opacity-90 group-hover:opacity-70 transition-opacity duration-700" />
 
-            <div className="absolute inset-0 p-10 flex flex-col justify-end">
+            {/* Glowing Accent */}
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 shadow-[inset_0_0_100px_rgba(47,164,169,0.3)] pointer-events-none" />
+
+            {/* Content Payload */}
+            <div className="absolute inset-x-0 bottom-0 p-10 md:p-14 flex flex-col justify-end translate-y-6 group-hover:translate-y-0 transition-transform duration-500">
                <div className="flex items-center gap-3 mb-6">
-                 <span className="bg-[#2FA4A9] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg">
+                 <span className="bg-[#2FA4A9] text-white text-[10px] font-black uppercase tracking-[0.15em] px-4 py-1.5 rounded-full shadow-lg border border-[#2FA4A9]/50 backdrop-blur-md">
                    {featured.category.replace(/_/g, " ")}
                  </span>
-                 <span className="text-white/80 text-xs font-semibold flex items-center gap-1.5">
-                   <Clock className="w-3.5 h-3.5" /> {format(new Date(featured.createdAt), "MMMM d, yyyy")}
+                 <span className="text-white/70 text-xs font-bold flex items-center gap-1.5 backdrop-blur-sm bg-black/20 px-3 py-1.5 rounded-full border border-white/5">
+                   <Clock className="w-3 h-3" /> {format(new Date(featured.createdAt), "MMMM d, yyyy")}
                  </span>
                </div>
-               <h3 className="text-3xl md:text-5xl font-serif text-white font-medium mb-4 leading-tight group-hover:text-[#2FA4A9] transition-colors">
+               <h3 className="text-4xl md:text-5xl lg:text-5xl font-serif text-white font-black mb-5 leading-[1.1] group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-blue-200 transition-all duration-300 line-clamp-3 lg:line-clamp-2">
                  {featured.title}
                </h3>
-               <p className="text-gray-300 line-clamp-2 md:line-clamp-3 max-w-xl text-lg mb-6">
+               <p className="text-blue-100/70 line-clamp-2 max-w-2xl text-lg font-light mb-8 opacity-0 group-hover:opacity-100 transition-opacity duration-700 delay-100">
                  {featured.summary}
                </p>
-               <div className="flex items-center gap-2 text-white font-bold opacity-0 -translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
-                 Read Full Brief <ArrowRight className="w-5 h-5" />
+               <div className="flex items-center gap-3 text-teal-300 font-bold uppercase tracking-widest text-xs opacity-0 group-hover:opacity-100 transition-all duration-500 delay-200">
+                 Read Intelligence Brief <ArrowUpRight className="w-4 h-4" />
                </div>
             </div>
           </Link>
 
-          {/* Secondary Stacked Articles (Right - 4 columns) */}
-          <div className="col-span-1 lg:col-span-5 flex flex-col gap-6 h-full">
-            {secondary.map((article) => (
+          {/* STACKED SIDE ARTICLES (4 Cols) */}
+          <div className="col-span-1 lg:col-span-4 flex flex-col gap-6 lg:h-full">
+            {sideArticles.map((article, idx) => (
                <Link 
                  key={article.id}
                  href={`/blog/${article.slug}`}
-                 className="flex-1 relative rounded-[32px] overflow-hidden group shadow-sm hover:shadow-xl transition-all duration-500 bg-gray-50 border border-gray-100"
+                 className="flex-1 relative rounded-[32px] overflow-hidden group shadow-xl hover:shadow-2xl transition-all duration-500 border border-white/10 bg-white/5 backdrop-blur-3xl min-h-[250px] flex flex-col"
                >
-                 {article.coverImage ? (
-                   <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity duration-500">
+                 {/* Optional Glassmorphic Image Hint */}
+                 {article.coverImage && (
+                   <div className="absolute inset-0 opacity-10 group-hover:opacity-20 transition-opacity duration-500">
                       <Image 
                         src={article.coverImage} 
                         alt={article.title} 
                         fill 
-                        className="object-cover grayscale" 
+                        className="object-cover mix-blend-luminosity scale-110 group-hover:scale-100 transition-transform duration-1000" 
                       />
                    </div>
-                 ) : null}
+                 )}
                  
-                 <div className="absolute inset-0 bg-gradient-to-b from-white/90 to-gray-50/95" />
+                 <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
 
-                 <div className="relative h-full p-8 flex flex-col justify-between z-10">
+                 <div className="relative flex-1 p-8 flex flex-col justify-between z-10">
                     <div>
-                      <div className="flex items-center gap-3 mb-4">
-                        <span className="bg-[#0F2A44] text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
+                      <div className="flex items-center gap-3 mb-5">
+                        <span className="bg-white/10 text-teal-300 text-[9px] font-black uppercase tracking-[0.15em] px-3 py-1.5 rounded-full border border-white/5">
                           {article.category.replace(/_/g, " ")}
                         </span>
-                        <span className="text-gray-400 text-xs font-semibold flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> {format(new Date(article.createdAt), "MMM d, yyyy")}
-                        </span>
                       </div>
-                      <h3 className="text-2xl font-serif text-[#1A1F2B] font-medium leading-snug group-hover:text-[#2FA4A9] transition-colors">
+                      <h3 className="text-2xl font-serif text-white font-bold leading-tight group-hover:text-teal-300 transition-colors line-clamp-3">
                         {article.title}
                       </h3>
                     </div>
                     
-                    <div className="mt-6 flex items-center justify-between">
-                      <p className="text-gray-500 text-sm line-clamp-2 max-w-[80%]">
-                        {article.summary}
-                      </p>
-                      <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:bg-[#2FA4A9] group-hover:text-white transition-colors border border-gray-100">
-                        <ArrowRight className="w-4 h-4" />
+                    <div className="mt-8 flex items-center justify-between border-t border-white/10 pt-6">
+                      <div className="text-blue-200/50 text-xs font-bold flex items-center gap-2">
+                        <Clock className="w-3.5 h-3.5" /> {format(new Date(article.createdAt), "MMM d")}
+                      </div>
+                      <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-teal-400 group-hover:text-[#0F2A44] transition-colors border border-white/10 shadow-[0_0_15px_rgba(47,164,169,0)] group-hover:shadow-[0_0_20px_rgba(47,164,169,0.5)]">
+                        <ArrowUpRight className="w-4 h-4" />
                       </div>
                     </div>
                  </div>
                </Link>
             ))}
+
+            {/* Add an empty placeholder if less than 3 total articles exist */}
+            {sideArticles.length < 2 && (
+              <div className="flex-1 rounded-[32px] border border-dashed border-white/20 bg-white/5 flex flex-col items-center justify-center p-8 text-center min-h-[250px]">
+                <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                  <Sparkles className="w-5 h-5 text-teal-400/50" />
+                </div>
+                <p className="text-blue-200/50 text-sm font-medium">Auto-Pilot is generating more intelligence...</p>
+              </div>
+            )}
           </div>
 
         </div>

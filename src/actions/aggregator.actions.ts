@@ -15,7 +15,7 @@ import { logEvent } from "@/lib/logger";
 const parser = new Parser({ timeout: 15000 });
 
 // Lazy initialize OpenAI to prevent Next.js from hard-baking the dummy key at build time
-const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "sk-build-dummy" });
+const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Validation Schemas
 const AggregatedBriefSchema = z.object({

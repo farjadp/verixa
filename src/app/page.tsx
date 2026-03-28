@@ -15,7 +15,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import LatestArticles from "@/components/home/LatestArticles";
 
-export const revalidate = 3600; // Refetch data every hour (Static generation optimization)
+export const revalidate = 600; // Refetch data every 10 minutes
 
 export default async function Home() {
   const totalCount = getTotalConsultantsCount();

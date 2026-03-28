@@ -18,6 +18,8 @@ export const metadata: Metadata = {
   description: "Read expert insights, immigration guides, and case-based studies to choose the right licensed RCIC via Verixa.",
 };
 
+export const dynamic = "force-dynamic";
+
 const CATEGORIES = [
   { value: "ALL", label: "All Content", icon: BookOpen },
   { value: "IMMIGRATION_GUIDES", label: "Immigration Guides", icon: BookOpen },

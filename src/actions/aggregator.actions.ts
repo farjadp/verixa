@@ -12,8 +12,10 @@ import { processMidRollImages } from "@/actions/ai-blog.actions";
 import { logEvent } from "@/lib/logger";
 
 // Initialize Subsystems
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "sk-build-dummy" });
 const parser = new Parser({ timeout: 15000 });
+
+// Lazy initialize OpenAI to prevent Next.js from hard-baking the dummy key at build time
+const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "sk-build-dummy" });
 
 // Validation Schemas
 const AggregatedBriefSchema = z.object({
@@ -250,7 +252,7 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
     `;
 
     // @ts-ignore
-    const briefCompletion = await openai.chat.completions.create({
+    const briefCompletion = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: [
         { role: "system", content: "You are an elite SEO Strategist checking for deduplication and building extraction briefs. You must return only JSON." },
@@ -285,7 +287,7 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
       ${extractedText.substring(0, 10000)}
     `;
 
-    const articleCompletion = await openai.chat.completions.create({
+    const articleCompletion = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: [
         { role: "system", content: "You are an elite, analytical immigration writer. Output perfectly formatted Markdown." },
@@ -298,7 +300,7 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
     // 4. GENERATE SOCIAL POSTS
     const socialPrompt = `Create 3 platform-specific posts for this new article focusing on the angle: ${brief?.angle}. \n\n Article snippet: \n ${finalMarkdown?.substring(0, 3000)}`;
     // @ts-ignore
-    const socialCompletion = await openai.chat.completions.create({
+    const socialCompletion = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "system", content: "You must return only JSON." }, { role: "user", content: socialPrompt }],
       response_format: zodResponseFormat(SocialHookSchema, "socials"),

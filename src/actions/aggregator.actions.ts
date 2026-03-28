@@ -28,7 +28,7 @@ const AggregatedBriefSchema = z.object({
   summary: z.string(),
   category: z.enum(["IMMIGRATION_GUIDES", "CONSULTANT_INSIGHTS", "CASE_BASED_CONTENT", "UPDATES_POLICY"]),
   faq: z.array(z.string()),
-  imagePrompt: z.string().describe("A prompt for FAL AI Flux Pro. Must be editorial, NO text, high resolution."),
+  imagePrompt: z.string().describe("Design an authentic, news-style photojournalistic prompt. Must be documentary style, NO text, high resolution."),
   isDuplicate: z.boolean().describe("True if the content is completely irrelevant or an identical duplicate of something Verixa already covered."),
   originalPublishedDate: z.string().describe("The exact publication date of the original news article found in the raw text, in ISO format. Default to today if missing.")
 });
@@ -369,7 +369,7 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
     // 5. GENERATE EDITORIAL IMAGE (DALL-E 2 / Unsplash Fallback)
     let imageUrl = "";
     try {
-      const safePrompt = `Editorial photography, highly detailed, cinematic lighting. Subject: ${brief?.imagePrompt}. Clean.`;
+      const safePrompt = `Authentic documentary photojournalism, high quality professional news style photography. Subject: ${brief?.imagePrompt}. Natural lighting, realistic textures, serious tone, unposed, in the moment. Clean composition.`;
       const response = await getOpenAI().images.generate({
         model: "dall-e-2",
         prompt: safePrompt.substring(0, 1000), // dall-e-2 limit

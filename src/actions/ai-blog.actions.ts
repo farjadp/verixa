@@ -37,7 +37,7 @@ async function verifyAdmin() {
 }
 
 // 1. STRATEGY LAYER
-export async function generateBrief(payload: { topic: string; keyword: string; audience: string; category: string }) {
+export async function generateBrief(payload: { topic: string; keyword: string; audience: string; category: string; rawContext?: string; articleLength?: string; architectureType?: string }) {
   await verifyAdmin();
 
   const prompt = `
@@ -48,11 +48,14 @@ export async function generateBrief(payload: { topic: string; keyword: string; a
     Primary Keyword: ${payload.keyword}
     Audience: ${payload.audience}
     Category: ${payload.category}
+    Architecture Blueprint: ${payload.architectureType || "SEO"}
+
+    ${payload.rawContext ? `\nSOURCE MATERIAL GIVEN BY USER (MANDATORY FACTS):\n${payload.rawContext.substring(0, 15000)}\n(You MUST base your brief's facts exactly on this material. Do not hallucinate).` : ''}
     
     Rules:
     - Title must be extremely clickable and SEO-optimized.
     - Slug should be clean (e.g., how-to-choose-an-rcic).
-    - Image Prompt must describe an Editorial, clean, professional landscape photo (NO text, NO cartoons, NO messy elements).
+    - Image Prompt must describe an authentic, documentary-style news photograph representing the topic (serious, realistic, Reuters/Bloomberg style, NO text).
   `;
 
   // @ts-ignore
@@ -69,22 +72,42 @@ export async function generateBrief(payload: { topic: string; keyword: string; a
 }
 
 // 2. CONTENT LAYER
-export async function generateArticle(brief: z.infer<typeof ContentBriefSchema>) {
+export async function generateArticle(brief: any) {
   await verifyAdmin();
 
+  const lengthInstruction = 
+    brief.articleLength === "SHORT" ? "CRITICAL: Keep this strictly concise and short. Maximum 500 words. Focus only on dense high-value signals. DO NOT hallucinate filler." :
+    brief.articleLength === "LONG" ? "CRITICAL: Write a long-form article. Break out into many H2/H3 sub-sections. Expand on nuanced points heavily. Aim for 2500 words." :
+    brief.articleLength === "COMPREHENSIVE" ? "CRITICAL: Write an exceptionally comprehensive, encyclopedic guide. You must produce maximum allowable length (3500+ words). Go into granular detail, exhaustive lists, tables, and deep analysis. It MUST be an epic piece of content." :
+    "CRITICAL: Write a standard, heavily optimized ~1500 word article.";
+
+  const architectureInstruction = 
+    brief.architectureType === "AEO" ? "ANSWER ENGINE OPTIMIZATION (AEO): You must organize content strictly for Siri/Alexa/Voice. Use inverted pyramid style. Start immediately with a blunt, direct answer to the implied query. Use simple sentence structures. Format heavily with Q&A style H2s." :
+    brief.architectureType === "GEO" ? "GENERATIVE ENGINE OPTIMIZATION (GEO): You must optimize for Perplexity/SearchGPT. Include incredibly dense facts, citations, markdown tables of statistics, expert commentary blocks, and structured counter-arguments to create high authoritative depth." :
+    brief.architectureType === "AIO" ? "AI OVERVIEW OPTIMIZATION (AIO): You must optimize for Google AI SGE. MUST start with a bolded 'TL;DR AI Summary' chunk. Do not use promotional language whatsoever. Be ruthlessly objective, factual, and list-heavy. The tone must be neutral and encyclopedic." :
+    "TRADITIONAL SEO: Focus on keyword density, natural H2 hierarchies, readable paragraphs, and standard on-page conversion signals.";
+
   const prompt = `
-    You are a master SEO Writer for Verixa, a Canadian Immigration platform connecting clients to licensed RCICs.
-    Write a complete SEO Article in strictly valid Markdown format.
+    You are a master Content Architect for Verixa, a Canadian Immigration platform connecting clients to licensed RCICs.
+    Write a complete Article in strictly valid Markdown format.
+
+    ${brief.rawContext ? `RAW SOURCE MATERIAL: (Use this dataset heavily, do not make up facts)\n${brief.rawContext.substring(0, 25000)}\n\n` : ''}
 
     Here is the Content Brief:
-    ${JSON.stringify(brief, null, 2)}
+    Title: ${brief.title}
+    Angle: ${brief.angle}
+    Outline: ${brief.outline?.join(" > ")}
+    Topic Info: ${brief.summary}
+
+    ${lengthInstruction}
+    ${architectureInstruction}
 
     MANDATORY STRUCTURE:
     - Do NOT include an H1 (it will be rendered natively). Start with the Summary or directly into the first H2.
     - Start with a Direct Answer section.
     - Include bullet points, practical steps.
     - IMPORTANT: If explaining data, statistics, requirements, or comparisons, you MUST use a Markdown Data Table.
-    - IMPORTANT: Throughout the article, intelligently insert 1, 2, or 3 Mid-Roll Images depending on the length of the text. To insert an image, use the exact syntax: ![IMAGE_PROMPT: <detailed editorial description of the image>](). Be highly descriptive (e.g. "Minimalist 3D architectural rendering of a Canadian passport"). DO NOT put actual URLs in these tags.
+    - IMPORTANT: Throughout the article, intelligently insert 1, 2, or 3 Mid-Roll Images depending on the length of the text. To insert an image, use the exact syntax: ![IMAGE_PROMPT: <detailed editorial description of the image>](). Be highly descriptive. DO NOT put actual URLs in these tags.
     - End with a strong CTA to find verified consultants on Verixa.
     - Provide 3-5 FAQs at the end.
     
@@ -136,7 +159,7 @@ export async function generateEditorialImage(imagePrompt: string) {
   await verifyAdmin();
 
   try {
-    const safePrompt = `Editorial photography, highly detailed, cinematic lighting. Subject: ${imagePrompt}. Clean.`;
+    const safePrompt = `Authentic documentary photojournalism, high quality professional news style photography. Subject: ${imagePrompt}. Natural lighting, realistic textures, serious tone, unposed, in the moment. Clean composition.`;
     const response = await getOpenAI().images.generate({
       model: "dall-e-2",
       prompt: safePrompt.substring(0, 1000), // dall-e-2 limit

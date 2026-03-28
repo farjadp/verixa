@@ -22,7 +22,10 @@ export default function AIFactoryWizard() {
     topic: "How to Choose an Immigration Consultant in 2026",
     keyword: "licensed immigration consultant canada",
     audience: "Newcomers looking to avoid fraud and hire verified professionals",
-    category: "CONSULTANT_INSIGHTS"
+    category: "CONSULTANT_INSIGHTS",
+    rawContext: "",
+    articleLength: "MEDIUM",
+    architectureType: "SEO",
   });
 
   // Step 2 State (The Brief)
@@ -54,7 +57,7 @@ export default function AIFactoryWizard() {
     try {
       // Run generation in parallel chunks to save time (Pipeline Orchestration)
       const [mk, soc, img] = await Promise.all([
-        generateArticle(brief).then(mk => processMidRollImages(mk || "")),
+        generateArticle({ ...brief, rawContext: inputs.rawContext, articleLength: inputs.articleLength, architectureType: inputs.architectureType }).then(mk => processMidRollImages(mk || "")),
         generateSocials(brief.summary), // we pass the summary/brief context
         generateEditorialImage(brief.imagePrompt)
       ]);
@@ -138,10 +141,42 @@ export default function AIFactoryWizard() {
                  <input type="text" value={inputs.audience} onChange={e => setInputs({...inputs, audience: e.target.value})} className="w-full bg-[#0F2A44] border border-gray-800 p-3 rounded-lg text-gray-300" />
                </div>
                <div>
-                 <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">SEO Category Pillar</label>
-                 <select value={inputs.category} onChange={e => setInputs({...inputs, category: e.target.value})} className="w-full bg-[#0F2A44] border border-gray-800 p-3 rounded-lg text-white">
-                    {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                 </select>
+                 <label className="text-xs font-bold text-[#2FA4A9] uppercase tracking-widest mb-1.5 block flex items-center gap-2">
+                   Raw Context Injection <span className="bg-[#2FA4A9]/20 text-[#2FA4A9] px-2 py-0.5 rounded text-[10px]">Optional</span>
+                 </label>
+                 <textarea 
+                    value={inputs.rawContext} 
+                    onChange={e => setInputs({...inputs, rawContext: e.target.value})} 
+                    placeholder="Paste transcripts, lengthy reports, or specific factual data to force the AI to use actual facts instead of hallucinations..."
+                    rows={4}
+                    className="w-full bg-[#0F2A44] border border-gray-800 p-3 rounded-lg text-gray-400 text-sm resize-none focus:border-[#2FA4A9]" 
+                 />
+               </div>
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                 <div>
+                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">Architecture Type</label>
+                   <select value={inputs.architectureType} onChange={e => setInputs({...inputs, architectureType: e.target.value})} className="w-full bg-[#0F2A44] border border-gray-800 p-3 rounded-lg text-white">
+                      <option value="SEO">SEO (Traditional Search)</option>
+                      <option value="AEO">AEO (Answer Engines - Siri/Alexa)</option>
+                      <option value="GEO">GEO (Generative Engines - Perplexity/ChatGPT)</option>
+                      <option value="AIO">AIO (AI Overviews - Google SGE)</option>
+                   </select>
+                 </div>
+                 <div>
+                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">Target Length</label>
+                   <select value={inputs.articleLength} onChange={e => setInputs({...inputs, articleLength: e.target.value})} className="w-full bg-[#0F2A44] border border-gray-800 p-3 rounded-lg text-white">
+                      <option value="SHORT">Short (~500 words)</option>
+                      <option value="MEDIUM">Standard (~1500 words)</option>
+                      <option value="LONG">Long-Form (~2500 words)</option>
+                      <option value="COMPREHENSIVE">Comprehensive (3500+ words)</option>
+                   </select>
+                 </div>
+                 <div>
+                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">SEO Category Pillar</label>
+                   <select value={inputs.category} onChange={e => setInputs({...inputs, category: e.target.value})} className="w-full bg-[#0F2A44] border border-gray-800 p-3 rounded-lg text-white">
+                      {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                   </select>
+                 </div>
                </div>
              </div>
 

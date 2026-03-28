@@ -163,26 +163,83 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ---------------- 3. HOW IT WORKS / TRUST LAYER ---------------- */}
-      <section className="bg-white py-32 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-8 grid md:grid-cols-3 gap-16">
-          <div className="space-y-4">
-            <h4 className="text-sm font-bold uppercase tracking-widest text-[#2FA4A9] border border-[#2FA4A9]/20 bg-[#2FA4A9]/5 py-1 px-3 rounded-full w-fit">Step 1</h4>
-            <h3 className="text-3xl font-medium">Search.</h3>
-            <p className="text-gray-500 font-sans leading-relaxed">Find consultants by name, location, or specialty. Browse through thousands of curated professionals ready to take your case natively.</p>
+{/* ---------------- 3. HOW IT WORKS / TRUST LAYER (REDESIGNED) ---------------- */}
+      <section className="bg-white py-32 border-b border-gray-100 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-8">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-20 gap-6">
+            <div className="max-w-2xl">
+              <h2 className="text-5xl md:text-6xl font-medium tracking-tight mb-6">
+                Verification <span className="italic font-light text-gray-400">made simple.</span>
+              </h2>
+              <p className="text-xl text-gray-500 font-sans">
+                Three rigorous layers of transparency to ensure your immigration journey starts on solid ground.
+              </p>
+            </div>
+            <div className="hidden md:block pb-2">
+              <div className="flex items-center gap-2 text-[#2FA4A9] font-bold uppercase tracking-widest text-xs border-b-2 border-[#2FA4A9] pb-1">
+                Our Methodology <ArrowRight className="w-4 h-4" />
+              </div>
+            </div>
           </div>
-          <div className="space-y-4">
-            <h4 className="text-sm font-bold uppercase tracking-widest text-[#2FA4A9] border border-[#2FA4A9]/20 bg-[#2FA4A9]/5 py-1 px-3 rounded-full w-fit">Step 2</h4>
-            <h3 className="text-3xl font-medium">Verify.</h3>
-            <p className="text-gray-500 font-sans leading-relaxed">Check their real-time CICC standing through our synchronized database. We display past suspensions, active limits, and authentic verified reviews.</p>
-          </div>
-          <div className="space-y-4">
-            <h4 className="text-sm font-bold uppercase tracking-widest text-[#2FA4A9] border border-[#2FA4A9]/20 bg-[#2FA4A9]/5 py-1 px-3 rounded-full w-fit">Step 3</h4>
-            <h3 className="text-3xl font-medium">Connect.</h3>
-            <p className="text-gray-500 font-sans leading-relaxed">Schedule a consultation and contact them directly with absolute confidence. Our platform's messaging is encrypted and 100% secure.</p>
+
+          <div className="grid md:grid-cols-3 gap-8 relative">
+            {/* Connecting Line (Desktop Only) */}
+            <div className="hidden md:block absolute top-1/2 left-0 w-full h-[1px] bg-gray-100 -z-10" />
+
+            {[
+              {
+                step: "01",
+                title: "Search & Filter",
+                desc: "Navigate through thousands of RCICs using advanced filters for language, location, and specialization.",
+                icon: <Search className="w-6 h-6" />,
+              },
+              {
+                step: "02",
+                title: "Live Validation",
+                desc: "Our engine cross-references CICC databases hourly to confirm active licensing and disciplinary history.",
+                icon: <ShieldCheck className="w-6 h-6" />,
+              },
+              {
+                step: "03",
+                title: "Secure Contact",
+                desc: "Connect directly via encrypted channels. No middlemen, no hidden fees—just direct professional access.",
+                icon: <Globe className="w-6 h-6" />,
+              },
+            ].map((item, idx) => (
+              <div 
+                key={idx} 
+                className="group relative bg-white border border-gray-100 p-10 rounded-[40px] hover:border-[#2FA4A9] transition-all duration-500 hover:shadow-[0_20px_50px_rgba(47,164,169,0.1)]"
+              >
+                <div className="absolute -top-6 -right-4 text-8xl font-black text-gray-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none font-sans">
+                  {item.step}
+                </div>
+                
+                <div className="w-14 h-14 bg-[#F5F7FA] text-[#0F2A44] rounded-2xl flex items-center justify-center mb-8 group-hover:bg-[#2FA4A9] group-hover:text-white transition-colors duration-500">
+                  {item.icon}
+                </div>
+
+                <h3 className="text-2xl font-bold mb-4 flex items-center gap-3">
+                  <span className="text-[#2FA4A9] font-mono text-sm">{item.step}.</span>
+                  {item.title}
+                </h3>
+                
+                <p className="text-gray-500 font-sans leading-relaxed relative z-10">
+                  {item.desc}
+                </p>
+
+                <div className="mt-8 flex items-center gap-2 text-xs font-bold uppercase tracking-tighter text-gray-300 group-hover:text-[#2FA4A9] transition-colors">
+                  Learn More <div className="w-0 group-hover:w-8 h-[1px] bg-[#2FA4A9] transition-all duration-500" />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
+
+
+
+
+
 
       {/* ---------------- 4. BENTO: SIMPLE & ELEGANT ---------------- */}
       <section className="max-w-7xl mx-auto px-8 py-32">

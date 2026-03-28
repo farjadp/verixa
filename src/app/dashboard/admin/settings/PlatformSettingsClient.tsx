@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Settings, Save, Layout, CreditCard, Users, Shield, Cpu, ExternalLink, RefreshCw, Bell, ShieldAlert } from "lucide-react";
+import { Settings, Save, Layout, CreditCard, Users, Shield, Cpu, ExternalLink, RefreshCw, Bell, ShieldAlert, Bot } from "lucide-react";
 import { updatePlatformSettings } from "@/actions/settings.actions";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -18,7 +18,9 @@ export default function PlatformSettingsClient({
     blogWidgetTopCount: initialSettings.blogWidgetTopCount || "5",
     platformFeePercent: initialSettings.platformFeePercent || "21",
     maintenanceMode: initialSettings.maintenanceMode === "true",
-    stripeMode: initialSettings.stripeMode || "TEST"
+    stripeMode: initialSettings.stripeMode || "TEST",
+    aiContentModel: initialSettings.aiContentModel || "gpt-4o",
+    aiImageModel: initialSettings.aiImageModel || "FAL_FLUX_SCHNELL"
   });
 
   const handleSave = async () => {
@@ -197,6 +199,46 @@ export default function PlatformSettingsClient({
                 <p className="text-xs text-gray-400 mt-2">Maximum elements shuffled organically into the Discovery limit container.</p>
               </div>
 
+            </div>
+          </div>
+
+          <div className="bg-white p-8 rounded-3xl border border-[#e5e7eb] shadow-sm">
+            <h2 className="text-xl font-bold text-[#1A1F2B] mb-6 flex items-center gap-2">
+              <Bot className="w-5 h-5 text-[#2FA4A9]" /> AI Generation Engines
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-400 uppercase tracking-widest block">Content Engine (Text)</label>
+                <div className="relative">
+                  <select
+                    value={formData.aiContentModel}
+                    onChange={(e) => setFormData(f => ({...f, aiContentModel: e.target.value}))}
+                    className="w-full appearance-none border-b-2 border-gray-200 focus:border-[#2FA4A9] focus:outline-none py-3 text-sm font-bold text-[#1A1F2B] bg-transparent pb-3"
+                  >
+                    <option value="gpt-4o">GPT-4 Omni (Highest Quality)</option>
+                    <option value="gpt-4-turbo">GPT-4 Turbo (Fast, Complex)</option>
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Basic)</option>
+                  </select>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-2">The core LLM driving paragraph creation, briefs, and social media.</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-400 uppercase tracking-widest block">Image Generation Engine</label>
+                <div className="relative">
+                  <select
+                    value={formData.aiImageModel}
+                    onChange={(e) => setFormData(f => ({...f, aiImageModel: e.target.value}))}
+                    className="w-full appearance-none border-b-2 border-gray-200 focus:border-[#2FA4A9] focus:outline-none py-3 text-sm font-bold text-[#1A1F2B] bg-transparent pb-3"
+                  >
+                    <option value="FAL_FLUX_SCHNELL">Flux Schnell (Fast, Realism - Recommended)</option>
+                    <option value="FAL_FLUX_PRO">Flux Pro 1.1 (Ultra Realism - Expensive)</option>
+                    <option value="DALL_E_3">DALL-E 3 (Safe, Stylized)</option>
+                    <option value="DALL_E_2">DALL-E 2 (Legacy - Low Quality)</option>
+                  </select>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-2">The visual synthesis layer used for mid-roll and hero images.</p>
+              </div>
             </div>
           </div>
 

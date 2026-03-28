@@ -6,6 +6,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { prisma } from "@/lib/prisma";
+import { getAIEngines } from "@/actions/settings.actions";
 
 const getOpenAI = () => new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -58,9 +59,10 @@ export async function generateBrief(payload: { topic: string; keyword: string; a
     - Image Prompt must describe an authentic, documentary-style news photograph representing the topic (serious, realistic, Reuters/Bloomberg style, NO text).
   `;
 
+  const aiSettings = await getAIEngines();
   // @ts-ignore
   const completion = await getOpenAI().chat.completions.create({
-    model: "gpt-4o",
+    model: aiSettings.contentModel,
     messages: [
       { role: "system", content: "You are an elite SEO structured data generator. You must return only JSON." },
       { role: "user", content: prompt }
@@ -115,8 +117,9 @@ export async function generateArticle(brief: any) {
     Return ONLY valid raw Markdown data.
   `;
 
+  const aiSettings = await getAIEngines();
   const completion = await getOpenAI().chat.completions.create({
-    model: "gpt-4o",
+    model: aiSettings.contentModel,
     messages: [
       { role: "system", content: "You strictly output raw Markdown text." },
       { role: "user", content: prompt }
@@ -141,9 +144,10 @@ export async function generateSocials(articleContent: string) {
     ${articleContent.substring(0, 3000)}...
   `;
 
+  const aiSettings = await getAIEngines();
   // @ts-ignore
   const completion = await getOpenAI().chat.completions.create({
-    model: "gpt-4o",
+    model: aiSettings.contentModel,
     messages: [
       { role: "system", content: "You are an elite social media manager. You must return only JSON." },
       { role: "user", content: prompt }
@@ -154,27 +158,38 @@ export async function generateSocials(articleContent: string) {
   return JSON.parse(completion.choices[0].message.content || "{}");
 }
 
-// 4. IMAGE LAYER (OpenAI DALL-E 2 / Unsplash Fallback)
+// 4. IMAGE LAYER (Dynamic Multi-Engine support)
 export async function generateEditorialImage(imagePrompt: string) {
   await verifyAdmin();
+  const aiSettings = await getAIEngines();
 
   try {
     const safePrompt = `Authentic documentary photojournalism, high quality professional news style photography. Subject: ${imagePrompt}. Natural lighting, realistic textures, serious tone, unposed, in the moment. Clean composition. NO TEXT.`;
-    const res = await fetch("https://fal.run/fal-ai/flux/schnell", {
-      method: "POST",
-      headers: {
-        "Authorization": `Key ${process.env.FAL_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ prompt: safePrompt, image_size: "landscape_16_9", num_inference_steps: 4 })
-    });
-    const data = await res.json();
-    if (data.images && data.images[0]?.url) {
-      return data.images[0].url;
+    
+    if (aiSettings.imageModel === "DALL_E_3") {
+      const response = await getOpenAI().images.generate({ model: "dall-e-3", prompt: safePrompt.substring(0, 1000), n: 1, size: "1024x1024" });
+      if (response.data && response.data[0]?.url) return response.data[0].url;
+    } else if (aiSettings.imageModel === "DALL_E_2") {
+      const response = await getOpenAI().images.generate({ model: "dall-e-2", prompt: safePrompt.substring(0, 1000), n: 1, size: "1024x1024" });
+      if (response.data && response.data[0]?.url) return response.data[0].url;
+    } else if (aiSettings.imageModel === "FAL_FLUX_PRO") {
+      const res = await fetch("https://fal.run/fal-ai/flux-pro/v1.1", {
+        method: "POST", headers: { "Authorization": `Key ${process.env.FAL_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: safePrompt, image_size: "landscape_16_9" })
+      });
+      const data = await res.json();
+      if (data.images && data.images[0]?.url) return data.images[0].url;
+    } else {
+      // Default to FLUX_SCHNELL
+      const res = await fetch("https://fal.run/fal-ai/flux/schnell", {
+        method: "POST", headers: { "Authorization": `Key ${process.env.FAL_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: safePrompt, image_size: "landscape_16_9", num_inference_steps: 4 })
+      });
+      const data = await res.json();
+      if (data.images && data.images[0]?.url) return data.images[0].url;
     }
   } catch (e) {
-    console.warn("⚠️ FAL AI Image Generation Failed. Falling back to Unsplash stock photo.", e);
-    // Silent fallback to avoid crashing the pipeline Promise.all execution
+    console.warn("⚠️ AI Image Generation Failed: ", e);
     return `https://images.unsplash.com/photo-1541462608143-67571c6738dd?auto=format&fit=crop&w=1024&q=80`;
   }
   

@@ -148,3 +148,13 @@ export async function saveBookingConfiguration(data: { availability: any[]; cons
   revalidatePath("/consultant/[slug]", "page");
   return { success: true };
 }
+
+export async function getAIEngines() {
+  const contentSetting = await prisma.platformSetting.findUnique({ where: { key: "aiContentModel" } });
+  const imageSetting = await prisma.platformSetting.findUnique({ where: { key: "aiImageModel" } });
+  
+  return {
+    contentModel: contentSetting?.value || "gpt-4o",
+    imageModel: imageSetting?.value || "FAL_FLUX_SCHNELL"
+  };
+}

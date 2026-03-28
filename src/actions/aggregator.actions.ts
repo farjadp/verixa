@@ -11,6 +11,7 @@ import * as cheerio from "cheerio";
 import { processMidRollImages } from "@/actions/ai-blog.actions";
 import { logEvent } from "@/lib/logger";
 import { revalidatePath } from "next/cache";
+import { getAIEngines } from "@/actions/settings.actions";
 
 // Initialize Subsystems
 const parser = new Parser({ timeout: 15000 });
@@ -226,6 +227,7 @@ export async function syncContentSource(sourceId: string, limit: number = 5) {
 export async function processPendingRawArticle(rawArticleId: string, autoPublish: boolean = true) {
   try {
     const session = await verifyAdmin();
+    const aiSettings = await getAIEngines();
 
     const raw = await prisma.rawArticle.findUnique({ 
       where: { id: rawArticleId },
@@ -295,7 +297,7 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
 
     // @ts-ignore
     const briefCompletion = await getOpenAI().chat.completions.create({
-      model: "gpt-4o",
+      model: aiSettings.contentModel,
       messages: [
         { role: "system", content: "You are an elite SEO Strategist checking for deduplication and building extraction briefs. You must return only JSON." },
         { role: "user", content: briefPrompt }
@@ -347,7 +349,7 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
     `;
 
     const articleCompletion = await getOpenAI().chat.completions.create({
-      model: "gpt-4o",
+      model: aiSettings.contentModel,
       messages: [
         { role: "system", content: "You are an elite, analytical immigration writer. Output perfectly formatted Markdown." },
         { role: "user", content: articlePrompt }
@@ -360,31 +362,41 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
     const socialPrompt = `Create 3 platform-specific posts for this new article focusing on the angle: ${brief?.angle}. \n\n Article snippet: \n ${finalMarkdown?.substring(0, 3000)}`;
     // @ts-ignore
     const socialCompletion = await getOpenAI().chat.completions.create({
-      model: "gpt-4o",
+      model: aiSettings.contentModel,
       messages: [{ role: "system", content: "You must return only JSON." }, { role: "user", content: socialPrompt }],
       response_format: zodResponseFormat(SocialHookSchema, "socials"),
     });
     const socials = JSON.parse(socialCompletion.choices[0].message.content || "{}");
 
-    // 5. GENERATE EDITORIAL IMAGE (FAL AI FLUX)
+    // 5. GENERATE EDITORIAL IMAGE (Dynamic AI Setting)
     let imageUrl = "";
     try {
       const safePrompt = `Authentic documentary photojournalism, high quality professional news style photography. Subject: ${brief?.imagePrompt}. Natural lighting, realistic textures, serious tone, unposed, in the moment. Clean composition. NO TEXT, NO CARTOON.`;
-      const res = await fetch("https://fal.run/fal-ai/flux/schnell", {
-        method: "POST",
-        headers: {
-          "Authorization": `Key ${process.env.FAL_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ prompt: safePrompt, image_size: "landscape_16_9", num_inference_steps: 4 })
-      });
-      const data = await res.json();
-      if (data.images && data.images[0]?.url) {
-        imageUrl = data.images[0].url;
-        console.log("✅ IMAGE SUCCESS:", imageUrl);
+      
+      if (aiSettings.imageModel === "DALL_E_3") {
+        const response = await getOpenAI().images.generate({ model: "dall-e-3", prompt: safePrompt.substring(0, 1000), n: 1, size: "1024x1024" });
+        if (response.data && response.data[0]?.url) imageUrl = response.data[0].url;
+      } else if (aiSettings.imageModel === "DALL_E_2") {
+        const response = await getOpenAI().images.generate({ model: "dall-e-2", prompt: safePrompt.substring(0, 1000), n: 1, size: "1024x1024" });
+        if (response.data && response.data[0]?.url) imageUrl = response.data[0].url;
+      } else if (aiSettings.imageModel === "FAL_FLUX_PRO") {
+        const res = await fetch("https://fal.run/fal-ai/flux-pro/v1.1", {
+          method: "POST", headers: { "Authorization": `Key ${process.env.FAL_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: safePrompt, image_size: "landscape_16_9" })
+        });
+        const data = await res.json();
+        if (data.images && data.images[0]?.url) imageUrl = data.images[0].url;
+      } else {
+        const res = await fetch("https://fal.run/fal-ai/flux/schnell", {
+          method: "POST", headers: { "Authorization": `Key ${process.env.FAL_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: safePrompt, image_size: "landscape_16_9", num_inference_steps: 4 })
+        });
+        const data = await res.json();
+        if (data.images && data.images[0]?.url) imageUrl = data.images[0].url;
       }
+      if(imageUrl) console.log("✅ IMAGE SUCCESS:", imageUrl);
     } catch(e) { 
-      console.warn("⚠️ FAL AI Image Generation Failed. Falling back to Unsplash stock photo.", e);
+      console.warn("⚠️ AI Image Generation Failed:", e);
       imageUrl = `https://source.unsplash.com/random/1024x576/?${encodeURIComponent(brief?.category || 'business,canada')}`;
     }
 

@@ -8,6 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://www.getverixa.com"),
   title: "Verixa | Trusted Immigration Consultants",
   description: "Find, verify, and choose licensed immigration consultants (RCICs) in Canada.",
 };

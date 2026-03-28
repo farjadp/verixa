@@ -12,6 +12,7 @@ import { redirect } from "next/navigation";
 import { getRegistrySyncPreview, getLastSyncLog } from "@/actions/sync.actions";
 import RegistrySyncClient from "./RegistrySyncClient";
 
+export const maxDuration = 60; // Max execution time for Vercel
 export const metadata = { title: "Registry Sync | Verixa Admin" };
 
 export default async function SyncPage() {

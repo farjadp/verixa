@@ -13,6 +13,18 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'v3b.fal.media',
       },
+      {
+        protocol: 'https',
+        hostname: 'oaidalleapiprodscus.blob.core.windows.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'source.unsplash.com',
+      },
     ],
   },
   experimental: {

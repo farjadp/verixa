@@ -356,6 +356,11 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
     return { success: true, status: "SUCCESS", articleId: blogPost.id, message: "AI Extracted and Generated Successfully." };
   } catch (err: any) {
     console.error("processPendingRawArticle Error:", err);
+    await prisma.rawArticle.update({
+       where: { id: rawArticleId },
+       data: { status: "FAILED" }
+    }).catch(() => null); // Ensure safety if row doesn't exist etc
+    
     const session = await getServerSession(authOptions).catch(() => null);
     await logEvent({
       userId: (session?.user as any)?.id,
@@ -423,6 +428,12 @@ export async function executeAutoPilot(limitPerSource: number = 10) {
     }
 
     // 2. Fetch the updated queue
+    // We also reset any stuck "GENERATING" state from previous Vercel timeouts
+    await prisma.rawArticle.updateMany({
+       where: { status: "GENERATING" },
+       data: { status: "PENDING" }
+    });
+
     const pendingArticles = await prisma.rawArticle.findMany({
       where: { status: "PENDING" },
       orderBy: { publishedAt: "desc" },

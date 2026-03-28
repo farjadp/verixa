@@ -271,6 +271,7 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
                         </td>
                         <td className="p-4 text-center">
                            {q.status === "PENDING" && <span className="text-orange-400 font-bold text-[10px] bg-orange-400/10 px-2 py-1 rounded">PENDING</span>}
+                           {q.status === "GENERATING" && <span className="text-blue-400 font-bold text-[10px] bg-blue-400/10 px-2 py-1 rounded flex items-center gap-1 justify-center"><Loader2 className="w-3 h-3 animate-spin" /> GENERATING</span>}
                            {q.status === "PROCESSED" && <span className="text-green-500 font-bold text-[10px] bg-green-500/10 px-2 py-1 rounded flex items-center gap-1 justify-center"><CheckCircle2 className="w-3 h-3" /> SUCCESS</span>}
                            {q.status === "DUPLICATE" && <span className="text-gray-500 font-bold text-[10px] bg-gray-800 px-2 py-1 rounded">REJECTED (DUPE/NOISE)</span>}
                            {q.status === "FAILED" && <span className="text-red-500 font-bold text-[10px] bg-red-500/10 px-2 py-1 rounded flex items-center gap-1 justify-center"><AlertCircle className="w-3 h-3" /> FAILED</span>}

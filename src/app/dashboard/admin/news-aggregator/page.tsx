@@ -14,6 +14,9 @@ import { prisma } from "@/lib/prisma";
 import NewsAggregatorClient from "./NewsAggregatorClient";
 import { Satellite } from "lucide-react";
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // 5 MINUTES (Max for Pro, Vercel Edge supports more but this guards against timeout loops)
+
 export default async function NewsAggregatorPage() {
   const session = await getServerSession(authOptions);
   if (!session || (session.user as any).role !== "ADMIN") redirect("/login");

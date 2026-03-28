@@ -131,41 +131,29 @@ export async function generateSocials(articleContent: string) {
   return JSON.parse(completion.choices[0].message.content || "{}");
 }
 
-// 4. IMAGE LAYER (fal.ai FLUX Pro)
+// 4. IMAGE LAYER (OpenAI DALL-E 2 / Unsplash Fallback)
 export async function generateEditorialImage(imagePrompt: string) {
   await verifyAdmin();
 
-  const FAL_KEY = process.env.FAL_KEY;
-  if (!FAL_KEY) throw new Error("Missing FAL_KEY env variable");
-
-  // Enhancing the prompt for pure editorial safety
-  const safePrompt = `Professional editorial photography, highly detailed, photorealistic, 8k resolution, cinematic lighting. Subject: ${imagePrompt}. Clean, uncluttered composition. NO TEXT.`;
-
-  const res = await fetch("https://fal.run/fal-ai/flux/schnell", {
-    method: "POST",
-    headers: {
-      "Authorization": `Key ${FAL_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      prompt: safePrompt,
-      image_size: "landscape_16_9",
-      num_images: 1
-    })
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    console.error("FAL API Error:", err);
-    throw new Error("Failed to generate image via fal.ai." + err);
-  }
-
-  const data = await res.json();
-  if (data.images && data.images[0]?.url) {
-    return data.images[0].url;
+  try {
+    const safePrompt = `Editorial photography, highly detailed, cinematic lighting. Subject: ${imagePrompt}. Clean.`;
+    const response = await getOpenAI().images.generate({
+      model: "dall-e-2",
+      prompt: safePrompt.substring(0, 1000), // dall-e-2 limit
+      n: 1,
+      size: "1024x1024",
+    });
+    
+    if (response.data && response.data[0]?.url) {
+      return response.data[0].url;
+    }
+  } catch (e) {
+    console.warn("⚠️ OpenAI Image Generation Failed. Falling back to Unsplash stock photo.", e);
+    // Silent fallback to avoid crashing the pipeline Promise.all execution
+    return `https://images.unsplash.com/photo-1541462608143-67571c6738dd?auto=format&fit=crop&w=1024&q=80`;
   }
   
-  throw new Error("Invalid response from fal.ai image generation.");
+  return `https://images.unsplash.com/photo-1541462608143-67571c6738dd?auto=format&fit=crop&w=1024&q=80`;
 }
 
 // 4.5. MID-ROLL IMAGE PARSER

@@ -100,7 +100,19 @@ export async function syncContentSource(sourceId: string, limit: number = 5) {
           const href = $(el).attr("href");
           const title = $(el).text().replace(/\s+/g, ' ').trim();
           
-          if (href && href.length > 20 && href.includes("-") && title.length > 15) {
+          const urlLower = href ? href.toLowerCase() : "";
+          if (
+            href && 
+            href.length > 30 && 
+            href.includes("-") && 
+            title.length > 15 &&
+            !urlLower.includes("search") &&
+            !urlLower.includes("results") &&
+            !urlLower.includes("archive") &&
+            !urlLower.includes("tag") &&
+            !urlLower.includes("category") &&
+            !title.toLowerCase().includes("all news")
+          ) {
             try {
               const urlObj = new URL(href, source.url);
               if (urlObj.protocol === "http:" || urlObj.protocol === "https:") {
@@ -186,7 +198,11 @@ export async function processPendingRawArticle(rawArticleId: string) {
     let extractedText = raw.extractedText;
     if (!extractedText) {
       try {
-        const res = await fetch(raw.sourceUrl);
+        const res = await fetch(raw.sourceUrl, {
+           headers: { 'User-Agent': 'VerixaBot/1.0 Oracle/1.0' },
+           signal: AbortSignal.timeout(15000)
+        });
+        if (!res.ok) throw new Error("HTTP Status: " + res.status);
         const html = await res.text();
         const $ = cheerio.load(html);
         $("script, style, nav, footer, header, aside").remove();
@@ -197,9 +213,9 @@ export async function processPendingRawArticle(rawArticleId: string) {
           where: { id: raw.id }, 
           data: { rawHtml: html.substring(0, 5000), extractedText } 
         });
-      } catch (e) {
+      } catch (e: any) {
         await prisma.rawArticle.update({ where: { id: raw.id }, data: { status: "FAILED" } });
-        return { success: false, message: "HTML Extraction failed: " + raw.sourceUrl };
+        return { success: false, message: "HTML Extraction failed: " + (e.message || raw.sourceUrl) };
       }
     }
 

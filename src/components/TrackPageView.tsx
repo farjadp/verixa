@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useSearchParams, usePathname } from "next/navigation";
 
 interface TrackPageViewProps {
@@ -16,7 +16,7 @@ interface TrackPageViewProps {
  * Reads UTM params from the URL automatically.
  * Use this as a lightweight child inside any server component page.
  */
-export default function TrackPageView({
+function TrackPageViewInner({
   eventName,
   consultantId,
   articleId,
@@ -61,6 +61,14 @@ export default function TrackPageView({
   }, []);
 
   return null;
+}
+
+export default function TrackPageView(props: TrackPageViewProps) {
+  return (
+    <Suspense fallback={null}>
+      <TrackPageViewInner {...props} />
+    </Suspense>
+  );
 }
 
 function getOrCreateVisitorId() {

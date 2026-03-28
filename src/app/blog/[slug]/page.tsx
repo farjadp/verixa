@@ -21,8 +21,13 @@ import PrintButton from "@/components/blog/PrintButton";
 import TrackPageView from "@/components/TrackPageView";
 
 export async function generateStaticParams() {
-  const posts = await getBlogPosts(true);
-  return posts.map(post => ({ slug: post.slug }));
+  try {
+    const posts = await getBlogPosts(true);
+    return posts.map(post => ({ slug: post.slug }));
+  } catch (err) {
+    console.warn("⚠️ Skipping blog static params generation due to DB connection failure during build.");
+    return [];
+  }
 }
 
 export async function generateMetadata({

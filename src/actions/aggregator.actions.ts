@@ -314,3 +314,18 @@ export async function addSource(data: { name: string; url: string; type: string 
     return { success: false, message: err.message };
   }
 }
+
+export async function deleteSource(id: string) {
+  try {
+    const session = await verifyAdmin();
+    // Delete raw articles associated with this source first due to foreign keys, or rely on Cascade if setup
+    await prisma.rawArticle.deleteMany({ where: { sourceId: id } });
+    await prisma.contentSource.delete({ where: { id } });
+    
+    await logEvent({ userId: (session.user as any)?.id, role: "ADMIN", action: "AGGREGATOR_SOURCE_DELETED", details: { id } });
+    return { success: true, message: "Source and its raw articles remote cleaned." };
+  } catch (err: any) {
+    console.error("deleteSource Error:", err);
+    return { success: false, message: err.message };
+  }
+}

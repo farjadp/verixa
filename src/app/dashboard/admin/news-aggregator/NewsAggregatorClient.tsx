@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { syncContentSource, processPendingRawArticle, addSource } from "@/actions/aggregator.actions";
+import { syncContentSource, processPendingRawArticle, addSource, deleteSource } from "@/actions/aggregator.actions";
 import { 
   Plus, Rss, Loader2, Play, Database, 
-  CheckCircle2, AlertCircle, RefreshCcw, FileText, ArrowRight, Sparkles
+  CheckCircle2, AlertCircle, RefreshCcw, FileText, ArrowRight, Sparkles, Trash2
 } from "lucide-react";
 import Link from "next/link";
 
@@ -50,6 +50,24 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
       setSuccess(res.message);
     } catch (e: any) {
       setError(e.message || "Failed to sync source.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSource = async (sourceId: string) => {
+    if (!confirm("Terminate this source node and all its raw article associations?")) return;
+    setLoading(true); setError(""); setSuccess("");
+    try {
+      const res = await deleteSource(sourceId);
+      if (!res.success) {
+        setError(res.message);
+        return;
+      }
+      setSources(sources.filter(s => s.id !== sourceId));
+      setSuccess("Source Node Terminated.");
+    } catch (e: any) {
+      setError(e.message || "Failed to terminate node.");
     } finally {
       setLoading(false);
     }
@@ -111,7 +129,12 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
                            <h4 className="text-sm font-bold text-white flex items-center gap-2"><Rss className="w-3 h-3 text-orange-400" /> {src.name}</h4>
                            <p className="text-[10px] text-gray-500 font-mono mt-1 break-all">{src.url}</p>
                         </div>
-                        <div className="text-[10px] bg-green-500/10 text-green-500 px-2 py-0.5 rounded font-bold border border-green-500/20">ACTIVE</div>
+                        <div className="flex items-center gap-2">
+                           <div className="text-[10px] bg-green-500/10 text-green-500 px-2 py-0.5 rounded font-bold border border-green-500/20">ACTIVE</div>
+                           <button onClick={() => handleDeleteSource(src.id)} disabled={loading} className="text-red-500 hover:bg-red-500/20 p-1 rounded transition-colors" title="Delete Source Node">
+                              <Trash2 className="w-3 h-3" />
+                           </button>
+                        </div>
                      </div>
                      <div className="flex gap-2 mt-2">
                         <input 

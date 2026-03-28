@@ -22,7 +22,8 @@ export default function UserModal({
     name: "",
     email: "",
     password: "",
-    role: "CLIENT"
+    role: "CLIENT",
+    notifyUser: true
   });
 
   useEffect(() => {
@@ -31,10 +32,11 @@ export default function UserModal({
         name: userToEdit.name || "",
         email: userToEdit.email || "",
         password: "", // Never pre-fill password
-        role: userToEdit.role || "CLIENT"
+        role: userToEdit.role || "CLIENT",
+        notifyUser: false // Unchecked by default when editing
       });
     } else {
-      setFormData({ name: "", email: "", password: "", role: "CLIENT" });
+      setFormData({ name: "", email: "", password: "", role: "CLIENT", notifyUser: true });
     }
     setError("");
   }, [userToEdit, isOpen]);
@@ -156,6 +158,36 @@ export default function UserModal({
               <KeyRound className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 cursor-pointer hover:text-white" onClick={() => setFormData({...formData, password: Math.random().toString(36).slice(-8) + "X!"})} />
             </div>
           </div>
+
+          <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-black/20 border border-gray-800 hover:border-gray-700 transition-colors mt-2">
+            <div className="relative flex items-center">
+              <input
+                type="checkbox"
+                checked={formData.notifyUser}
+                onChange={(e) => setFormData({ ...formData, notifyUser: e.target.checked })}
+                className="peer shrink-0 appearance-none w-5 h-5 border-2 border-gray-600 rounded checked:bg-[#2FA4A9] checked:border-[#2FA4A9] focus:outline-none transition-colors"
+              />
+              <svg 
+                className="absolute w-3 h-3 left-1 flex-shrink-0 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity duration-200" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="4" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div className="flex flex-col">
+               <span className="text-white text-sm font-bold">
+                 {userToEdit ? "Send Modification Notice" : "Send Welcome Invitation"}
+               </span>
+               <span className="text-gray-500 text-[10px]">
+                 {userToEdit ? "Notifies user of their updated access level via email." : "Emails credentials securely to the user."}
+               </span>
+            </div>
+          </label>
 
           <button 
             type="submit" 

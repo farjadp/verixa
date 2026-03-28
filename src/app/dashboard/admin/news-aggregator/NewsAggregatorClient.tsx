@@ -101,17 +101,38 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
       <div className="xl:w-1/3 flex flex-col gap-6">
          
          <div className="bg-[#0F2A44] border border-gray-800 p-6 rounded-2xl flex flex-col gap-4 shadow-xl">
-            <h3 className="text-sm font-bold text-gray-300 uppercase tracking-widest border-b border-gray-800 pb-3 flex items-center gap-2">
-               <Database className="w-4 h-4 text-[#2FA4A9]" /> Source Registry
-            </h3>
-            
-            <div className="flex flex-col gap-3">
-               <input type="text" placeholder="Source Name (e.g. CIC News)" value={newSource.name} onChange={e => setNewSource({...newSource, name: e.target.value})} className="bg-[#0F2A44] border border-gray-800 p-3 rounded-lg text-white" />
-               <input type="text" placeholder="Feed URL (RSS/XML)" value={newSource.url} onChange={e => setNewSource({...newSource, url: e.target.value})} className="bg-[#0F2A44] border border-gray-800 p-3 rounded-lg text-gray-400 font-mono text-xs" />
+            <h3 className="text-sm font-bold text-gray-300 uppercase tracking-widest border-b border-gray-800 pb-3 flex flex-col gap-4">
+               <div className="flex items-center gap-2">
+                 <Database className="w-4 h-4 text-[#2FA4A9]" /> Source Registry
+               </div>
+               <div className="flex bg-[#0a1f33] border-gray-800 border p-1 rounded-xl text-xs font-bold font-mono">
+                  <button 
+                    className={`flex-1 py-2 rounded-lg transition-all ${newSource.type === 'RSS' ? 'bg-[#2FA4A9] text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}
+                    onClick={() => setNewSource({...newSource, type: "RSS"})}>
+                    XML Feed (RSS)
+                  </button>
+                  <button 
+                    className={`flex-1 py-2 rounded-lg transition-all ${newSource.type === 'WEB_SCRAPE' ? 'bg-[#2FA4A9] text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}
+                    onClick={() => setNewSource({...newSource, type: "WEB_SCRAPE"})}>
+                    HTML Web Scraper
+                  </button>
+               </div>
+               <input 
+                  className="w-full bg-[#0a1f33] border border-gray-800 text-white rounded-xl p-3 text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-[#2FA4A9]"
+                  placeholder="Source Name (e.g. CIC News)"
+                  value={newSource.name}
+                  onChange={e => setNewSource({...newSource, name: e.target.value})}
+               />
+               <input 
+                  className="w-full bg-[#0a1f33] border border-gray-800 text-white rounded-xl p-3 text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-[#2FA4A9]"
+                  placeholder={`URL (${newSource.type === 'RSS' ? 'RSS/XML' : 'Main Page /news'})`}
+                  value={newSource.url}
+                  onChange={e => setNewSource({...newSource, url: e.target.value})}
+               />
                <button onClick={handleAddSource} disabled={loading} className="bg-white hover:bg-gray-100 text-black p-3 rounded-lg font-bold flex items-center justify-center gap-2">
                  Register Oracle <Plus className="w-4 h-4" />
                </button>
-            </div>
+            </h3>
             
             {error && <div className="text-red-500 text-xs font-bold mt-2">{error}</div>}
             {success && <div className="text-green-500 text-xs font-bold mt-2">{success}</div>}
@@ -126,7 +147,13 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
                   <div key={src.id} className="bg-[#0F2A44] border border-gray-800 p-4 rounded-xl flex flex-col gap-3">
                      <div className="flex justify-between items-start">
                         <div>
-                           <h4 className="text-sm font-bold text-white flex items-center gap-2"><Rss className="w-3 h-3 text-orange-400" /> {src.name}</h4>
+                           <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                                {src.type === "RSS" ? <Rss className="w-3 h-3 text-orange-400" /> : <Database className="w-3 h-3 text-purple-400" />}
+                                {src.name}
+                              </h4>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-bold">{src.type}</span>
+                           </div>
                            <p className="text-[10px] text-gray-500 font-mono mt-1 break-all">{src.url}</p>
                         </div>
                         <div className="flex items-center gap-2">

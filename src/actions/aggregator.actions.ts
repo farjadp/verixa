@@ -85,6 +85,64 @@ export async function syncContentSource(sourceId: string, limit: number = 5) {
         console.error(`RSS parse failed for ${source.url}`, e);
         return { success: false, message: `Failed to parse RSS feed: ${e.message}` };
       }
+    } else if (source.type === "WEB_SCRAPE") {
+      try {
+        const htmlRes = await fetch(source.url, {
+          headers: { 'User-Agent': 'VerixaBot/1.0 OracleSync' },
+          signal: AbortSignal.timeout(15000)
+        });
+        const htmlText = await htmlRes.text();
+        const $ = cheerio.load(htmlText);
+        
+        const extractedLinks: { title: string, link: string }[] = [];
+        
+        $("a").each((_, el) => {
+          const href = $(el).attr("href");
+          const title = $(el).text().replace(/\s+/g, ' ').trim();
+          
+          if (href && href.length > 20 && href.includes("-") && title.length > 15) {
+            try {
+              const urlObj = new URL(href, source.url);
+              if (urlObj.protocol === "http:" || urlObj.protocol === "https:") {
+                extractedLinks.push({ title, link: urlObj.href });
+              }
+            } catch (e) {}
+          }
+        });
+
+        const uniqueMap = new Map();
+        for (const item of extractedLinks) {
+          if (!uniqueMap.has(item.link)) uniqueMap.set(item.link, item);
+        }
+        const uniqueLinks = Array.from(uniqueMap.values());
+
+        const feedLinks = uniqueLinks.map(i => i.link);
+        const existingDocs = await prisma.rawArticle.findMany({
+          where: { sourceUrl: { in: feedLinks } },
+          select: { sourceUrl: true }
+        });
+        const existingUrls = new Set(existingDocs.map(d => d.sourceUrl));
+
+        const itemsToProcess = uniqueLinks
+          .filter(item => !existingUrls.has(item.link))
+          .slice(0, limit);
+
+        for (const item of itemsToProcess) {
+          await prisma.rawArticle.create({
+            data: {
+              sourceId: source.id,
+              sourceUrl: item.link,
+              title: item.title,
+              publishedAt: new Date(),
+              status: "PENDING"
+            }
+          });
+          addedCount++;
+        }
+      } catch (e: any) {
+        console.error(`WEB_SCRAPE extraction failed for ${source.url}`, e);
+        return { success: false, message: `Failed to scrape website: ${e.message}` };
+      }
     }
 
     await prisma.contentSource.update({

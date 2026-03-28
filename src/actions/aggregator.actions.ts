@@ -366,22 +366,25 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
     });
     const socials = JSON.parse(socialCompletion.choices[0].message.content || "{}");
 
-    // 5. GENERATE EDITORIAL IMAGE (DALL-E 2 / Unsplash Fallback)
+    // 5. GENERATE EDITORIAL IMAGE (FAL AI FLUX)
     let imageUrl = "";
     try {
-      const safePrompt = `Authentic documentary photojournalism, high quality professional news style photography. Subject: ${brief?.imagePrompt}. Natural lighting, realistic textures, serious tone, unposed, in the moment. Clean composition.`;
-      const response = await getOpenAI().images.generate({
-        model: "dall-e-2",
-        prompt: safePrompt.substring(0, 1000), // dall-e-2 limit
-        n: 1,
-        size: "1024x1024",
+      const safePrompt = `Authentic documentary photojournalism, high quality professional news style photography. Subject: ${brief?.imagePrompt}. Natural lighting, realistic textures, serious tone, unposed, in the moment. Clean composition. NO TEXT, NO CARTOON.`;
+      const res = await fetch("https://fal.run/fal-ai/flux/schnell", {
+        method: "POST",
+        headers: {
+          "Authorization": `Key ${process.env.FAL_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ prompt: safePrompt, image_size: "landscape_16_9", num_inference_steps: 4 })
       });
-      if (response.data && response.data[0]?.url) {
-        imageUrl = response.data[0].url;
+      const data = await res.json();
+      if (data.images && data.images[0]?.url) {
+        imageUrl = data.images[0].url;
         console.log("✅ IMAGE SUCCESS:", imageUrl);
       }
     } catch(e) { 
-      console.warn("⚠️ OpenAI Image Generation Failed. Falling back to Unsplash stock photo.", e);
+      console.warn("⚠️ FAL AI Image Generation Failed. Falling back to Unsplash stock photo.", e);
       imageUrl = `https://source.unsplash.com/random/1024x576/?${encodeURIComponent(brief?.category || 'business,canada')}`;
     }
 

@@ -10,6 +10,7 @@ import Parser from "rss-parser";
 import * as cheerio from "cheerio";
 import { processMidRollImages } from "@/actions/ai-blog.actions";
 import { logEvent } from "@/lib/logger";
+import { revalidatePath } from "next/cache";
 
 // Initialize Subsystems
 const parser = new Parser({ timeout: 15000 });
@@ -222,7 +223,7 @@ export async function syncContentSource(sourceId: string, limit: number = 5) {
 // ----------------------------------------------------------------------------
 // LAYER 3 & 4: EXTRACTION & DEDUPLICATION ORCHESTRATOR
 // ----------------------------------------------------------------------------
-export async function processPendingRawArticle(rawArticleId: string, autoPublish: boolean = false) {
+export async function processPendingRawArticle(rawArticleId: string, autoPublish: boolean = true) {
   try {
     const session = await verifyAdmin();
 
@@ -311,18 +312,32 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
     // 3. GENERATE REWRITTEN MARKDOWN WITH INTERNAL LINKS & SOURCES
     const articlePrompt = `
       Using the brief provided below, rewrite the raw extracted text into an exceptionally well-structured, AEO/GEO optimized Markdown article.
-      MANDATORY REQUIREMENTS:
-      - Never plagiarize. Synthesize and reframe fundamentally.
+      
+      CRITICAL HUMANIZATION RULES:
+      1. Write in a highly authoritative, direct, and human tone.
+      2. NEVER use ChatGPT filler jargon like: "Here is the rewritten article", "In conclusion", "It is important to note", "Delve", "Robust", "Tapestry", "Navigating", "Demystify". Skip all introductory fluff. Start the article immediately with the H2 or H3.
+      
+      MANDATORY STRUCTURAL REQUIREMENTS:
       - Start immediately with standard H2/H3 tags (no H1).
-      - Provide a "Direct Answer" summary at the top.
-      - IMPORTANT: You MUST include at least one professional visual formatting block such as a Markdown Data Table or an intricate bulleted 'Infographic Summary' to make the article highly engaging.
-      - IMPORTANT: Throughout the article, intelligently insert 1, 2, or 3 Mid-Roll Images depending on the length of the text. To insert an image, use the exact syntax: ![IMAGE_PROMPT: <detailed editorial description of the image>](). Be highly descriptive. DO NOT put actual URLs in these tags.
-      - At the VERY END of the article, include exactly this Markdown disclaimer block to credit the source:
+      - Provide a "Direct Answer" summary block at the very top.
+      - **Data Tables:** If the text describes statistics, timelines, or distinct features, you MUST construct an intricate Markdown Table.
+      - **Policy Analysis:** If this is a major policy/update news piece, you MUST include a blockquote box like this:
+        > **Verixa Intelligence Analysis:** [Provide a bold, strategic business/immigration analysis here. Conclude with: *Note: This analysis is for strategic guidance and does not constitute legal advice.*]
+      - **Visuals:** Intelligently insert 1 or 2 Mid-Roll Images. Syntax: ![IMAGE_PROMPT: <detailed editorial description>](). DO NOT put URLs.
+      
+      - **MANDATORY FAQ BOUNDARY:** You MUST end the article with an FAQ section. However, the FAQ section must end with \`<end-of-faq>\`.
+        Format exactly like this:
+        ## Frequently Asked Questions
+        ### [Question 1]
+        [Answer 1]
+        <end-of-faq>
+
+      - At the VERY END of the article (AFTER the <end-of-faq> tag), include exactly this Markdown disclaimer block to credit the source:
         
         ---
         *This intelligence briefing was automatically generated. The original press release was published on **\${brief.originalPublishedDate || new Date().toISOString().split('T')[0]}** by **${raw.source.name}** and can be verified **[here](${raw.sourceUrl})**.*
 
-      - Always include a high-converting Call-to-Action BEFORE the disclaimer, to manually book an RCIC on Verixa.
+      - Insert a Call-to-Action to manually book an RCIC on Verixa immediately before the disclaimer block.
 
       Brief Strategy:
       ${JSON.stringify(brief, null, 2)}
@@ -351,17 +366,17 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
     });
     const socials = JSON.parse(socialCompletion.choices[0].message.content || "{}");
 
-    // 5. GENERATE FAL EDITORIAL IMAGE
+    // 5. GENERATE FAL EDITORIAL IMAGE (Flux Schnell to avoid 10s Vercel Timeout)
     let imageUrl = "";
     try {
-      const safePrompt = `Professional editorial photography, highly detailed, photorealistic, 8k resolution, cinematic lighting. Subject: ${brief?.imagePrompt}. Clean, uncluttered composition. NO TEXT, NO WATERMARKS, NO CARTOONS, NO ILLUSTRATIONS.`;
-      const res = await fetch("https://fal.run/fal-ai/flux-pro/v1.1", {
+      const safePrompt = `Professional editorial photography, highly detailed, photorealistic, 8k resolution, cinematic lighting. Subject: ${brief?.imagePrompt}. Clean, uncluttered composition. NO TEXT.`;
+      const res = await fetch("https://fal.run/fal-ai/flux/schnell", {
         method: "POST",
         headers: {
           "Authorization": `Key ${process.env.FAL_KEY}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ prompt: safePrompt, image_size: "landscape_16_9", num_images: 1, safety_tolerance: "2" })
+        body: JSON.stringify({ prompt: safePrompt, image_size: "landscape_16_9", num_images: 1 })
       });
       if (res.ok) {
         const data = await res.json();
@@ -401,6 +416,9 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
       action: "AGGREGATOR_PROCESS_SUCCESS",
       details: { rawArticleId, blogPostId: blogPost.id }
     });
+
+    // Drop Home Page Cache automatically to feature the newest post
+    try { revalidatePath("/"); } catch(e) {}
 
     return { success: true, status: "SUCCESS", articleId: blogPost.id, message: "AI Extracted and Generated Successfully." };
   } catch (err: any) {

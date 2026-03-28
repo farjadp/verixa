@@ -89,11 +89,21 @@ export default async function BlogPostPage({
   // 3. Process Content and FAQs
   let mainText = post.content;
   let faqText = "";
+  let disclaimerText = "";
   
-  const faqMatch = post.content.match(/(## FAQ[\s\S]*|## Frequently Asked Questions[\s\S]*)/i);
-  if (faqMatch) {
-    faqText = faqMatch[0];
-    mainText = post.content.replace(faqMatch[0], "");
+  const faqStartIndex = mainText.search(/## (FAQ|Frequently Asked Questions)/i);
+  if (faqStartIndex !== -1) {
+    const afterFaqStart = mainText.substring(faqStartIndex);
+    const endMatch = afterFaqStart.match(/(<end-of-faq>|---)/);
+    
+    if (endMatch && endMatch.index !== undefined) {
+       faqText = afterFaqStart.substring(0, endMatch.index);
+       disclaimerText = afterFaqStart.substring(endMatch.index).replace('<end-of-faq>', '').trim();
+       mainText = mainText.substring(0, faqStartIndex).trim() + "\n\n" + disclaimerText;
+    } else {
+       faqText = afterFaqStart;
+       mainText = mainText.substring(0, faqStartIndex).trim();
+    }
   }
 
   const faqs: { q: string, a: string }[] = [];

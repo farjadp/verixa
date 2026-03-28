@@ -12,6 +12,7 @@ import Link from "next/link";
 export default function NewsAggregatorClient({ initialSources, initialQueue }: { initialSources: any[], initialQueue: any[] }) {
   const [sources, setSources] = useState(initialSources);
   const [queue, setQueue] = useState(initialQueue);
+  const [showHistory, setShowHistory] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -78,7 +79,7 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
   const handleProcessArticle = async (rawArticleId: string) => {
     setLoading(true); setError(""); setSuccess("");
     try {
-      const res = await processPendingRawArticle(rawArticleId);
+      const res = await processPendingRawArticle(rawArticleId, true); // Send autoPublish true
       if (!res.success) {
          setError(res.message);
          setQueue(queue.map(q => q.id === rawArticleId ? { ...q, status: "FAILED" } : q));
@@ -239,7 +240,15 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
                </h3>
                <p className="text-[11px] text-gray-500 mt-1">Pending items indicate URLs extracted via Sync ready to be run through the Intelligence Layers.</p>
             </div>
-            {loading && <div className="text-blue-400 text-xs font-bold flex items-center gap-2 animate-pulse"><Loader2 className="w-4 h-4 animate-spin" /> GPT-4o Online...</div>}
+            <div className="flex items-center gap-4">
+              <button 
+                 onClick={() => setShowHistory(!showHistory)} 
+                 className="text-xs font-bold text-[#2FA4A9] bg-[#2FA4A9]/10 px-4 py-2 rounded-lg hover:bg-[#2FA4A9]/20 transition-colors border border-[#2FA4A9]/30"
+              >
+                 {showHistory ? "← View Pending" : "View Processing History →"}
+              </button>
+              {loading && <div className="text-blue-400 text-xs font-bold flex items-center gap-2 animate-pulse"><Loader2 className="w-4 h-4 animate-spin" /> GPT-4o Online...</div>}
+            </div>
          </div>
          
          <div className="flex-1 overflow-y-auto">
@@ -253,14 +262,16 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800 text-sm">
-                {queue.length === 0 ? (
+                {queue.filter(q => showHistory ? q.status !== "PENDING" : q.status === "PENDING").length === 0 ? (
                    <tr>
                       <td colSpan={4} className="p-8 text-center text-gray-500 text-xs font-mono">
-                         Global Queue Empty. Trigger a Sync Crawl on a Source Node.
+                         {showHistory ? "No processing history." : "Global Queue Empty. Trigger a Sync Crawl on a Source Node."}
                       </td>
                    </tr>
                 ) : (
-                   queue.map(q => (
+                   queue.filter(q => showHistory ? q.status !== "PENDING" : q.status === "PENDING")
+                     .slice(0, 50)
+                     .map(q => (
                       <tr key={q.id} className="hover:bg-[#0F2A44] transition-colors group">
                         <td className="p-4">
                            <div className="font-bold text-gray-200 line-clamp-2">{q.title}</div>

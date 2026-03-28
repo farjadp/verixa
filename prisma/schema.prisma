@@ -586,3 +586,18 @@ model CompanyEnrichmentJob {
 
   consultantProfile  ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
 }
+
+// ==========================================
+// Admin Broadcast Campaigns
+// ==========================================
+model CampaignLog {
+  id              String   @id @default(cuid())
+  subject         String
+  cohort          String   // ALL, CLIENTS, CONSULTANTS, VERIFIED, UNVERIFIED
+  sentCount       Int      @default(0)
+  successfulCount Int      @default(0)
+  failedCount     Int      @default(0)
+  sentByAdminId   String   // The basic ID of the admin who triggered it
+  contentHtml     String?  @db.Text
+  createdAt       DateTime @default(now())
+}

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { 
   LayoutDashboard, User, MessageSquare, CalendarDays, Inbox, Presentation, 
   CreditCard, ShieldCheck, Share2, LogOut, LifeBuoy, HelpCircle, Settings, 
-  Bookmark, UserCircle, Activity, ShieldAlert, CheckCircle, DollarSign, Bell, Flag, Award, RefreshCw, FileText, Search, Users, BarChart2, Zap, Building
+  Bookmark, UserCircle, Activity, ShieldAlert, CheckCircle, DollarSign, Bell, Flag, Award, RefreshCw, FileText, Search, Users, BarChart2, Zap, Building, Mailbox
 } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
@@ -87,6 +87,7 @@ export default async function DashboardLayout({
     { label: "Badge Management",    href: "/dashboard/admin/badges",         icon: Award },
     
     { type: "group", label: "Operations & Content" },
+    { label: "Email Broadcasts",    href: "/dashboard/admin/broadcasts",     icon: Mailbox },
     { label: "Bookings",            href: "/dashboard/admin/bookings",       icon: CalendarDays },
     { label: "Reviews",             href: "/dashboard/admin/reviews",        icon: MessageSquare },
     { label: "Flags & Disputes",    href: "/dashboard/admin/disputes",       icon: Flag },

@@ -165,53 +165,81 @@ export async function runRegistrySync(options: {
     });
     const existingMap = new Map(existing.map((e) => [e.licenseNumber, e]));
 
+    const toCreate: any[] = [];
+    const toUpdate: { licenseNumber: string; data: any }[] = [];
+
     for (const rec of records) {
-      try {
-        const license = rec.License_Number?.trim();
-        if (!license) { result.skipped++; continue; }
+      const license = rec.License_Number?.trim();
+      if (!license) { result.skipped++; continue; }
 
-        const exists = existingMap.get(license);
+      const exists = existingMap.get(license);
 
-        if (exists && onlyNew) {
+      if (exists && onlyNew) {
+        result.skipped++;
+        continue;
+      }
+
+      const data = {
+        fullName:      rec.Full_Name?.trim() || "Unknown",
+        slug:          makeSlug(rec.Full_Name?.trim() || license, license),
+        status:        rec.Status?.trim() || "Unknown",
+        company:       rec.Company?.trim() || null,
+        province:      rec.Province?.trim() || null,
+        country:       rec.Country?.trim() || null,
+        licenseNumber: license,
+      };
+
+      if (exists) {
+        const changed =
+          exists.fullName !== data.fullName ||
+          exists.status   !== data.status   ||
+          (exists.company  ?? null) !== data.company  ||
+          (exists.province ?? null) !== data.province;
+
+        if (!changed) {
           result.skipped++;
           continue;
         }
 
-        const data = {
-          fullName:      rec.Full_Name?.trim() || "Unknown",
-          slug:          makeSlug(rec.Full_Name?.trim() || license, license),
-          status:        rec.Status?.trim() || "Unknown",
-          company:       rec.Company?.trim() || null,
-          province:      rec.Province?.trim() || null,
-          country:       rec.Country?.trim() || null,
-          licenseNumber: license,
-        };
+        toUpdate.push({ licenseNumber: license, data });
+      } else {
+        toCreate.push(data);
+      }
+    }
 
-        if (exists) {
-          // Check if anything actually changed
-          const changed =
-            exists.fullName !== data.fullName ||
-            exists.status   !== data.status   ||
-            (exists.company  ?? null) !== data.company  ||
-            (exists.province ?? null) !== data.province;
-
-          if (!changed) {
-            result.skipped++;
-            continue;
-          }
-
-          await prisma.consultantProfile.update({
-            where: { licenseNumber: license },
-            data: { fullName: data.fullName, status: data.status, company: data.company, province: data.province, country: data.country },
-          });
-          result.updated++;
-        } else {
-          await prisma.consultantProfile.create({ data });
-          result.imported++;
-        }
+    // 1. Bulk Create (Extremely Fast, up to 10k per second)
+    const CREATE_CHUNK = 2000;
+    for (let i = 0; i < toCreate.length; i += CREATE_CHUNK) {
+      const chunk = toCreate.slice(i, i + CREATE_CHUNK);
+      try {
+        const res = await prisma.consultantProfile.createMany({
+          data: chunk,
+          skipDuplicates: true,
+        });
+        result.imported += res.count;
       } catch (err: any) {
         result.errors++;
-        result.errorDetails.push(`${rec.License_Number}: ${err.message}`);
+        result.errorDetails.push(`Bulk create error (chunk ${i}): ${err.message}`);
+      }
+    }
+
+    // 2. Batched Updates (Concurrent execution to stay within 60s timeout)
+    const UPDATE_CHUNK = 50;
+    for (let i = 0; i < toUpdate.length; i += UPDATE_CHUNK) {
+      const chunk = toUpdate.slice(i, i + UPDATE_CHUNK);
+      try {
+        await Promise.all(
+          chunk.map((item) =>
+            prisma.consultantProfile.update({
+              where: { licenseNumber: item.licenseNumber },
+              data: item.data,
+            })
+          )
+        );
+        result.updated += chunk.length;
+      } catch (err: any) {
+        result.errors++;
+        result.errorDetails.push(`Bulk update error (chunk ${i}): ${err.message}`);
       }
     }
   } finally {

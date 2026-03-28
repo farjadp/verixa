@@ -45,9 +45,11 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
       const res = await syncContentSource(sourceId, syncLimit);
       if (!res.success) {
         setError(res.message);
+        alert(`Sync Failed: ${res.message}`);
         return;
       }
       setSuccess(res.message);
+      alert(res.message);
     } catch (e: any) {
       setError(e.message || "Failed to sync source.");
     } finally {
@@ -102,9 +104,11 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
       const res = await executeAutoPilot(syncLimit);
       if (!res.success) {
         setError(res.message);
+        alert(`Sequence Failed: ${res.message}`);
         return;
       }
       setSuccess(res.message);
+      alert(res.message);
       setTimeout(() => window.location.reload(), 2000);
     } catch (e: any) {
       setError(e.message || "Auto-pilot sequence failed.");

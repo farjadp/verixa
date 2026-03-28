@@ -15,6 +15,7 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import { guessDemographics } from "@/lib/demographics";
+import { logEvent } from "@/lib/logger";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -242,11 +243,27 @@ export async function runRegistrySync(options: {
         result.errorDetails.push(`Bulk update error (chunk ${i}): ${err.message}`);
       }
     }
+  } catch (err: any) {
+    await logEvent({
+      userId: (session?.user as any)?.id,
+      role: "ADMIN",
+      action: "REGISTRY_SYNC_FATAL_ERROR",
+      details: { error: err.message, stack: err.stack }
+    });
+    throw err;
   } finally {
     scraperDb?.close();
   }
 
   result.durationMs = Date.now() - start;
+  
+  await logEvent({
+      userId: (session?.user as any)?.id,
+      role: "ADMIN",
+      action: "REGISTRY_SYNC_COMPLETED",
+      details: result
+  });
+
   revalidatePath("/dashboard/admin/sync");
   revalidatePath("/dashboard/admin/consultants");
   return result;
@@ -294,9 +311,23 @@ export async function uploadDatabaseFile(formData: FormData): Promise<{ success:
     const db = new Database("/tmp/cicc_data.db", { readonly: true, fileMustExist: true });
     db.close();
 
+    await logEvent({
+      userId: (session?.user as any)?.id,
+      role: "ADMIN",
+      action: "REGISTRY_DB_UPLOAD_SUCCESS",
+      details: { size: file.size, name: file.name }
+    });
+
     return { success: true, message: "Database uploaded successfully" };
   } catch (error: any) {
     console.error("Upload error:", error);
+    const session = await getServerSession(authOptions).catch(() => null);
+    await logEvent({
+      userId: (session?.user as any)?.id,
+      role: "ADMIN",
+      action: "REGISTRY_DB_UPLOAD_ERROR",
+      details: { error: error.message }
+    });
     return { success: false, message: error.message };
   }
 }

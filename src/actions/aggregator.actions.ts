@@ -9,6 +9,7 @@ import { zodResponseFormat } from "openai/helpers/zod";
 import Parser from "rss-parser";
 import * as cheerio from "cheerio";
 import { processMidRollImages } from "@/actions/ai-blog.actions";
+import { logEvent } from "@/lib/logger";
 
 // Initialize Subsystems
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "sk-build-dummy" });
@@ -37,6 +38,7 @@ const SocialHookSchema = z.object({
 async function verifyAdmin() {
   const session = await getServerSession(authOptions);
   if (!session || (session.user as any).role !== "ADMIN") throw new Error("Unauthorized Access");
+  return session;
 }
 
 // ----------------------------------------------------------------------------
@@ -44,7 +46,7 @@ async function verifyAdmin() {
 // ----------------------------------------------------------------------------
 export async function syncContentSource(sourceId: string) {
   try {
-    await verifyAdmin();
+    const session = await verifyAdmin();
 
     const source = await prisma.contentSource.findUnique({ where: { id: sourceId } });
     if (!source) return { success: false, message: "Source not found." };
@@ -83,9 +85,17 @@ export async function syncContentSource(sourceId: string) {
       data: { lastCheckedAt: new Date() }
     });
 
+    await logEvent({
+      userId: (session.user as any)?.id,
+      role: "ADMIN",
+      action: "AGGREGATOR_SYNC_SUCCESS",
+      details: { sourceId, addedCount }
+    });
+
     return { success: true, addedCount, message: `Successfully registered ${addedCount} new URLs.` };
   } catch(err: any) {
     console.error("syncContentSource Error:", err);
+    await logEvent({ action: "AGGREGATOR_SYNC_ERROR", details: { sourceId, error: err.message } });
     return { success: false, message: err.message };
   }
 }
@@ -95,7 +105,7 @@ export async function syncContentSource(sourceId: string) {
 // ----------------------------------------------------------------------------
 export async function processPendingRawArticle(rawArticleId: string) {
   try {
-    await verifyAdmin();
+    const session = await verifyAdmin();
 
     const raw = await prisma.rawArticle.findUnique({ 
       where: { id: rawArticleId },
@@ -240,9 +250,23 @@ export async function processPendingRawArticle(rawArticleId: string) {
       data: { status: "PROCESSED" }
     });
 
+    await logEvent({
+      userId: (session.user as any)?.id,
+      role: "ADMIN",
+      action: "AGGREGATOR_PROCESS_SUCCESS",
+      details: { rawArticleId, blogPostId: blogPost.id }
+    });
+
     return { success: true, status: "SUCCESS", articleId: blogPost.id, message: "AI Extracted and Generated Successfully." };
   } catch (err: any) {
     console.error("processPendingRawArticle Error:", err);
+    const session = await getServerSession(authOptions).catch(() => null);
+    await logEvent({
+      userId: (session?.user as any)?.id,
+      role: "ADMIN",
+      action: "AGGREGATOR_PROCESS_ERROR",
+      details: { rawArticleId, error: err.message }
+    });
     return { success: false, status: "FAILED", message: err.message };
   }
 }
@@ -257,11 +281,14 @@ export async function getSources() {
 
 export async function addSource(data: { name: string; url: string; type: string }) {
   try {
-    await verifyAdmin();
+    const session = await verifyAdmin();
     const source = await prisma.contentSource.create({ data: { ...data, enabled: true, trustScore: 100 } });
+    await logEvent({ userId: (session.user as any)?.id, role: "ADMIN", action: "AGGREGATOR_SOURCE_ADDED", details: { data } });
     return { success: true, source, message: "Source added." };
   } catch (err: any) {
     console.error("addSource Error:", err);
+    const session = await getServerSession(authOptions).catch(() => null);
+    await logEvent({ userId: (session?.user as any)?.id, role: "ADMIN", action: "AGGREGATOR_SOURCE_ERROR", details: { data, error: err.message } });
     return { success: false, message: err.message };
   }
 }

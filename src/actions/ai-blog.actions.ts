@@ -177,6 +177,7 @@ export async function generateEditorialImage(imagePrompt: string) {
         method: "POST", headers: { "Authorization": `Key ${(process.env.FAL_KEY || "").replace(/\\n/g, "").trim()}`, "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: safePrompt, image_size: "landscape_16_9" })
       });
+      if (!res.ok) throw new Error(`FAL_FLUX_PRO failed: ${res.status}`);
       const data = await res.json();
       if (data.images && data.images[0]?.url) return data.images[0].url;
     } else {
@@ -185,6 +186,7 @@ export async function generateEditorialImage(imagePrompt: string) {
         method: "POST", headers: { "Authorization": `Key ${(process.env.FAL_KEY || "").replace(/\\n/g, "").trim()}`, "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: safePrompt, image_size: "landscape_16_9", num_inference_steps: 4 })
       });
+      if (!res.ok) throw new Error(`FAL_FLUX_SCHNELL failed: ${res.status}`);
       const data = await res.json();
       if (data.images && data.images[0]?.url) return data.images[0].url;
     }

@@ -10,8 +10,8 @@
 const { execSync } = require('child_process');
 
 function run() {
-  let dbUrl = process.env.DATABASE_URL;
-  let directUrl = process.env.DIRECT_URL;
+  let dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL;
+  let directUrl = process.env.DIRECT_URL || process.env.POSTGRES_URL_NON_POOLING;
 
   if (dbUrl && !directUrl) {
     // If it is a Neon pooled connection, it typically contains '-pooler'
@@ -26,17 +26,23 @@ function run() {
     }
   }
 
-  // Ensure DIRECT_URL is set so schema.prisma doesn't throw P1012 Validation Error
-  process.env.DIRECT_URL = directUrl || dbUrl || '';
+  // Ensure variables are properly set before Prisma parses the schema
+  const hasRealDB = !!dbUrl;
+  process.env.DATABASE_URL = dbUrl || 'postgresql://fake:fake@localhost:5432/fake?schema=public';
+  process.env.DIRECT_URL = directUrl || process.env.DATABASE_URL;
 
   try {
     console.log('📦 Running [prisma generate] ...');
     execSync('npx prisma generate', { stdio: 'inherit', env: process.env });
     
-    console.log('🚀 Running [prisma migrate deploy] ...');
-    execSync('npx prisma migrate deploy', { stdio: 'inherit', env: process.env });
-    
-    console.log('✅ Database build step completed successfully.');
+    if (hasRealDB) {
+      console.log('🚀 Running [prisma migrate deploy] ...');
+      execSync('npx prisma migrate deploy', { stdio: 'inherit', env: process.env });
+      console.log('✅ Database build step completed successfully.');
+    } else {
+      console.log('⚠️ No real DATABASE_URL detected during build. Skipping [prisma migrate deploy] to prevent Vercel build crashes.');
+      console.log('✅ Prisma client generated successfully with fallback URL.');
+    }
   } catch (error) {
     console.error("❌ Database build step failed.");
     process.exit(1);

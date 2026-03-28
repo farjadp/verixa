@@ -37,10 +37,12 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
     }
   };
 
+  const [syncLimit, setSyncLimit] = useState<number>(5);
+
   const handleSyncSource = async (sourceId: string) => {
     setLoading(true); setError(""); setSuccess("");
     try {
-      const res = await syncContentSource(sourceId);
+      const res = await syncContentSource(sourceId, syncLimit);
       if (!res.success) {
         setError(res.message);
         return;
@@ -111,9 +113,20 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
                         </div>
                         <div className="text-[10px] bg-green-500/10 text-green-500 px-2 py-0.5 rounded font-bold border border-green-500/20">ACTIVE</div>
                      </div>
-                     <button onClick={() => handleSyncSource(src.id)} disabled={loading} className="w-full bg-[#2FA4A9]/10 hover:bg-[#2FA4A9]/20 border border-[#2FA4A9]/30 text-[#2FA4A9] p-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors">
-                        Force Sync Crawl <RefreshCcw className="w-3 h-3" />
-                     </button>
+                     <div className="flex gap-2 mt-2">
+                        <input 
+                           type="number" 
+                           min="1" 
+                           max="20" 
+                           value={syncLimit} 
+                           onChange={e => setSyncLimit(Number(e.target.value))} 
+                           className="bg-[#0F2A44] border border-gray-800 rounded-lg text-center text-white text-xs w-16"
+                           title="Max items to process"
+                        />
+                        <button onClick={() => handleSyncSource(src.id)} disabled={loading} className="w-full bg-[#2FA4A9]/10 hover:bg-[#2FA4A9]/20 border border-[#2FA4A9]/30 text-[#2FA4A9] p-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors">
+                           Force Sync Crawl <RefreshCcw className="w-3 h-3" />
+                        </button>
+                     </div>
                   </div>
                ))}
                {sources.length === 0 && <p className="text-xs text-gray-500 text-center italic mt-4">No sources configured.</p>}

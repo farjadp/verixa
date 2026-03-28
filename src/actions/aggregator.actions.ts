@@ -13,7 +13,7 @@ import { logEvent } from "@/lib/logger";
 
 // Initialize Subsystems
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "sk-build-dummy" });
-const parser = new Parser();
+const parser = new Parser({ timeout: 15000 });
 
 // Validation Schemas
 const AggregatedBriefSchema = z.object({
@@ -44,7 +44,7 @@ async function verifyAdmin() {
 // ----------------------------------------------------------------------------
 // LAYER 1 & 2: DISCOVERY & RAW REGISTRY
 // ----------------------------------------------------------------------------
-export async function syncContentSource(sourceId: string) {
+export async function syncContentSource(sourceId: string, limit: number = 5) {
   try {
     const session = await verifyAdmin();
 
@@ -57,22 +57,29 @@ export async function syncContentSource(sourceId: string) {
     if (source.type === "RSS") {
       try {
         const feed = await parser.parseURL(source.url);
-        for (const item of feed.items) {
-          if (!item.link) continue;
-          
-          const exists = await prisma.rawArticle.findUnique({ where: { sourceUrl: item.link } });
-          if (!exists) {
-             await prisma.rawArticle.create({
-               data: {
-                 sourceId: source.id,
-                 sourceUrl: item.link,
-                 title: item.title || "Untitled RSS Item",
-                 publishedAt: item.isoDate ? new Date(item.isoDate) : new Date(),
-                 status: "PENDING"
-               }
-             });
-             addedCount++;
-          }
+        
+        const feedLinks = feed.items.map(i => i.link as string).filter(Boolean);
+        const existingDocs = await prisma.rawArticle.findMany({
+          where: { sourceUrl: { in: feedLinks } },
+          select: { sourceUrl: true }
+        });
+        const existingUrls = new Set(existingDocs.map(d => d.sourceUrl));
+
+        const itemsToProcess = feed.items
+          .filter(item => item.link && !existingUrls.has(item.link))
+          .slice(0, limit);
+
+        for (const item of itemsToProcess) {
+           await prisma.rawArticle.create({
+             data: {
+               sourceId: source.id,
+               sourceUrl: item.link as string,
+               title: item.title || "Untitled RSS Item",
+               publishedAt: item.isoDate ? new Date(item.isoDate) : new Date(),
+               status: "PENDING"
+             }
+           });
+           addedCount++;
         }
       } catch (e: any) {
         console.error(`RSS parse failed for ${source.url}`, e);
@@ -144,13 +151,28 @@ export async function processPendingRawArticle(rawArticleId: string) {
     }
 
     // 2. GENERATE STRATEGY BRIEF (DEDUPE & CLASSIFY)
+    const recentPosts = await prisma.blogPost.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 15,
+      select: { title: true, summary: true }
+    });
+    const recentPostsText = recentPosts.map(p => `- ${p.title}: ${p.summary}`).join("\n");
+
     const briefPrompt = `
       Analyze this raw extracted article from ${raw.source.name}.
       Title: ${raw.title}
       Text: ${extractedText.substring(0, 4000)}...
 
-      Determine a unique new angle for the Verixa Immigration Platform.
-      If this is completely irrelevant to Canadian Immigration, set isDuplicate to true.
+      CRITICAL CROSS-SOURCE DEDUPLICATION CHECK:
+      Here are the 15 most recently published posts on our platform:
+      ${recentPostsText}
+
+      Compare the core facts and key events of this new extracted text against our recent posts.
+      If this raw text is reporting on the EXACT SAME general news event or policy update as ANY of the recent posts above (>50% factual similarity in coverage), YOU MUST set isDuplicate to true. 
+      Furthermore, if this text is completely irrelevant to Canadian Immigration or just marketing noise, set isDuplicate to true.
+      We absolutely do NOT want to publish similar news twice.
+
+      If it is a genuinely NEW event NOT listed above, determine a unique new angle for the Verixa Platform.
     `;
 
     // @ts-ignore

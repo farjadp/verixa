@@ -7,8 +7,9 @@
 // ============================================================================
 
 import { useState, useTransition } from "react";
-import { runRegistrySync, saveLastSyncLog, type SyncResult, type SyncPreview } from "@/actions/sync.actions";
-import { RefreshCw, CheckCircle2, AlertCircle, SkipForward, Plus, Edit, Clock, Database, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { runRegistrySync, saveLastSyncLog, uploadDatabaseFile, type SyncResult, type SyncPreview } from "@/actions/sync.actions";
+import { RefreshCw, CheckCircle2, AlertCircle, SkipForward, Plus, Edit, Clock, Database, Loader2, ChevronDown, ChevronUp, UploadCloud } from "lucide-react";
 
 interface Props {
   preview: SyncPreview | null;
@@ -16,10 +17,13 @@ interface Props {
 }
 
 export default function RegistrySyncClient({ preview, lastSync }: Props) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<SyncResult | null>(null);
   const [syncedAt, setSyncedAt] = useState<string | null>(null);
   const [showErrors, setShowErrors] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Options
   const [onlyNew, setOnlyNew]       = useState(false);
@@ -41,6 +45,29 @@ export default function RegistrySyncClient({ preview, lastSync }: Props) {
 
   const displayResult = result ?? lastSync;
   const displayedAt = syncedAt ?? lastSync?.syncedAt;
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await uploadDatabaseFile(formData);
+      if (res.success) {
+        router.refresh();
+      } else {
+        setUploadError(res.message);
+      }
+    } catch (err: any) {
+      setUploadError(err.message);
+    } finally {
+      setIsUploading(false);
+      e.target.value = "";
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -65,8 +92,32 @@ export default function RegistrySyncClient({ preview, lastSync }: Props) {
           ))}
         </div>
       ) : (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-5 text-sm text-red-700">
-          ⚠️ Could not connect to CICC scraper database. Make sure <code>cicc_data.db</code> exists at <code>../cicc_scraper/cicc_data.db</code>.
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center flex flex-col items-center justify-center">
+          <Database className="w-12 h-12 text-gray-300 mb-4" />
+          <h2 className="text-xl font-bold text-[#0F2A44] mb-2">Upload Scraper Database</h2>
+          <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">
+            We couldn't detect the SQLite database automatically. Please upload your <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700 border border-gray-200">cicc_data.db</code> file directly.
+          </p>
+          
+          <div className="relative group cursor-pointer w-full max-w-md">
+            <input 
+              type="file" 
+              accept=".db,.sqlite,.sqlite3"
+              onChange={handleUpload}
+              disabled={isUploading}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10" 
+            />
+            <div className={`px-6 py-4 rounded-xl border-2 border-dashed flex items-center justify-center gap-3 transition-colors ${
+              uploadError ? "border-red-300 bg-red-50" : "border-gray-300 bg-gray-50 group-hover:border-[#2FA4A9] group-hover:bg-[#E5F5F5]"
+            }`}>
+              {isUploading ? (
+                <><Loader2 className="w-5 h-5 animate-spin text-gray-400" /> <span className="font-bold text-gray-600 text-sm">Uploading database...</span></>
+              ) : (
+                <><UploadCloud className={`w-5 h-5 ${uploadError ? "text-red-500" : "text-gray-400 group-hover:text-[#2FA4A9]"}`} /> <span className={`font-bold text-sm ${uploadError ? "text-red-600" : "text-gray-700 group-hover:text-[#2FA4A9]"}`}>Choose File or Drag & Drop</span></>
+              )}
+            </div>
+          </div>
+          {uploadError && <p className="text-xs text-red-500 font-bold mt-4">{uploadError}</p>}
         </div>
       )}
 

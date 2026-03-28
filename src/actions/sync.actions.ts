@@ -13,6 +13,7 @@ import { authOptions } from "@/lib/authOptions";
 import { revalidatePath } from "next/cache";
 import Database from "better-sqlite3";
 import path from "path";
+import fs from "fs";
 import { guessDemographics } from "@/lib/demographics";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -53,8 +54,11 @@ export interface SyncPreview {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function openScraperDb() {
-  const DB_PATH = path.resolve(process.cwd(), "../cicc_scraper/cicc_data.db");
-  return new Database(DB_PATH, { readonly: true, fileMustExist: true });
+  let dbPath = "/tmp/cicc_data.db";
+  if (!fs.existsSync(dbPath)) {
+    dbPath = path.resolve(process.cwd(), "../cicc_scraper/cicc_data.db");
+  }
+  return new Database(dbPath, { readonly: true, fileMustExist: true });
 }
 
 function makeSlug(fullName: string, licenseNumber: string): string {
@@ -241,4 +245,30 @@ export async function saveLastSyncLog(result: SyncResult) {
     update: { value: JSON.stringify({ ...result, syncedAt: new Date().toISOString() }) },
     create: { key: "lastSyncResult", value: JSON.stringify({ ...result, syncedAt: new Date().toISOString() }) },
   });
+}
+
+// ─── File Upload ─────────────────────────────────────────────────────────────
+
+export async function uploadDatabaseFile(formData: FormData): Promise<{ success: boolean; message: string }> {
+  try {
+    const session = await getServerSession(authOptions);
+    if ((session?.user as any)?.role !== "ADMIN") throw new Error("Unauthorized");
+
+    const file = formData.get("file") as File;
+    if (!file) throw new Error("No file provided");
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    fs.writeFileSync("/tmp/cicc_data.db", buffer);
+
+    // Test connection
+    const db = new Database("/tmp/cicc_data.db", { readonly: true, fileMustExist: true });
+    db.close();
+
+    return { success: true, message: "Database uploaded successfully" };
+  } catch (error: any) {
+    console.error("Upload error:", error);
+    return { success: false, message: error.message };
+  }
 }

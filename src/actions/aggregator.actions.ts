@@ -180,7 +180,7 @@ export async function syncContentSource(sourceId: string, limit: number = 5) {
 // ----------------------------------------------------------------------------
 // LAYER 3 & 4: EXTRACTION & DEDUPLICATION ORCHESTRATOR
 // ----------------------------------------------------------------------------
-export async function processPendingRawArticle(rawArticleId: string) {
+export async function processPendingRawArticle(rawArticleId: string, autoPublish: boolean = false) {
   try {
     const session = await verifyAdmin();
 
@@ -272,7 +272,7 @@ export async function processPendingRawArticle(rawArticleId: string) {
       - Never plagiarize. Synthesize and reframe fundamentally.
       - Start immediately with standard H2/H3 tags (no H1).
       - Provide a "Direct Answer" summary at the top.
-      - IMPORTANT: If explaining data, statistics, requirements, or comparisons, you MUST use a Markdown Data Table.
+      - IMPORTANT: You MUST include at least one professional visual formatting block such as a Markdown Data Table or an intricate bulleted 'Infographic Summary' to make the article highly engaging.
       - IMPORTANT: Throughout the article, intelligently insert 1, 2, or 3 Mid-Roll Images depending on the length of the text. To insert an image, use the exact syntax: ![IMAGE_PROMPT: <detailed editorial description of the image>](). Be highly descriptive. DO NOT put actual URLs in these tags.
       - At the VERY END of the article, include a Markdown Source Attribution block:
         "### Sources & References \n - [${raw.source.name}](${raw.sourceUrl})"
@@ -332,7 +332,7 @@ export async function processPendingRawArticle(rawArticleId: string) {
         content: finalMarkdown || "",
         category: brief?.category || "UPDATES_POLICY",
         coverImage: imageUrl,
-        isPublished: false, // DRAFT MODE MANDATORY FOR AUTO/BACKFILL
+        isPublished: autoPublish, // LIVE PUBLISH ALLOWED VIA AUTO_PILOT
         seoTitle: brief?.metaTitle,
         seoDesc: brief?.metaDesc,
         imagePrompt: brief?.imagePrompt,
@@ -401,5 +401,60 @@ export async function deleteSource(id: string) {
   } catch (err: any) {
     console.error("deleteSource Error:", err);
     return { success: false, message: err.message };
+  }
+}
+
+// ----------------------------------------------------------------------------
+// LAYER 7: 1-CLICK AUTONOMOUS DEPLOYMENT ENGINE (AUTO-PILOT)
+// ----------------------------------------------------------------------------
+export async function executeAutoPilot(limitPerSource: number = 10) {
+  try {
+    const session = await verifyAdmin();
+    
+    // 1. Sync all active nodes
+    const activeSources = await prisma.contentSource.findMany({ where: { enabled: true } });
+    let totalSynced = 0;
+    
+    for (const src of activeSources) {
+      const syncRes = await syncContentSource(src.id, limitPerSource);
+      if (syncRes.success) {
+        totalSynced += (syncRes.addedCount || 0);
+      }
+    }
+
+    // 2. Fetch the updated queue
+    const pendingArticles = await prisma.rawArticle.findMany({
+      where: { status: "PENDING" },
+      orderBy: { publishedAt: "desc" },
+      take: limitPerSource * activeSources.length
+    });
+
+    let successCount = 0;
+    let failedCount = 0;
+
+    // 3. Process sequentially strictly to preserve Rate Limits and API stability
+    for (const article of pendingArticles) {
+      const compileRes = await processPendingRawArticle(article.id, true); // true = autoPublish LIVE
+      if (compileRes.success && compileRes.status === "SUCCESS") {
+         successCount++;
+      } else {
+         failedCount++;
+      }
+    }
+
+    await logEvent({ 
+      userId: (session.user as any)?.id, 
+      role: "ADMIN", 
+      action: "AUTO_PILOT_COMPLETED", 
+      details: { totalSynced, successCount, failedCount } 
+    });
+
+    return { 
+      success: true, 
+      message: `Auto-Pilot sequence complete. Synced ${totalSynced} raw items. Generated & Published ${successCount} articles.` 
+    };
+  } catch(err: any) {
+    console.error("AutoPilot Error:", err);
+    return { success: false, message: "AutoPilot sequence failed catastrophically: " + err.message };
   }
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { syncContentSource, processPendingRawArticle, addSource, deleteSource } from "@/actions/aggregator.actions";
+import { syncContentSource, processPendingRawArticle, addSource, deleteSource, executeAutoPilot } from "@/actions/aggregator.actions";
 import { 
   Plus, Rss, Loader2, Play, Database, 
   CheckCircle2, AlertCircle, RefreshCcw, FileText, ArrowRight, Sparkles, Trash2
@@ -89,6 +89,25 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
     } catch (e: any) {
       setError(e.message || "Pipeline crashed.");
       setQueue(queue.map(q => q.id === rawArticleId ? { ...q, status: "FAILED" } : q));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAutoPilot = async () => {
+    if (!confirm(`Deploy Autonomous Generator? This will automatically find the ${syncLimit} latest articles from ALL Active Sources, regenerate them with AI, drop in infographics, and PUBLISH THEM LIVE immediately.`)) return;
+    
+    setLoading(true); setError(""); setSuccess("");
+    try {
+      const res = await executeAutoPilot(syncLimit);
+      if (!res.success) {
+        setError(res.message);
+        return;
+      }
+      setSuccess(res.message);
+      setTimeout(() => window.location.reload(), 2000);
+    } catch (e: any) {
+      setError(e.message || "Auto-pilot sequence failed.");
     } finally {
       setLoading(false);
     }
@@ -186,7 +205,29 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
       </div>
 
       {/* RIGHT COLUMN: THE EXTRACTION QUEUE */}
-      <div className="xl:w-2/3 bg-[#0F2A44] border border-gray-800 rounded-2xl flex flex-col shadow-xl overflow-hidden min-h-[700px]">
+      <div className="xl:w-2/3 flex flex-col gap-6">
+
+         {/* 1-CLICK AUTO PILOT MEGA COMMAND */}
+         <div className="bg-gradient-to-r from-[#2FA4A9] to-blue-600 p-[1px] rounded-2xl shadow-xl hover:shadow-[0_0_30px_-5px_#2FA4A9] transition-all">
+           <div className="bg-[#0a1f33] rounded-2xl p-6 px-8 flex flex-col md:flex-row gap-6 md:gap-0 items-center justify-between">
+              <div>
+                 <h2 className="text-xl font-black text-white flex items-center gap-3">
+                    <Sparkles className="w-6 h-6 text-yellow-400" /> Deploy Autonomous Auto-Pilot
+                 </h2>
+                 <p className="text-xs text-blue-200/70 mt-2 max-w-xl font-mono leading-relaxed">
+                    [OVERRIDE PROTOCOL] Sequentially syncs the latest <strong>{syncLimit}</strong> links from ALL configured Nodes, generates premium AEO articles (embedded with professional Markdown Data Tables & Images), and <strong>PUBLISHES THEM LIVE</strong> instantly.
+                 </p>
+              </div>
+              <button 
+                 onClick={handleAutoPilot} 
+                 disabled={loading} 
+                 className="font-extrabold shadow-lg bg-gradient-to-r hover:bg-gradient-to-l from-[#2FA4A9] to-blue-500 text-white px-8 py-4 rounded-xl flex items-center gap-3 transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 whitespace-nowrap">
+                 {loading ? <Loader2 className="w-5 h-5 animate-spin"/> : <Play className="w-5 h-5 fill-current" />} RUN SEQUENCE
+              </button>
+           </div>
+         </div>
+
+         <div className="bg-[#0F2A44] border border-gray-800 rounded-2xl flex flex-col shadow-xl overflow-hidden min-h-[600px]">
          <div className="p-6 border-b border-gray-800 flex items-center justify-between bg-[#0F2A44]">
             <div>
                <h3 className="text-sm font-bold text-gray-300 uppercase tracking-widest flex items-center gap-2">
@@ -250,6 +291,7 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
                 )}
               </tbody>
             </table>
+         </div>
          </div>
 
       </div>

@@ -28,7 +28,8 @@ const AggregatedBriefSchema = z.object({
   category: z.enum(["IMMIGRATION_GUIDES", "CONSULTANT_INSIGHTS", "CASE_BASED_CONTENT", "UPDATES_POLICY"]),
   faq: z.array(z.string()),
   imagePrompt: z.string().describe("A prompt for FAL AI Flux Pro. Must be editorial, NO text, high resolution."),
-  isDuplicate: z.boolean().describe("True if the content is completely irrelevant or an identical duplicate of something Verixa already covered.")
+  isDuplicate: z.boolean().describe("True if the content is completely irrelevant or an identical duplicate of something Verixa already covered."),
+  originalPublishedDate: z.string().describe("The exact publication date of the original news article found in the raw text, in ISO format. Default to today if missing.")
 });
 
 const SocialHookSchema = z.object({
@@ -89,69 +90,108 @@ export async function syncContentSource(sourceId: string, limit: number = 5) {
       }
     } else if (source.type === "WEB_SCRAPE") {
       try {
-        const htmlRes = await fetch(source.url, {
-          headers: { 'User-Agent': 'VerixaBot/1.0 OracleSync' },
-          signal: AbortSignal.timeout(15000)
-        });
-        const htmlText = await htmlRes.text();
-        const $ = cheerio.load(htmlText);
-        
-        const extractedLinks: { title: string, link: string }[] = [];
-        
-        $("a").each((_, el) => {
-          const href = $(el).attr("href");
-          const title = $(el).text().replace(/\s+/g, ' ').trim();
+        let currentUrl = source.url;
+        let pagesCrawled = 0;
+        const MAX_PAGES = 5; // Circuit breaker to prevent infinite loops / timeouts
+
+        while (addedCount < limit && pagesCrawled < MAX_PAGES && currentUrl) {
+          pagesCrawled++;
+          console.log(`[Oracle] Syncing Page ${pagesCrawled} Queue for ${source.name}... URL: ${currentUrl}`);
+
+          const htmlRes = await fetch(currentUrl, {
+            headers: { 'User-Agent': 'VerixaBot/2.0 OracleDeepSync' },
+            signal: AbortSignal.timeout(15000)
+          });
+          if (!htmlRes.ok) break;
+
+          const htmlText = await htmlRes.text();
+          const $ = cheerio.load(htmlText);
           
-          const urlLower = href ? href.toLowerCase() : "";
-          if (
-            href && 
-            href.length > 30 && 
-            href.includes("-") && 
-            title.length > 15 &&
-            !urlLower.includes("search") &&
-            !urlLower.includes("results") &&
-            !urlLower.includes("archive") &&
-            !urlLower.includes("tag") &&
-            !urlLower.includes("category") &&
-            !title.toLowerCase().includes("all news")
-          ) {
-            try {
-              const urlObj = new URL(href, source.url);
-              if (urlObj.protocol === "http:" || urlObj.protocol === "https:") {
-                extractedLinks.push({ title, link: urlObj.href });
-              }
-            } catch (e) {}
-          }
-        });
-
-        const uniqueMap = new Map();
-        for (const item of extractedLinks) {
-          if (!uniqueMap.has(item.link)) uniqueMap.set(item.link, item);
-        }
-        const uniqueLinks = Array.from(uniqueMap.values());
-
-        const feedLinks = uniqueLinks.map(i => i.link);
-        const existingDocs = await prisma.rawArticle.findMany({
-          where: { sourceUrl: { in: feedLinks } },
-          select: { sourceUrl: true }
-        });
-        const existingUrls = new Set(existingDocs.map(d => d.sourceUrl));
-
-        const itemsToProcess = uniqueLinks
-          .filter(item => !existingUrls.has(item.link))
-          .slice(0, limit);
-
-        for (const item of itemsToProcess) {
-          await prisma.rawArticle.create({
-            data: {
-              sourceId: source.id,
-              sourceUrl: item.link,
-              title: item.title,
-              publishedAt: new Date(),
-              status: "PENDING"
+          const extractedLinks: { title: string, link: string }[] = [];
+          
+          $("a").each((_, el) => {
+            const href = $(el).attr("href");
+            const title = $(el).text().replace(/\s+/g, ' ').trim();
+            
+            const urlLower = href ? href.toLowerCase() : "";
+            if (
+              href && 
+              href.length > 30 && 
+              href.includes("-") && 
+              title.length > 15 &&
+              !urlLower.includes("search") &&
+              !urlLower.includes("results") &&
+              !urlLower.includes("archive") &&
+              !urlLower.includes("tag") &&
+              !urlLower.includes("category") &&
+              !title.toLowerCase().includes("all news")
+            ) {
+              try {
+                const urlObj = new URL(href, currentUrl);
+                if (urlObj.protocol === "http:" || urlObj.protocol === "https:") {
+                  extractedLinks.push({ title, link: urlObj.href });
+                }
+              } catch (e) {}
             }
           });
-          addedCount++;
+
+          const uniqueMap = new Map();
+          for (const item of extractedLinks) {
+            if (!uniqueMap.has(item.link)) uniqueMap.set(item.link, item);
+          }
+          const uniqueLinks = Array.from(uniqueMap.values());
+
+          const feedLinks = uniqueLinks.map(i => i.link);
+          const existingDocs = await prisma.rawArticle.findMany({
+            where: { sourceUrl: { in: feedLinks } },
+            select: { sourceUrl: true }
+          });
+          const existingUrls = new Set(existingDocs.map(d => d.sourceUrl));
+
+          const itemsToProcess = uniqueLinks
+            .filter(item => !existingUrls.has(item.link))
+            .slice(0, limit - addedCount);
+
+          for (const item of itemsToProcess) {
+            await prisma.rawArticle.create({
+              data: {
+                sourceId: source.id,
+                sourceUrl: item.link,
+                title: item.title,
+                publishedAt: new Date(),
+                status: "PENDING"
+              }
+            });
+            addedCount++;
+          }
+
+          if (addedCount < limit) {
+             // Look for pagination
+             let nextHref = $("a[rel='next'], a.next, a.page-link-next").first().attr("href");
+             
+             if (!nextHref) {
+               // Fallback: look for generic text
+               const validTexts = ["next", "older", "next page", "بعدی", "پسین"];
+               $("a").each((_, el) => {
+                 const t = $(el).text().toLowerCase().trim();
+                 if (!nextHref && validTexts.includes(t)) {
+                   nextHref = $(el).attr("href");
+                 }
+               });
+             }
+
+             if (nextHref) {
+               try {
+                 currentUrl = new URL(nextHref, currentUrl).href;
+               } catch (e) {
+                 currentUrl = "";
+               }
+             } else {
+               currentUrl = ""; // No more pages found
+             }
+          } else {
+             break;
+          }
         }
       } catch (e: any) {
         console.error(`WEB_SCRAPE extraction failed for ${source.url}`, e);
@@ -249,6 +289,7 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
       We absolutely do NOT want to publish similar news twice.
 
       If it is a genuinely NEW event NOT listed above, determine a unique new angle for the Verixa Platform.
+      Additionally, scan the raw text carefully to extract the true original publication date of the press release/article. Ensure originalPublishedDate is set.
     `;
 
     // @ts-ignore
@@ -276,9 +317,12 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
       - Provide a "Direct Answer" summary at the top.
       - IMPORTANT: You MUST include at least one professional visual formatting block such as a Markdown Data Table or an intricate bulleted 'Infographic Summary' to make the article highly engaging.
       - IMPORTANT: Throughout the article, intelligently insert 1, 2, or 3 Mid-Roll Images depending on the length of the text. To insert an image, use the exact syntax: ![IMAGE_PROMPT: <detailed editorial description of the image>](). Be highly descriptive. DO NOT put actual URLs in these tags.
-      - At the VERY END of the article, include a Markdown Source Attribution block:
-        "### Sources & References \n - [${raw.source.name}](${raw.sourceUrl})"
-      - Always include a high-converting Call-to-Action to manually book an RCIC on Verixa.
+      - At the VERY END of the article, include exactly this Markdown disclaimer block to credit the source:
+        
+        ---
+        *This intelligence briefing was automatically generated. The original press release was published on **\${brief.originalPublishedDate || new Date().toISOString().split('T')[0]}** by **${raw.source.name}** and can be verified **[here](${raw.sourceUrl})**.*
+
+      - Always include a high-converting Call-to-Action BEFORE the disclaimer, to manually book an RCIC on Verixa.
 
       Brief Strategy:
       ${JSON.stringify(brief, null, 2)}
@@ -326,6 +370,8 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
     } catch(e) { console.error("FAL Error in auto-scraper:", e); }
 
     // 6. DB INJECTION (CMS DRAFT)
+    const officialDate = brief?.originalPublishedDate ? new Date(brief.originalPublishedDate) : new Date();
+    
     const blogPost = await prisma.blogPost.create({
       data: {
         title: brief?.title || raw.title || "Autogenerated News",
@@ -334,6 +380,7 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
         content: finalMarkdown || "",
         category: brief?.category || "UPDATES_POLICY",
         coverImage: imageUrl,
+        publishedAt: isNaN(officialDate.getTime()) ? new Date() : officialDate,
         isPublished: autoPublish, // LIVE PUBLISH ALLOWED VIA AUTO_PILOT
         seoTitle: brief?.metaTitle,
         seoDesc: brief?.metaDesc,

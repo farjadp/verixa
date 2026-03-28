@@ -4,6 +4,18 @@ All notable changes to the Verixa ecosystem will be documented in this file.
 
 ---
 
+## [v0.9.1-Beta] - 2026-03-28
+### Added
+- **Dynamic AI Article Styling:** Upgraded `LatestArticles` frontend mechanics with premium CSS Grid-based hover accordions to prevent text clipping and fluidly auto-match container heights.
+- **Disclaimer Widgets:** Decoupled auto-generated warnings from raw markdown strings, transforming them into dedicated React disclaimer widgets dynamically injected above the FAQ boundaries.
+
+### Fixed
+- **Image Generation Pipeline:** Replaced the failing FAL AI Flux endpoints with a highly reliable OpenAI DALL-E-3 integration to guarantee cover image compiling on every run.
+- **Table Morphology:** Deep-injected standard `ReactMarkdown` styling overrides to render Markdown tables with a clean, border-collapsed minimalist design instead of relying on default typography plugins.
+- **Policy Analysis Scaling:** Modified the core LLM Aggregator extraction prompts, instructing the AI to dynamically scale high-importance articles into multiple strategic paragraphs.
+
+---
+
 ## [v0.9.0-MVP] - 2026-03-23
 ### Added
 - **Admin Booking Audit Page:** Complete read-only view mapped to `/dashboard/admin/bookings/[id]` exposing raw financial and metadata metrics.

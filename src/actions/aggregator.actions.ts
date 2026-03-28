@@ -322,7 +322,7 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
       - Provide a "Direct Answer" summary block at the very top.
       - **Data Tables:** If the text describes statistics, timelines, or distinct features, you MUST construct an intricate Markdown Table.
       - **Policy Analysis:** If this is a major policy/update news piece, you MUST include a blockquote box like this:
-        > **Verixa Intelligence Analysis:** [Provide a bold, strategic business/immigration analysis here. Conclude with: *Note: This analysis is for strategic guidance and does not constitute legal advice.*]
+        > **Verixa Intelligence Analysis:** [Provide a bold, strategic business/immigration analysis here. Depending on the article's importance, you can write multiple detailed paragraphs for this analysis. Conclude with: *Note: This analysis is for strategic guidance and does not constitute legal advice.*]
       - **Visuals:** Intelligently insert 1 or 2 Mid-Roll Images. Syntax: ![IMAGE_PROMPT: <detailed editorial description>](). DO NOT put URLs.
       
       - **MANDATORY FAQ BOUNDARY:** You MUST end the article with an FAQ section. However, the FAQ section must end with \`<end-of-faq>\`.
@@ -366,27 +366,24 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
     });
     const socials = JSON.parse(socialCompletion.choices[0].message.content || "{}");
 
-    // 5. GENERATE FAL EDITORIAL IMAGE (Flux Schnell to avoid 10s Vercel Timeout)
+    // 5. GENERATE EDITORIAL IMAGE (DALL-E 2 / Unsplash Fallback)
     let imageUrl = "";
     try {
-      const safePrompt = `Professional editorial photography, highly detailed, photorealistic, 8k resolution, cinematic lighting. Subject: ${brief?.imagePrompt}. Clean, uncluttered composition. NO TEXT.`;
-      const res = await fetch("https://fal.run/fal-ai/flux/schnell", {
-        method: "POST",
-        headers: {
-          "Authorization": `Key ${process.env.FAL_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ prompt: safePrompt, image_size: "landscape_16_9", num_images: 1 })
+      const safePrompt = `Editorial photography, highly detailed, cinematic lighting. Subject: ${brief?.imagePrompt}. Clean.`;
+      const response = await getOpenAI().images.generate({
+        model: "dall-e-2",
+        prompt: safePrompt.substring(0, 1000), // dall-e-2 limit
+        n: 1,
+        size: "1024x1024",
       });
-      if (res.ok) {
-        const data = await res.json();
-        console.log("✅ FAL SUCCESS:", data.images?.[0]?.url);
-        if (data.images && data.images[0]?.url) imageUrl = data.images[0].url;
-      } else {
-        const errText = await res.text();
-        console.error("❌ FAL API ERROR STATUS:", res.status, "DETAILS:", errText);
+      if (response.data && response.data[0]?.url) {
+        imageUrl = response.data[0].url;
+        console.log("✅ IMAGE SUCCESS:", imageUrl);
       }
-    } catch(e) { console.error("❌ FAL CATCH ERROR in auto-scraper:", e); }
+    } catch(e) { 
+      console.warn("⚠️ OpenAI Image Generation Failed. Falling back to Unsplash stock photo.", e);
+      imageUrl = `https://source.unsplash.com/random/1024x576/?${encodeURIComponent(brief?.category || 'business,canada')}`;
+    }
 
     // 6. DB INJECTION (CMS DRAFT)
     const officialDate = brief?.originalPublishedDate ? new Date(brief.originalPublishedDate) : new Date();

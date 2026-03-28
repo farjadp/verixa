@@ -53,7 +53,7 @@ export default async function LatestArticles() {
         </div>
 
         {/* Premium Bento Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:h-[650px]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
           {/* HUGE HERO ARTICLE (8 Cols) */}
           <Link 
@@ -77,23 +77,29 @@ export default async function LatestArticles() {
             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 shadow-[inset_0_0_100px_rgba(47,164,169,0.3)] pointer-events-none" />
 
             {/* Content Payload */}
-            <div className="absolute inset-x-0 bottom-0 p-10 md:p-14 flex flex-col justify-end translate-y-6 group-hover:translate-y-0 transition-transform duration-500">
-               <div className="flex items-center gap-3 mb-6">
-                 <span className="bg-[#2FA4A9] text-white text-[10px] font-black uppercase tracking-[0.15em] px-4 py-1.5 rounded-full shadow-lg border border-[#2FA4A9]/50 backdrop-blur-md">
-                   {featured.category.replace(/_/g, " ")}
-                 </span>
-                 <span className="text-white/70 text-xs font-bold flex items-center gap-1.5 backdrop-blur-sm bg-black/20 px-3 py-1.5 rounded-full border border-white/5">
-                   <Clock className="w-3 h-3" /> {format(new Date(featured.createdAt), "MMMM d, yyyy")}
-                 </span>
-               </div>
-               <h3 className="text-4xl md:text-5xl lg:text-5xl font-serif text-white font-black mb-5 leading-[1.1] group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-blue-200 transition-all duration-300 line-clamp-3 lg:line-clamp-2">
-                 {featured.title}
-               </h3>
-               <p className="text-blue-100/70 line-clamp-2 max-w-2xl text-lg font-light mb-8 opacity-0 group-hover:opacity-100 transition-opacity duration-700 delay-100">
-                 {featured.summary}
-               </p>
-               <div className="flex items-center gap-3 text-teal-300 font-bold uppercase tracking-widest text-xs opacity-0 group-hover:opacity-100 transition-all duration-500 delay-200">
-                 Read Intelligence Brief <ArrowUpRight className="w-4 h-4" />
+            <div className="relative z-10 p-10 md:p-14 flex flex-col justify-end h-full">
+               <div className="mt-auto">
+                 <div className="flex items-center gap-3 mb-6">
+                   <span className="bg-[#2FA4A9] text-white text-[10px] font-black uppercase tracking-[0.15em] px-4 py-1.5 rounded-full shadow-lg border border-[#2FA4A9]/50 backdrop-blur-md">
+                     {featured.category.replace(/_/g, " ")}
+                   </span>
+                   <span className="text-white/70 text-xs font-bold flex items-center gap-1.5 backdrop-blur-sm bg-black/20 px-3 py-1.5 rounded-full border border-white/5">
+                     <Clock className="w-3 h-3" /> {format(new Date(featured.createdAt), "MMMM d, yyyy")}
+                   </span>
+                 </div>
+                 <h3 className="text-4xl md:text-5xl lg:text-5xl font-serif text-white font-black leading-[1.1] group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-blue-200 transition-all duration-300 line-clamp-3 lg:line-clamp-2">
+                   {featured.title}
+                 </h3>
+                 <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-all duration-700 ease-in-out opacity-0 group-hover:opacity-100">
+                   <div className="overflow-hidden">
+                     <p className="text-blue-100/70 line-clamp-2 max-w-2xl text-lg font-light mt-6 mb-8">
+                       {featured.summary}
+                     </p>
+                     <div className="flex items-center gap-3 text-teal-300 font-bold uppercase tracking-widest text-xs pb-2">
+                       Read Intelligence Brief <ArrowUpRight className="w-4 h-4" />
+                     </div>
+                   </div>
+                 </div>
                </div>
             </div>
           </Link>

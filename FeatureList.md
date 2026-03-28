@@ -36,3 +36,9 @@ A comprehensive catalog of the technical mechanisms, user interfaces, and server
 *Total historical intelligence.*
 - Every critical platform action (Logging in, Modifying Profiles, Submitting Reviews, Mutating Booking States) generates an immutable `SystemLog` payload (Role, Action, IP, Details).
 - Admins possess panoramic views of all logs routed through `/dashboard/admin/logs`. Booking-specific events are rendered natively on the Admin `/bookings/[id]` Deep Audit panel as linear timelines.
+
+## 🤖 The Intelligence Aggregator
+*Auto-Pilot News Engine scaling SEO.*
+- **Autonomous Scraping & Deduplication:** Continuously scans configured nodes, checking for `>50%` contextual similarity against existing articles to prevent duplicate coverage.
+- **LLM Content Generation:** Parses raw HTML arrays through GPT-4o arrays to construct deeply formatted Markdown encompassing direct answers, Policy Analysis, FAQ blocks, and stylized Data Tables.
+- **Visuals & Publishing:** Compiles cinematic imagery via OpenAI DALL-E-3 on the fly, instantly structuring the final output into dynamic typography environments.

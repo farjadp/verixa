@@ -99,7 +99,8 @@ export default async function BlogPostPage({
     if (endMatch && endMatch.index !== undefined) {
        faqText = afterFaqStart.substring(0, endMatch.index);
        disclaimerText = afterFaqStart.substring(endMatch.index).replace('<end-of-faq>', '').trim();
-       mainText = mainText.substring(0, faqStartIndex).trim() + "\n\n" + disclaimerText;
+       disclaimerText = disclaimerText.replace(/^---?\s*/, '').trim(); // Remove horizontal rule
+       mainText = mainText.substring(0, faqStartIndex).trim();
     } else {
        faqText = afterFaqStart;
        mainText = mainText.substring(0, faqStartIndex).trim();
@@ -174,6 +175,16 @@ export default async function BlogPostPage({
     return <Tag id={id} className="scroll-mt-32" {...props}>{children}</Tag>;
   };
 
+  const markdownComponents = {
+    h2: renderHeading(2),
+    h3: renderHeading(3),
+    table: ({ node, ...props }: any) => <div className="overflow-x-auto my-10 w-full not-prose"><table className="w-full text-left border-collapse bg-transparent" {...props} /></div>,
+    th: ({ node, ...props }: any) => <th className="border-b border-gray-200 py-4 pr-6 font-bold text-[#0F2A44] text-sm md:text-base leading-snug align-top" {...props} />,
+    td: ({ node, ...props }: any) => <td className="border-b border-gray-100 py-4 pr-6 text-gray-600 text-sm md:text-base leading-snug align-top" {...props} />,
+    tr: ({ node, ...props }: any) => <tr className="transition-colors group" {...props} />,
+    blockquote: ({ node, ...props }: any) => <blockquote className="p-6 bg-[#E5F5F5] border-l-4 border-[#0F2A44] text-[#0F2A44] my-8 rounded-r-2xl font-medium" {...props} />
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F7FA] font-sans flex flex-col">
       <TrackPageView eventName="article_view" articleId={post.id} />
@@ -240,10 +251,7 @@ export default async function BlogPostPage({
                <article className="prose prose-lg prose-slate max-w-none prose-headings:font-serif prose-headings:font-black prose-headings:text-[#0F2A44] prose-a:text-[#2FA4A9] prose-a:font-bold prose-a:no-underline hover:prose-a:underline prose-img:rounded-3xl prose-img:shadow-xl">
                  <ReactMarkdown 
                    remarkPlugins={[remarkGfm]}
-                   components={{
-                     h2: renderHeading(2),
-                     h3: renderHeading(3)
-                   }}
+                   components={markdownComponents as any}
                  >
                    {firstHalf}
                  </ReactMarkdown>
@@ -277,14 +285,18 @@ export default async function BlogPostPage({
                <article className="prose prose-lg prose-slate max-w-none prose-headings:font-serif prose-headings:font-black prose-headings:text-[#0F2A44] prose-a:text-[#2FA4A9] prose-a:font-bold prose-a:no-underline hover:prose-a:underline prose-img:rounded-3xl prose-img:shadow-xl mt-8">
                  <ReactMarkdown 
                    remarkPlugins={[remarkGfm]}
-                   components={{
-                     h2: renderHeading(2),
-                     h3: renderHeading(3)
-                   }}
+                   components={markdownComponents as any}
                  >
                    {secondHalf}
                  </ReactMarkdown>
                </article>
+
+               {/* DISCLAIMER BOX WIDGET */}
+               {disclaimerText && (
+                 <div className="mt-16 mb-8 py-6 px-8 rounded-[24px] bg-[#F8FAFC] border border-[#E2E8F0] text-gray-500 italic font-medium leading-relaxed">
+                   <ReactMarkdown>{disclaimerText}</ReactMarkdown>
+                 </div>
+               )}
 
                {/* ACCORDION FAQ */}
                {faqs.length > 0 && (

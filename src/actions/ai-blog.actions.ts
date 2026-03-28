@@ -139,9 +139,9 @@ export async function generateEditorialImage(imagePrompt: string) {
   if (!FAL_KEY) throw new Error("Missing FAL_KEY env variable");
 
   // Enhancing the prompt for pure editorial safety
-  const safePrompt = `Professional editorial photography, highly detailed, photorealistic, 8k resolution, cinematic lighting. Subject: ${imagePrompt}. Clean, uncluttered composition. NO TEXT, NO WATERMARKS, NO CARTOONS, NO ILLUSTRATIONS, abstract or realistic minimalism.`;
+  const safePrompt = `Professional editorial photography, highly detailed, photorealistic, 8k resolution, cinematic lighting. Subject: ${imagePrompt}. Clean, uncluttered composition. NO TEXT.`;
 
-  const res = await fetch("https://fal.run/fal-ai/flux-pro/v1.1", {
+  const res = await fetch("https://fal.run/fal-ai/flux/schnell", {
     method: "POST",
     headers: {
       "Authorization": `Key ${FAL_KEY}`,
@@ -150,8 +150,7 @@ export async function generateEditorialImage(imagePrompt: string) {
     body: JSON.stringify({
       prompt: safePrompt,
       image_size: "landscape_16_9",
-      num_images: 1,
-      safety_tolerance: "2"
+      num_images: 1
     })
   });
 

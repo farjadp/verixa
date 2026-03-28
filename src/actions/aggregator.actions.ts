@@ -380,9 +380,13 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
       });
       if (res.ok) {
         const data = await res.json();
+        console.log("✅ FAL SUCCESS:", data.images?.[0]?.url);
         if (data.images && data.images[0]?.url) imageUrl = data.images[0].url;
+      } else {
+        const errText = await res.text();
+        console.error("❌ FAL API ERROR STATUS:", res.status, "DETAILS:", errText);
       }
-    } catch(e) { console.error("FAL Error in auto-scraper:", e); }
+    } catch(e) { console.error("❌ FAL CATCH ERROR in auto-scraper:", e); }
 
     // 6. DB INJECTION (CMS DRAFT)
     const officialDate = brief?.originalPublishedDate ? new Date(brief.originalPublishedDate) : new Date();

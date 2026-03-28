@@ -22,10 +22,14 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
     if (!newSource.name || !newSource.url) return;
     setLoading(true); setError(""); setSuccess("");
     try {
-      const src = await addSource(newSource);
-      setSources([src, ...sources]);
+      const res = await addSource(newSource);
+      if (!res.success) {
+        setError(res.message);
+        return;
+      }
+      setSources([res.source, ...sources]);
       setNewSource({ name: "", url: "", type: "RSS" });
-      setSuccess("Source registered.");
+      setSuccess(res.message);
     } catch (e: any) {
       setError(e.message || "Failed to register source.");
     } finally {
@@ -37,8 +41,11 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
     setLoading(true); setError(""); setSuccess("");
     try {
       const res = await syncContentSource(sourceId);
+      if (!res.success) {
+        setError(res.message);
+        return;
+      }
       setSuccess(res.message);
-      // Let the UI lag a bit, user should reload page to see the new queue items
     } catch (e: any) {
       setError(e.message || "Failed to sync source.");
     } finally {
@@ -50,6 +57,11 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
     setLoading(true); setError(""); setSuccess("");
     try {
       const res = await processPendingRawArticle(rawArticleId);
+      if (!res.success) {
+         setError(res.message);
+         setQueue(queue.map(q => q.id === rawArticleId ? { ...q, status: "FAILED" } : q));
+         return;
+      }
       setSuccess(res.message);
       
       // Update local state queue

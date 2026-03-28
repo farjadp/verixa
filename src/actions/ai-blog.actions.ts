@@ -7,8 +7,8 @@ import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { prisma } from "@/lib/prisma";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "sk-build-dummy",
+const getOpenAI = () => new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 // ZOD SCHEMAS FOR STRUCTURED OUTPUT
@@ -56,7 +56,7 @@ export async function generateBrief(payload: { topic: string; keyword: string; a
   `;
 
   // @ts-ignore
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o",
     messages: [
       { role: "system", content: "You are an elite SEO structured data generator. You must return only JSON." },
@@ -92,7 +92,7 @@ export async function generateArticle(brief: z.infer<typeof ContentBriefSchema>)
     Return ONLY valid raw Markdown data.
   `;
 
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o",
     messages: [
       { role: "system", content: "You strictly output raw Markdown text." },
@@ -119,7 +119,7 @@ export async function generateSocials(articleContent: string) {
   `;
 
   // @ts-ignore
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model: "gpt-4o",
     messages: [
       { role: "system", content: "You are an elite social media manager. You must return only JSON." },

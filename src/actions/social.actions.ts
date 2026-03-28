@@ -7,7 +7,8 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "sk-build-dummy" });
+// Initialize Subsystems
+const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // ----------------------------------------------------------------------------
 // ZOD STRUCTURES (Strict Output Enforcement)
@@ -77,7 +78,7 @@ export async function igniteSocialEngine(blogPostId: string) {
     `;
     
     // @ts-ignore
-    const extractionCompletion = await openai.chat.completions.create({
+    const extractionCompletion = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "system", content: "You are a precise data extraction algorithm. You must return only JSON." }, { role: "user", content: extractionPrompt }],
       response_format: zodResponseFormat(ExtractionSchema, "extraction")
@@ -98,7 +99,7 @@ export async function igniteSocialEngine(blogPostId: string) {
     `;
     
     // @ts-ignore
-    const hooksCompletion = await openai.chat.completions.create({
+    const hooksCompletion = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "system", content: "You are an elite copywriter optimizing for click-through rates. You must return only JSON." }, { role: "user", content: hooksPrompt }],
       response_format: zodResponseFormat(HooksSchema, "hooks_ctas")
@@ -130,7 +131,7 @@ export async function igniteSocialEngine(blogPostId: string) {
     `;
 
     // @ts-ignore
-    const motherCompletion = await openai.chat.completions.create({
+    const motherCompletion = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "system", content: "You are an expert Social Publisher. You must return only JSON." }, { role: "user", content: motherPrompt }],
       response_format: zodResponseFormat(SocialSchema, "social_drafts")
@@ -155,7 +156,7 @@ export async function igniteSocialEngine(blogPostId: string) {
     `;
 
     // @ts-ignore
-    const qcCompletion = await openai.chat.completions.create({
+    const qcCompletion = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "system", content: "You are the final Editor-In-Chief. You must return only JSON." }, { role: "user", content: qcPrompt }],
       response_format: zodResponseFormat(SocialSchema, "final_socials")

@@ -631,9 +631,16 @@ export default async function ConsultantProfilePage({
                   <div>
                     <strong className="block text-[11px] uppercase tracking-widest text-gray-400 font-bold mb-1">Email</strong>
                     {data.Email ? (
-                      <a href={`mailto:${data.Email}`} className="text-sm font-semibold text-[#2FA4A9] hover:text-[#258d92] underline block max-w-[180px] truncate">
-                        {data.Email}
-                      </a>
+                      isClaimed ? (
+                        <a href={`mailto:${data.Email}`} className="text-sm font-semibold text-[#2FA4A9] hover:text-[#258d92] underline block max-w-[180px] truncate">
+                          {data.Email}
+                        </a>
+                      ) : (
+                        <span className="text-sm font-semibold text-gray-500 flex items-center gap-1.5" title="Claim profile to reveal">
+                          {data.Email.includes('@') ? `${data.Email.substring(0, 2)}***@${data.Email.split('@')[1]}` : '***'}
+                          <Lock className="w-3 h-3 text-gray-400" />
+                        </span>
+                      )
                     ) : (
                       <span className="text-sm text-gray-400 italic">Available upon booking</span>
                     )}
@@ -647,7 +654,14 @@ export default async function ConsultantProfilePage({
                     </div>
                     <div>
                       <strong className="block text-[11px] uppercase tracking-widest text-gray-400 font-bold mb-1">Phone</strong>
-                      <span className="text-sm font-medium text-gray-800">{data.Phone}</span>
+                      {isClaimed ? (
+                        <span className="text-sm font-medium text-gray-800">{data.Phone}</span>
+                      ) : (
+                        <span className="text-sm font-medium text-gray-500 flex items-center gap-1.5" title="Claim profile to reveal">
+                          {data.Phone.length > 5 ? `${data.Phone.substring(0, 4)}***${data.Phone.slice(-2)}` : '***'}
+                          <Lock className="w-3 h-3 text-gray-400" />
+                        </span>
+                      )}
                     </div>
                   </li>
                 )}

@@ -5,6 +5,7 @@ import { Resend } from "resend";
 import bcrypt from "bcryptjs";
 import twilio from "twilio";
 import { signIn } from "next-auth/react";
+import { getConsultantByLicense } from "@/lib/db";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
 const twilioClient = twilio(
@@ -26,12 +27,39 @@ function normalizePhone(raw: string): string {
   return raw.replace(/[^\d+]/g, "");
 }
 
+async function ensureConsultantProfile(licenseNumber: string) {
+  let profile = await prisma.consultantProfile.findUnique({
+    where: { licenseNumber },
+    select: { rawEmail: true, rawPhone: true, fullName: true },
+  });
+  
+  if (profile) return profile;
+
+  // Lazily create profile if from CICC registry
+  const ciccData = getConsultantByLicense(licenseNumber);
+  if (!ciccData) return null;
+
+  profile = await prisma.consultantProfile.create({
+    data: {
+      licenseNumber: ciccData.License_Number,
+      fullName: ciccData.Full_Name,
+      slug: ciccData.License_Number.toLowerCase(),
+      status: ciccData.Status,
+      company: ciccData.Company,
+      province: ciccData.Province,
+      country: ciccData.Country,
+      rawEmail: ciccData.Email,
+      rawPhone: ciccData.Phone,
+    },
+    select: { rawEmail: true, rawPhone: true, fullName: true },
+  });
+  
+  return profile;
+}
+
 // ─── STEP 1: INITIATE EMAIL OTP ────────────────────────────────────────────
 export async function initiateEmailOTP(licenseNumber: string, email: string) {
-  const profile = await prisma.consultantProfile.findUnique({
-    where: { licenseNumber },
-    select: { rawEmail: true, fullName: true },
-  });
+  const profile = await ensureConsultantProfile(licenseNumber);
 
   if (!profile) return { ok: false, error: "Profile not found." };
 
@@ -160,10 +188,7 @@ export async function verifyEmailOTP(licenseNumber: string, email: string, code:
 
 // ─── STEP 3: INITIATE PHONE OTP ────────────────────────────────────────────
 export async function initiatePhoneOTP(licenseNumber: string, phone: string) {
-  const profile = await prisma.consultantProfile.findUnique({
-    where: { licenseNumber },
-    select: { rawPhone: true },
-  });
+  const profile = await ensureConsultantProfile(licenseNumber);
 
   if (!profile) return { ok: false, error: "Profile not found." };
 
@@ -412,14 +437,7 @@ export async function completeClaim(
 
 // ─── GET CICC PHONE (for showing hint in UI) ──────────────────────────────
 export async function getCICCHint(licenseNumber: string) {
-  const profile = await prisma.consultantProfile.findUnique({
-    where: { licenseNumber },
-    select: {
-      rawEmail: true,
-      rawPhone: true,
-      fullName: true,
-    },
-  });
+  const profile = await ensureConsultantProfile(licenseNumber);
   if (!profile) return null;
 
   // Mask email: a****@domain.com

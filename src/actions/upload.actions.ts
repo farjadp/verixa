@@ -62,9 +62,9 @@ export async function uploadConsultantImageAction(formData: FormData) {
     throw new Error("File must be an image.");
   }
   
-  // 2MB Limit
-  if (file.size > 2 * 1024 * 1024) {
-    throw new Error("Image must be smaller than 2MB.");
+  // 10MB Limit
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error("Image must be smaller than 10MB.");
   }
 
   // 3. Convert to Buffer

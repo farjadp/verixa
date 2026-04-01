@@ -21,14 +21,28 @@ const verifyAdmin = async () => {
 // 1. Fetch all users
 export async function getAllUsers() {
   await verifyAdmin();
+  // Avoid N+1: we fetch users in one query, then get each user's last log
+  // via orderBy on the relation rather than N separate queries.
+  // Prisma internally uses a LEFT JOIN when using `take: 1` on an ordered relation.
   return prisma.user.findMany({
-    include: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      role: true,
+      createdAt: true,
+      updatedAt: true,
       _count: {
         select: { savedProfiles: true, reviews: true, blogPosts: true }
       },
       systemLogs: {
         take: 1,
-        orderBy: { createdAt: "desc" }
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true, action: true }
+      },
+      consultantProfile: {
+        select: { id: true, licenseNumber: true, fullName: true }
       }
     },
     orderBy: { createdAt: "desc" }
@@ -36,9 +50,9 @@ export async function getAllUsers() {
 }
 
 // 2. Create User Manually
-export async function createUser(data: { name: string; email: string; password?: string; role: string; notifyUser?: boolean }) {
+export async function createUser(data: { name: string; email: string; phone?: string; password?: string; role: string; notifyUser?: boolean }) {
   await verifyAdmin();
-  const { name, email, password, role, notifyUser } = data;
+  const { name, email, phone, password, role, notifyUser } = data;
 
   const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   if (existing) {
@@ -53,6 +67,7 @@ export async function createUser(data: { name: string; email: string; password?:
     data: {
       name,
       email: email.toLowerCase(),
+      phone: phone?.trim() || null,
       role,
       hashedPassword,
     }
@@ -128,7 +143,7 @@ export async function createUser(data: { name: string; email: string; password?:
 }
 
 // 3. Update existing user details/role
-export async function updateUser(id: string, data: { name: string; email: string; role: string; password?: string; notifyUser?: boolean }) {
+export async function updateUser(id: string, data: { name: string; email: string; phone?: string; role: string; password?: string; notifyUser?: boolean }) {
   await verifyAdmin();
 
   // If email changes, check if taken
@@ -143,6 +158,7 @@ export async function updateUser(id: string, data: { name: string; email: string
   const updateData: any = {
     name: data.name,
     email: data.email.toLowerCase(),
+    phone: data.phone?.trim() || null,
     role: data.role,
   };
 

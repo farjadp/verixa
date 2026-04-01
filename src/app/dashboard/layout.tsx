@@ -6,15 +6,12 @@
 // ============================================================================
 
 import Link from "next/link";
-import { 
-  LayoutDashboard, User, MessageSquare, CalendarDays, Inbox, Presentation, 
-  CreditCard, ShieldCheck, Share2, LogOut, LifeBuoy, HelpCircle, Settings, 
-  Bookmark, UserCircle, Activity, ShieldAlert, CheckCircle, DollarSign, Bell, Flag, Award, RefreshCw, FileText, Search, Users, BarChart2, Zap, Building, Mailbox
-} from "lucide-react";
+import { LogOut, ShieldCheck, Bell, Share2 } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import SidebarNav from "@/components/ui/SidebarNav";
 
 export default async function DashboardLayout({
   children,
@@ -27,7 +24,8 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const isConsultant = (session.user as any).role === "CONSULTANT";
+  const role = (session.user as any).role || "CLIENT";
+  const isConsultant = role === "CONSULTANT";
 
   const unreadNotifications = await prisma.notification.count({
     where: {
@@ -35,78 +33,6 @@ export default async function DashboardLayout({
       isRead: false
     }
   });
-
-  const consultantNavItems = [
-    { type: "group", label: "Overview" },
-    { label: "Dashboard Home",    href: "/dashboard",              icon: LayoutDashboard },
-    { label: "Performance",       href: "/dashboard/performance",  icon: Presentation },
-    { label: "Analytics",         href: "/dashboard/analytics",    icon: BarChart2 },
-    
-    { type: "group", label: "Operations" },
-    { label: "Booking",           href: "/dashboard/booking",      icon: CalendarDays },
-    { label: "Leads & Inbox",     href: "/dashboard/leads",        icon: Inbox },
-    { label: "Reviews",           href: "/dashboard/reviews",      icon: MessageSquare },
-    { label: "Activity Feed",     href: "/dashboard/activity",     icon: Activity },
-    { label: "Notifications",     href: "/dashboard/notifications",icon: Bell },
-    
-    { type: "group", label: "Management" },
-    { label: "Profile Management",href: "/dashboard/profile",      icon: User },
-    { label: "Billing",           href: "/dashboard/billing",      icon: CreditCard },
-    
-    { type: "group", label: "Support" },
-    { label: "Support (AI & Chat)",href: "/dashboard/support",     icon: LifeBuoy },
-    { label: "Platform Guide",    href: "/dashboard/help",         icon: HelpCircle },
-  ];
-
-  const clientNavItems = [
-    { type: "group", label: "Main" },
-    { label: "Control Center", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Activity Feed", href: "/dashboard/activity", icon: Activity },
-    { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
-    
-    { type: "group", label: "Immigration Profile" },
-    { label: "My Bookings", href: "/dashboard/client/bookings", icon: CalendarDays },
-    { label: "Immigration Profile", href: "/dashboard/client/profile", icon: UserCircle },
-    { label: "Saved Profiles", href: "/dashboard/client/saved", icon: Bookmark },
-    { label: "My Reviews", href: "/dashboard/client/reviews", icon: MessageSquare },
-    
-    { type: "group", label: "Settings & Support" },
-    { label: "Support & Tickets", href: "/dashboard/support", icon: LifeBuoy },
-    { label: "Account Settings", href: "/dashboard/client/settings", icon: Settings },
-  ];
-
-  const adminNavItems = [
-    { type: "group", label: "Overview" },
-    { label: "Mission Control",     href: "/dashboard",                      icon: LayoutDashboard },
-    { label: "Platform Analytics",  href: "/dashboard/admin/analytics",      icon: BarChart2 },
-    
-    { type: "group", label: "Users & Accounts" },
-    { label: "Consultants",         href: "/dashboard/admin/consultants",    icon: Users },
-    { label: "Users / Clients",     href: "/dashboard/admin/users",          icon: User },
-    { label: "Claim Requests",      href: "/dashboard/admin/claims",         icon: CheckCircle },
-    { label: "Badge Management",    href: "/dashboard/admin/badges",         icon: Award },
-    
-    { type: "group", label: "Operations & Content" },
-    { label: "Email Broadcasts",    href: "/dashboard/admin/broadcasts",     icon: Mailbox },
-    { label: "Bookings",            href: "/dashboard/admin/bookings",       icon: CalendarDays },
-    { label: "Reviews",             href: "/dashboard/admin/reviews",        icon: MessageSquare },
-    { label: "Flags & Disputes",    href: "/dashboard/admin/disputes",       icon: Flag },
-    { label: "CMS Content",         href: "/dashboard/admin/cms",            icon: FileText },
-    
-    { type: "group", label: "Financials" },
-    { label: "Plans & Features",    href: "/dashboard/admin/plans",          icon: Zap },
-    { label: "Revenue",             href: "/dashboard/admin/revenue",        icon: DollarSign },
-    
-    { type: "group", label: "Platform Settings" },
-    { label: "Database Sync",       href: "/dashboard/admin/sync",           icon: RefreshCw },
-    { label: "Company Enrichment",  href: "/dashboard/admin/enrichment",     icon: Building },
-    { label: "General Settings",    href: "/dashboard/admin/settings",       icon: Settings },
-  ];
-
-  let navItems = isConsultant ? consultantNavItems : clientNavItems;
-  if ((session.user as any).role === "ADMIN") {
-    navItems = adminNavItems;
-  }
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex font-sans text-[#1A1F2B]">
@@ -123,30 +49,7 @@ export default async function DashboardLayout({
         </div>
 
         {/* Nav Links */}
-        <nav className="flex-1 overflow-y-auto px-4 py-6">
-          {navItems.map((item, index) => {
-            if (item.type === "group") {
-              return (
-                <div key={`group-${index}`} className="px-4 pt-6 pb-2 text-xs font-black text-gray-400 uppercase tracking-widest first:pt-2">
-                  {item.label}
-                </div>
-              );
-            }
-            
-            const Icon = item.icon as any;
-            return (
-              <Link 
-                key={item.href} 
-                href={item.href!}
-                className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-600 hover:text-[#1A1F2B] hover:bg-[#F5F7FA] transition-colors mb-1"
-                // Using exactly matching styles for now; typically we check pathname for 'active' state
-              >
-                <Icon className="w-5 h-5 opacity-70" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <SidebarNav role={role} />
 
         {/* Bottom Actions */}
         <div className="p-4 border-t border-[#e5e7eb] space-y-1">

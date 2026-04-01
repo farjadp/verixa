@@ -2,6 +2,7 @@ import { ArrowUpRight, Eye, MousePointerClick, Star, Users, ShieldCheck, Zap, Al
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
+import AnnouncementBanner from "./AnnouncementBanner";
 
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
@@ -37,8 +38,21 @@ export default async function ConsultantHome() {
     { label: "Avg Rating", value: "4.9", increase: "Top 5%", icon: Star },
   ];
 
+  const unreadAnnouncement = await prisma.notification.findFirst({
+    where: {
+      userId: (session?.user as any)?.id,
+      type: "ADMIN_ANNOUNCEMENT",
+      isRead: false
+    },
+    orderBy: { createdAt: "desc" }
+  });
+
   return (
     <div className="space-y-8">
+      {unreadAnnouncement && (
+        <AnnouncementBanner announcement={unreadAnnouncement} />
+      )}
+      
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -46,7 +60,7 @@ export default async function ConsultantHome() {
           <p className="text-gray-500 text-sm mt-1">Here's what is happening with your practice today.</p>
         </div>
         <Link 
-          href="/dashboard/performance"
+          href="/dashboard/billing"
            className="bg-[#0F2A44] text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-black transition-all flex items-center justify-center gap-2"
         >
           Upgrade for 5x Visibility <ArrowUpRight className="w-4 h-4 text-[#2FA4A9]" />
@@ -177,9 +191,9 @@ export default async function ConsultantHome() {
          <div className="relative z-10 w-full md:w-auto bg-white/5 border border-white/10 rounded-2xl p-6 text-center backdrop-blur-sm">
             <p className="text-xs text-gray-300 font-bold uppercase tracking-widest mb-2">Optimize Revenue</p>
             <p className="text-sm text-gray-300 mb-4 max-w-[200px]">Upgrade to <strong className="text-white">Starter</strong> and pay only <strong className="text-white">8% commission</strong> ($80 fee).</p>
-            <button className="w-full bg-[#2FA4A9] text-[#1A1F2B] font-bold py-3 rounded-xl hover:bg-[#258d92] transition-colors shadow-lg">
+            <Link href="/dashboard/billing" className="inline-block w-full bg-[#2FA4A9] text-[#1A1F2B] font-bold py-3 rounded-xl hover:bg-[#258d92] transition-colors shadow-lg">
               Upgrade to Starter
-            </button>
+            </Link>
          </div>
       </div>
 

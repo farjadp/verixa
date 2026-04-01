@@ -3,6 +3,19 @@ import { prisma } from './prisma';
 
 const resend = new Resend(process.env.RESEND_API_KEY || "re_dummy_key_for_dev");
 
+// ── Security: HTML escape for all user-controlled values interpolated into email templates.
+// Prevents stored/reflected XSS if a malicious user sets their name or description to
+// something like: <script>...</script> or "><img src=x onerror=alert(1)>.
+function escapeHtml(unsafe: any): string {
+  if (unsafe === null || unsafe === undefined) return '';
+  return String(unsafe)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Helper to log emails
 async function logEmail(to: string, subject: string, type: string, status: "SENT" | "FAILED", error?: string) {
   try {
@@ -32,10 +45,10 @@ export async function sendClientReceiptEmail(to: string, data: any) {
       </div>
       
       <div style="background: #ffffff; border: 1px solid #F5F7FA; padding: 24px; border-radius: 8px; margin-bottom: 32px;">
-        <p style="margin: 0 0 16px 0;"><strong>Consultant:</strong> ${data.consultantName}</p>
-        <p style="margin: 0 0 16px 0;"><strong>Service:</strong> ${data.serviceNeeded || 'Consultation'}</p>
-        <p style="margin: 0 0 16px 0;"><strong>Proposed Time:</strong> ${new Date(data.scheduledStart).toLocaleString()}</p>
-        <p style="margin: 0;"><strong>Method:</strong> ${data.preferredCommunicationMethod || 'Online'}</p>
+        <p style="margin: 0 0 16px 0;"><strong>Consultant:</strong> ${escapeHtml(data.consultantName)}</p>
+        <p style="margin: 0 0 16px 0;"><strong>Service:</strong> ${escapeHtml(data.serviceNeeded) || 'Consultation'}</p>
+        <p style="margin: 0 0 16px 0;"><strong>Proposed Time:</strong> ${escapeHtml(new Date(data.scheduledStart).toLocaleString())}</p>
+        <p style="margin: 0;"><strong>Method:</strong> ${escapeHtml(data.preferredCommunicationMethod) || 'Online'}</p>
       </div>
 
       <div style="margin-bottom: 32px;">
@@ -55,7 +68,7 @@ export async function sendClientReceiptEmail(to: string, data: any) {
 
   return sendEmail({
     to,
-    subject: `Booking Request Sent: ${data.consultantName}`,
+    subject: `Booking Request Sent: ${escapeHtml(data.consultantName)}`,
     html,
     type: "BOOKING_RECEIPT_CLIENT"
   });
@@ -66,12 +79,14 @@ export async function sendEmail({
   to,
   subject,
   html,
-  type
+  type,
+  attachments
 }: {
   to: string;
   subject: string;
   html: string;
   type: string;
+  attachments?: { filename: string; content: Buffer | string; content_type?: string }[];
 }) {
   if (!process.env.RESEND_API_KEY) {
     console.log(`[MAILER MOCK RUN] Sending ${type} to ${to}\nSubject: ${subject}`);
@@ -85,6 +100,7 @@ export async function sendEmail({
       to: [to],
       subject: subject,
       html: html,
+      attachments: attachments,
     });
 
     if (error) {
@@ -129,12 +145,12 @@ export async function sendNewBookingEmail(consultantEmail: string, data: any) {
   const html = `
   <div style="${baseStyles}">
     <h2 style="color: #0F2A44;">New Booking Request</h2>
-    <p>You have received a new consultation request from <strong>${data.userFirstName} ${data.userLastName}</strong>.</p>
+    <p>You have received a new consultation request from <strong>${escapeHtml(data.userFirstName)} ${escapeHtml(data.userLastName)}</strong>.</p>
     
     <div style="background-color: #F8F9FA; padding: 16px; border-radius: 8px; margin: 16px 0;">
-      <p style="margin: 0 0 8px 0;"><strong>Service:</strong> ${data.serviceNeeded || 'General Consultation'}</p>
-      <p style="margin: 0 0 8px 0;"><strong>Requested Time:</strong> ${new Date(data.scheduledStart).toLocaleString()}</p>
-      <p style="margin: 0;"><strong>Short Case Summary:</strong> <br/> ${data.caseDescription || 'No description provided.'}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Service:</strong> ${escapeHtml(data.serviceNeeded) || 'General Consultation'}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Requested Time:</strong> ${escapeHtml(new Date(data.scheduledStart).toLocaleString())}</p>
+      <p style="margin: 0;"><strong>Short Case Summary:</strong> <br/> ${escapeHtml(data.caseDescription) || 'No description provided.'}</p>
     </div>
 
     <p>Please review and confirm or decline this request as soon as possible.</p>
@@ -146,7 +162,7 @@ export async function sendNewBookingEmail(consultantEmail: string, data: any) {
 
   return sendEmail({
     to: consultantEmail,
-    subject: `New booking request from ${data.userFirstName}`,
+    subject: `New booking request from ${escapeHtml(data.userFirstName)}`,
     html,
     type: "NEW_BOOKING_REQUEST"
   });
@@ -192,5 +208,68 @@ export async function sendBookingConfirmedEmail(clientEmail: string, data: any) 
     subject: `Booking Confirmed for ${new Date(data.scheduledStart).toLocaleDateString()}`,
     html,
     type: "BOOKING_CONFIRMED"
+  });
+}
+
+export async function sendAnnouncementNotificationEmail(email: string, firstName: string | null) {
+  const html = `
+  <div style="${baseStyles}">
+    <div style="background-color: #0F2A44; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+       <h1 style="color: #FFFFFF; margin: 0; font-size: 24px;">Verixa Platform Important Update</h1>
+    </div>
+    <div style="padding: 32px; border: 1px solid #eaeaea; border-top: none; border-radius: 0 0 8px 8px;">
+      <h2 style="color: #0F2A44; margin-top: 0;">Hello ${escapeHtml(firstName) || 'Consultant'},</h2>
+      <p style="font-size: 16px; color: #4A5568;">You have an important new unread message from the Verixa Administrative Team.</p>
+      
+      <div style="background-color: #F8F9FA; padding: 16px; border-left: 4px solid #2FA4A9; margin: 24px 0;">
+        <p style="margin: 0; color: #1A202C; font-weight: bold;">Action Recommended:</p>
+        <p style="margin: 8px 0 0 0; color: #4A5568;">Please log in to your consultant dashboard as soon as possible to review this announcement and take any necessary actions.</p>
+      </div>
+
+      <a href="${process.env.NEXTAUTH_URL || 'https://getverixa.com'}/dashboard" style="${buttonStyle}">Login to Dashboard</a>
+      
+      <p style="font-size: 12px; color: #A0AEC0; margin-top: 32px;">This is an automated security and platform notification from Verixa.</p>
+    </div>
+  </div>`;
+
+  return sendEmail({
+    to: email,
+    subject: `Important: New Announcement from Verixa Admin`,
+    html,
+    type: "ADMIN_ANNOUNCEMENT"
+  });
+}
+
+export async function sendDatabaseBackupEmail(email: string, backupBuffer: Buffer, filename: string) {
+  const html = `
+  <div style="${baseStyles}">
+    <div style="background-color: #0F2A44; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+       <h1 style="color: #FFFFFF; margin: 0; font-size: 24px;">System Database Backup</h1>
+    </div>
+    <div style="padding: 32px; border: 1px solid #eaeaea; border-top: none; border-radius: 0 0 8px 8px;">
+      <h2 style="color: #0F2A44; margin-top: 0;">Backup Generated</h2>
+      <p style="font-size: 16px; color: #4A5568;">Your requested database backup has been successfully aggregated and compressed.</p>
+      
+      <div style="background-color: #F8F9FA; padding: 16px; border-left: 4px solid #F97316; margin: 24px 0;">
+        <p style="margin: 0; color: #1A202C; font-weight: bold;">Security Notice:</p>
+        <p style="margin: 8px 0 0 0; color: #4A5568;">This file contains highly sensitive operational and user data. Store this file securely and restrict access.</p>
+      </div>
+      
+      <p style="font-size: 12px; color: #A0AEC0; margin-top: 32px;">This is an automated system administration notification from Verixa.</p>
+    </div>
+  </div>`;
+
+  return sendEmail({
+    to: email,
+    subject: `System Backup: ${filename}`,
+    html,
+    type: "SYSTEM_BACKUP",
+    attachments: [
+      {
+        filename,
+        content: backupBuffer,
+        content_type: 'application/gzip'
+      }
+    ]
   });
 }

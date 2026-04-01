@@ -39,12 +39,13 @@ Welcome to the Verixa strategic roadmap. This document outlines the evolution of
 - [x] `meeting.service.ts` factory for automated Link injection.
 - [x] Full-scale Support Ticketing system bridging Clients/Consultants with Admins.
 - [x] Multi-tier Admin oversight dashboards (Bento-box analytics & queues).
+- [x] **Database Backups:** Core Node-native stringification to `.json.gz` driven by Cron emails.
+- [x] **Cohort Broadcasting:** Push persistent announcements directly to Consultant endpoints.
 
 ---
 
-## 🎯 Phase 7: The Launch Horizon (Up Next)
+## 🎯 Phase 7: The Commercial Launch (Up Next)
 **Goal:** Monetization and Public Release.
 - [ ] **Stripe Escrow Integration:** Process holds upon booking, release upon `COMPLETED` state.
 - [ ] **Native Video Integrations:** Upgrade `meeting.service.ts` to directly hook Google Calendar / Zoom OAuth endpoints.
-- [ ] **SEO & Metadata Polish:** Dynamic standard/OG tags across all public consultant pages.
-- [ ] **Production Matrix Testing:** Final Vercel dry-run against live postgres clusters.
+- [ ] **PWA Conversion:** Map `next-pwa` configurations ensuring consultants can "Install" the dashboard to their mobile homescreens for instantaneous Action Queues handling.

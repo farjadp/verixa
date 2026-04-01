@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Settings, Save, Layout, CreditCard, Users, Shield, Cpu, ExternalLink, RefreshCw, Bell, ShieldAlert, Bot } from "lucide-react";
+import { Settings, Save, Layout, CreditCard, Users, Shield, Cpu, ExternalLink, RefreshCw, Bell, ShieldAlert, Bot, Sparkles } from "lucide-react";
 import { updatePlatformSettings } from "@/actions/settings.actions";
+import { generateBackup } from "@/actions/backup.actions";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import AnnouncementComposer from "../announcements/AnnouncementComposer";
 
 export default function PlatformSettingsClient({
   initialSettings
@@ -12,7 +14,9 @@ export default function PlatformSettingsClient({
   initialSettings: Record<string, string>
 }) {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState("VARIABLES");
   const [isSaving, setIsSaving] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
   const [formData, setFormData] = useState({
     blogWidgetRandomCount: initialSettings.blogWidgetRandomCount || "5",
     blogWidgetTopCount: initialSettings.blogWidgetTopCount || "5",
@@ -41,6 +45,19 @@ export default function PlatformSettingsClient({
     }
   };
 
+  const handleBackup = async () => {
+    setIsBackingUp(true);
+    try {
+      await generateBackup();
+      alert("Database Backup generated successfully! Check your admin email.");
+    } catch (err: any) {
+      console.error(err);
+      alert("Failed to generate backup: " + err.message);
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       <div className="flex items-center justify-between bg-[#0F2A44] text-white p-8 rounded-3xl shadow-2xl relative overflow-hidden border border-white/10">
@@ -65,42 +82,41 @@ export default function PlatformSettingsClient({
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 shrink-0">
         
-        {/* NAV TABS (Future Expandable) */}
+        {/* NAV TABS */}
         <div className="lg:col-span-1 space-y-2">
-           <button className="w-full flex items-center gap-3 p-4 bg-white border border-[#2FA4A9] text-[#2FA4A9] rounded-2xl font-bold shadow-sm">
-             <Layout className="w-5 h-5" /> Front-Page UX
+           <button 
+             onClick={() => setActiveTab("VARIABLES")} 
+             className={`w-full flex items-center gap-3 p-4 border rounded-2xl font-bold shadow-sm transition-all ${
+               activeTab === "VARIABLES" ? "bg-white border-[#2FA4A9] text-[#2FA4A9]" : "border-transparent text-gray-500 hover:bg-white"
+             }`}
+           >
+             <Layout className="w-5 h-5" /> Global Variables
            </button>
            <button 
-             onClick={() => {}} 
-             className="w-full flex items-center gap-3 p-4 hover:bg-white border border-transparent text-gray-500 rounded-2xl font-medium transition-colors"
+             onClick={() => setActiveTab("ANNOUNCEMENTS")} 
+             className={`w-full flex items-center gap-3 p-4 border rounded-2xl font-bold shadow-sm transition-all ${
+               activeTab === "ANNOUNCEMENTS" ? "bg-white border-[#2FA4A9] text-[#2FA4A9]" : "border-transparent text-gray-500 hover:bg-white"
+             }`}
            >
-             <CreditCard className="w-5 h-5" /> Stripe Revenue
+             <Bell className="w-5 h-5" /> In-App Announcements
            </button>
            <button 
-             onClick={() => {}} 
-             className="w-full flex items-center gap-3 p-4 hover:bg-white border border-transparent text-gray-500 rounded-2xl font-medium transition-colors"
+             onClick={() => setActiveTab("TOOLS")} 
+             className={`w-full flex items-center gap-3 p-4 border rounded-2xl font-bold shadow-sm transition-all ${
+               activeTab === "TOOLS" ? "bg-white border-[#2FA4A9] text-[#2FA4A9]" : "border-transparent text-gray-500 hover:bg-white"
+             }`}
            >
-             <Users className="w-5 h-5" /> Provider Logic
-           </button>
-           <button 
-             onClick={() => {}} 
-             className="w-full flex items-center gap-3 p-4 hover:bg-white border border-transparent text-gray-500 rounded-2xl font-medium transition-colors"
-           >
-             <Shield className="w-5 h-5" /> Legal Contexts
-           </button>
-           <button 
-             onClick={() => {}} 
-             className="w-full flex items-center gap-3 p-4 hover:bg-white border border-transparent text-gray-500 rounded-2xl font-medium transition-colors"
-           >
-             <Cpu className="w-5 h-5" /> Analytics Nodes
+             <Cpu className="w-5 h-5" /> System Integrations
            </button>
         </div>
 
         {/* SETTINGS PANELS */}
         <div className="lg:col-span-3 space-y-8">
           
-           {/* TRANSACTIONAL LOGIC */}
-          <div className="bg-white p-8 rounded-3xl border border-[#e5e7eb] shadow-sm">
+           {/* GLOBAL VARIABLES TAB */}
+           {activeTab === "VARIABLES" && (
+             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+               <div className="bg-white p-8 rounded-3xl border border-[#e5e7eb] shadow-sm">
             <h2 className="text-xl font-bold text-[#1A1F2B] mb-6 flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-[#2FA4A9]" /> Transactional & Revenue Logic
             </h2>
@@ -241,12 +257,37 @@ export default function PlatformSettingsClient({
               </div>
             </div>
           </div>
+            </div>
+          )}
 
-          <div className="bg-white p-8 rounded-3xl border border-[#e5e7eb] shadow-sm">
+          {/* ANNOUNCEMENTS TAB */}
+          {activeTab === "ANNOUNCEMENTS" && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+               <AnnouncementComposer />
+            </div>
+          )}
+
+          {/* SYSTEM TOOLS TAB */}
+          {activeTab === "TOOLS" && (
+          <div className="bg-white p-8 rounded-3xl border border-[#e5e7eb] shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h2 className="text-xl font-bold text-[#1A1F2B] mb-6 flex items-center gap-2">
               <Cpu className="w-5 h-5 text-[#2FA4A9]" /> System Tools & Logs
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+              <button 
+                onClick={handleBackup}
+                disabled={isBackingUp}
+                className="group p-6 rounded-2xl border border-gray-100 bg-gray-50 hover:bg-white hover:border-[#2FA4A9] hover:shadow-md transition-all flex flex-col items-center text-center gap-3 disabled:opacity-50"
+              >
+                <div className="w-12 h-12 rounded-full bg-green-50 text-green-600 flex items-center justify-center group-hover:bg-green-600 group-hover:text-white transition-colors">
+                  {isBackingUp ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
+                </div>
+                <div>
+                  <h3 className="font-bold text-[#1A1F2B]">Manual DB Backup</h3>
+                  <p className="text-xs text-gray-500 mt-1">Export JSON data to email</p>
+                </div>
+              </button>
               
               <Link href="/dashboard/admin/sync" className="group p-6 rounded-2xl border border-gray-100 bg-gray-50 hover:bg-white hover:border-[#2FA4A9] hover:shadow-md transition-all flex flex-col items-center text-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
@@ -280,6 +321,7 @@ export default function PlatformSettingsClient({
 
             </div>
           </div>
+          )}
 
         </div>
       </div>

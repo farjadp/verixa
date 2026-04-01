@@ -4,6 +4,14 @@ All notable changes to the Verixa ecosystem will be documented in this file.
 
 ---
 
+## [v1.0.0-RC] - 2026-04-01
+### Added
+- **Database Backup Engine:** A fully serverless database backup tool powered by native Node `zlib` that queries all models, converts them to `.gz`, and dispatches via Resend Email. Both manual via Settings UI and Automated via Vercel Crons (`/api/cron/backup`).
+- **In-App Broadcast System:** Admins can now explicitly target Consultant dashboard cohorts with priority rich-text broadcasts accompanied by styled email dispatches.
+- **Settings UI Tabs:** Hard-refactored `PlatformSettingsClient.tsx` breaking monolith forms into fluidly animated functional layout tabs (`VARIABLES`, `ANNOUNCEMENTS`, `SYSTEM TOOLS`).
+
+---
+
 ## [v0.9.1-Beta] - 2026-03-28
 ### Added
 - **Dynamic AI Article Styling:** Upgraded `LatestArticles` frontend mechanics with premium CSS Grid-based hover accordions to prevent text clipping and fluidly auto-match container heights.

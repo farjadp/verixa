@@ -12,6 +12,7 @@ model User {
   id            String    @id @default(cuid())
   name          String?
   email         String?   @unique
+  phone         String?
   emailVerified DateTime?
   image         String?
   hashedPassword String?
@@ -57,6 +58,19 @@ model ConsultantProfile {
   avatarImage               String?
   website                   String?
   messengers                Json?    // [{ type: "whatsapp", value: "..." }]
+  bio                       String?  @db.Text
+
+  // CICC Registry Contact Data (migrated from SQLite, read-only reference)
+  rawEmail                  String?  // Email from CICC official registry
+  rawPhone                  String?  // Phone from CICC official registry
+
+  // Claim verification level — set at claim time
+  verificationLevel         String?  // CICC_EMAIL_AND_PHONE | CICC_EMAIL | CICC_PHONE | PENDING_REVIEW
+
+  // Practice details
+  specializations           String?  // JSON array of specialization keys e.g. ["fswp","cec","pnp_bc"]
+  offersInPerson            Boolean  @default(false)
+  officeAddress             String?  // Required if offersInPerson = true
 
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
@@ -162,6 +176,11 @@ model Booking {
   type    ConsultationType  @relation(fields: [consultationTypeId], references: [id])
   events  BookingEventLog[]
   review  Review?
+
+  // Performance indexes — these fields drive the most frequent queries
+  @@index([userEmail])                          // used in 6+ action queries
+  @@index([consultantProfileId, status])        // used in slot calculation & dashboard
+  @@index([stripePaymentIntentId])              // used in Stripe webhook lookup
 }
 
 model BookingEventLog {
@@ -306,6 +325,10 @@ model Notification {
 
   user            User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
   consultant      ConsultantProfile? @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  // Index for per-user dashboard notification queries (userId + isRead filtered together)
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
 }
 
 model PlatformSetting {
@@ -531,6 +554,10 @@ model Subscription {
   endDate    DateTime?
   notes      String?   // admin notes
   assignedBy String?   // admin userId who assigned it
+  
+  stripeCustomerId     String?
+  stripeSubscriptionId String?   @unique
+
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
@@ -591,13 +618,105 @@ model CompanyEnrichmentJob {
 // Admin Broadcast Campaigns
 // ==========================================
 model CampaignLog {
-  id              String   @id @default(cuid())
+  id              String              @id @default(cuid())
+  type            String              @default("EMAIL")
   subject         String
-  cohort          String   // ALL, CLIENTS, CONSULTANTS, VERIFIED, UNVERIFIED
-  sentCount       Int      @default(0)
-  successfulCount Int      @default(0)
-  failedCount     Int      @default(0)
-  sentByAdminId   String   // The basic ID of the admin who triggered it
-  contentHtml     String?  @db.Text
-  createdAt       DateTime @default(now())
+  cohort          String
+  sentCount       Int                 @default(0)
+  successfulCount Int                 @default(0)
+  failedCount     Int                 @default(0)
+  sentByAdminId   String
+  contentHtml     String?             @db.Text
+  createdAt       DateTime            @default(now())
+  recipients      CampaignRecipient[]
+}
+
+// Tracks every individual email sent in a campaign
+model CampaignRecipient {
+  id            String      @id @default(cuid())
+  campaignLogId String
+  campaignLog   CampaignLog @relation(fields: [campaignLogId], references: [id], onDelete: Cascade)
+  email         String
+  name          String?
+  status        String      @default("SENT") // SENT | FAILED | DELIVERED | BOUNCED | COMPLAINED
+  resendId      String?     // Resend message ID — used for webhook matching
+  errorMessage  String?
+  createdAt     DateTime    @default(now())
+
+  @@index([campaignLogId])
+  @@index([email])
+  @@index([resendId])
+}
+
+// Opt-out list — always filtered from future campaigns
+model EmailUnsubscribe {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  reason    String?  // "user_request" | "bounced" | "complained"
+  createdAt DateTime @default(now())
+}
+
+// OTP tokens used during the consultant profile claim flow
+model ClaimOTP {
+  id            String   @id @default(cuid())
+  licenseNumber String                         // Which profile is being claimed
+  channel       String                         // "email" | "phone"
+  target        String                         // The email or phone number the OTP was sent to
+  codeHash      String                         // bcrypt hash of the 6-digit code
+  isMatched     Boolean  @default(false)       // true = target matched CICC registry data
+  verified      Boolean  @default(false)       // true = user entered correct code
+  attempts      Int      @default(0)           // max 5 attempts
+  expiresAt     DateTime                       // 1 hour from creation
+  createdAt     DateTime @default(now())
+
+  // Issue 15a: DB-based rate limiting fields (multi-instance safe)
+  otpSentCount     Int       @default(0)    // how many OTPs sent in current window
+  lastOtpRequestAt DateTime?               // when the last OTP was sent
+
+  @@index([licenseNumber])
+}
+
+// ============================================================================
+// SPECIALIZATIONS SYSTEM (Immigration Pathways)
+// ============================================================================
+
+model SpecializationCategory {
+  id        String   @id @default(cuid())
+  name      String                          // e.g. "Express Entry"
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items SpecializationItem[]
+}
+
+model SpecializationItem {
+  id          String   @id @default(cuid())
+  key         String   @unique              // e.g. "fswp", "cec"
+  label       String                        // Display name
+  categoryId  String
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category SpecializationCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+}
+
+// ============================================================================
+// PASSWORD RESET TOKENS
+// ============================================================================
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  email     String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
 }

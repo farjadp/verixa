@@ -1,26 +1,136 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, UploadCloud, Save, X, CheckCircle, Info, Shield, ThumbsUp, AlertTriangle } from "lucide-react";
+import { Lock, UploadCloud, Save, X, CheckCircle, Info, Shield, ThumbsUp, AlertTriangle, Check } from "lucide-react";
 import { updateConsultantProfile } from "@/actions/consultant.actions";
 import { consultantVerifyEnrichment } from "@/actions/enrichment.actions";
 import { uploadConsultantImageAction } from "@/actions/upload.actions";
 import { useRouter } from "next/navigation";
+import { BioEditor } from "@/components/ui/BioEditor";
 
-export default function ProfileForm({ profile, unlimitedMessengers }: { profile: any; unlimitedMessengers: boolean }) {
+const ALL_LANGUAGES = [
+  "English", "French", "Persian (Farsi)", "Spanish", "Arabic", "Mandarin",
+  "Cantonese", "Hindi", "Punjabi", "Urdu", "Tagalog", "Korean", "Japanese",
+  "Portuguese", "Russian", "Polish", "Ukrainian", "Turkish", "Vietnamese",
+  "Bengali", "Gujarati", "Tamil", "Telugu", "Sinhala", "Nepali", "Somali",
+  "Amharic", "Romanian", "Hungarian", "Italian", "German", "Dutch",
+  "Greek", "Hebrew", "Swahili", "Indonesian", "Malay", "Thai",
+];
+
+const IMMIGRATION_PATHS = [
+  { category: "Express Entry", items: [
+    { key: "fswp", label: "Federal Skilled Worker Program (FSWP)" },
+    { key: "cec", label: "Canadian Experience Class (CEC)" },
+    { key: "fstp", label: "Federal Skilled Trades Program (FSTP)" },
+    { key: "ee_healthcare", label: "Category-Based: Healthcare" },
+    { key: "ee_stem", label: "Category-Based: STEM" },
+    { key: "ee_trades", label: "Category-Based: Trades" },
+    { key: "ee_transport", label: "Category-Based: Transport" },
+    { key: "ee_agri", label: "Category-Based: Agriculture & Agri-food" },
+    { key: "ee_french", label: "Category-Based: French-Language Proficiency" },
+  ]},
+  { category: "Provincial Nominee Programs (PNP)", items: [
+    { key: "pnp_on", label: "Ontario – OINP" },
+    { key: "pnp_bc", label: "British Columbia – BCPNP" },
+    { key: "pnp_ab", label: "Alberta – AAIP" },
+    { key: "pnp_sk", label: "Saskatchewan – SINP" },
+    { key: "pnp_mb", label: "Manitoba – MPNP" },
+    { key: "pnp_ns", label: "Nova Scotia – NSNP" },
+    { key: "pnp_nb", label: "New Brunswick – NBPNP" },
+    { key: "pnp_pei", label: "Prince Edward Island – PEI PNP" },
+    { key: "pnp_nl", label: "Newfoundland & Labrador – NLPNP" },
+  ]},
+  { category: "Business & Investor Pathways", items: [
+    { key: "biz_startup", label: "Start-Up Visa Program" },
+    { key: "biz_selfemployed", label: "Self-Employed Persons Program" },
+    { key: "biz_ict", label: "Intra-Company Transfer (ICT)" },
+    { key: "biz_prov", label: "Provincial Entrepreneur Streams" },
+  ]},
+  { category: "Pilot Programs & Regional Pathways", items: [
+    { key: "pilot_aip", label: "Atlantic Immigration Program (AIP)" },
+    { key: "pilot_rcip", label: "Rural Community Immigration Pilot (RCIP)" },
+    { key: "pilot_fcip", label: "Francophone Community Immigration Pilot (FCIP)" },
+    { key: "pilot_agrifood", label: "Agri-Food Pilot" },
+    { key: "pilot_empp", label: "Economic Mobility Pathways Pilot (EMPP)" },
+  ]},
+  { category: "Family Sponsorship", items: [
+    { key: "fam_spouse", label: "Spouse / Common-law / Conjugal Partner" },
+    { key: "fam_children", label: "Dependent Children" },
+    { key: "fam_pgp", label: "Parent & Grandparent Program (PGP)" },
+    { key: "fam_orphan", label: "Orphaned Relatives" },
+    { key: "fam_lonely", label: "Lonely Canadian Exception" },
+  ]},
+  { category: "Quebec-Specific Programs", items: [
+    { key: "qc_qswp", label: "Quebec Skilled Worker Program (QSWP)" },
+    { key: "qc_peq", label: "Quebec Experience Program (PEQ)" },
+    { key: "qc_biz", label: "Quebec Business Immigration" },
+  ]},
+  { category: "Caregiver Programs", items: [
+    { key: "care_child", label: "Home Child Care Provider Pilot" },
+    { key: "care_support", label: "Home Support Worker Pilot" },
+  ]},
+  { category: "Temporary to Permanent (TR to PR)", items: [
+    { key: "tr_pgwp", label: "Post-Graduation Work Permit (PGWP)" },
+    { key: "tr_lmia", label: "LMIA-based Work Permits" },
+    { key: "tr_iec", label: "International Experience Canada (IEC)" },
+  ]},
+  { category: "Humanitarian & Refugee Pathways", items: [
+    { key: "hum_gar", label: "Government-Assisted Refugees" },
+    { key: "hum_psr", label: "Privately Sponsored Refugees" },
+    { key: "hum_hc", label: "Humanitarian & Compassionate (H&C)" },
+  ]},
+];
+
+export default function ProfileForm({ profile, unlimitedMessengers, bioFeature }: { profile: any; unlimitedMessengers: boolean; bioFeature?: string | null }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   
-  // Customization fields
   const [avatarImage, setAvatarImage] = useState(profile?.avatarImage || "");
   const [coverImage, setCoverImage] = useState(profile?.coverImage || "");
   const [website, setWebsite] = useState(profile?.website || "");
-  const [languages, setLanguages] = useState(profile?.languages || "");
+  const [bio, setBio] = useState(profile?.bio || "");
+  const rawLangs: string = profile?.languages || "";
+  const [selectedLangs, setSelectedLangs] = useState<string[]>(
+    rawLangs ? rawLangs.split(",").map((l: string) => l.trim()).filter(Boolean) : []
+  );
+  const [langSearch, setLangSearch] = useState("");
+  const [langOpen, setLangOpen] = useState(false);
+
+  const toggleLang = (lang: string) => {
+    setSelectedLangs(prev =>
+      prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]
+    );
+  };
+
+  const filteredLangs = ALL_LANGUAGES.filter(l =>
+    l.toLowerCase().includes(langSearch.toLowerCase())
+  );
   
   const [messengers, setMessengers] = useState<{ type: string; value: string }[]>(
     Array.isArray(profile?.messengers) ? profile.messengers : []
   );
+
+  // Specializations
+  const rawSpecs: string = (profile as any)?.specializations || "";
+  const [selectedSpecs, setSelectedSpecs] = useState<string[]>(
+    rawSpecs ? (() => { try { return JSON.parse(rawSpecs); } catch { return []; } })() : []
+  );
+  const [specSearch, setSpecSearch] = useState("");
+  const [specOpen, setSpecOpen] = useState(false);
+
+  const toggleSpec = (key: string) => {
+    setSelectedSpecs(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  };
+
+  const allSpecItems = IMMIGRATION_PATHS.flatMap(c => c.items);
+  const filteredSpecItems = specSearch
+    ? allSpecItems.filter(i => i.label.toLowerCase().includes(specSearch.toLowerCase()))
+    : null; // null = show grouped
+
+  // In-person
+  const [offersInPerson, setOffersInPerson] = useState<boolean>((profile as any)?.offersInPerson ?? false);
+  const [officeAddress, setOfficeAddress] = useState<string>((profile as any)?.officeAddress || "");
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'cover') => {
     const file = e.target.files?.[0];
@@ -56,8 +166,12 @@ export default function ProfileForm({ profile, unlimitedMessengers }: { profile:
         avatarImage,
         coverImage,
         website,
-        languages,
-        messengers
+        languages: selectedLangs.join(", "),
+        messengers,
+        specializations: JSON.stringify(selectedSpecs),
+        offersInPerson,
+        officeAddress: offersInPerson ? officeAddress : "",
+        bio,
       });
       alert("Profile Saved Successfully!");
       router.refresh();
@@ -134,7 +248,7 @@ export default function ProfileForm({ profile, unlimitedMessengers }: { profile:
                     <UploadCloud className="w-4 h-4 text-gray-400" /> Upload Cover Image
                   </button>
                 </div>
-                <p className="text-xs text-gray-400">Recommended: 1200x400px. High quality banner for your profile header.</p>
+                <p className="text-xs text-gray-400">Recommended: 1200x400px. Max 10MB. High quality banner for your profile header.</p>
               </div>
             </div>
 
@@ -151,7 +265,7 @@ export default function ProfileForm({ profile, unlimitedMessengers }: { profile:
                     <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'avatar')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                     <button type="button" className="bg-[#ffffff] border border-[#e5e7eb] text-[#1A1F2B] text-sm font-bold px-4 py-2 rounded-lg cursor-pointer hover:border-[#2FA4A9] transition-all">Upload Photo</button>
                   </div>
-                  <p className="text-xs text-gray-400 mt-2">Recommended: 400x400px, Professional headshot. Profiles with photos get 7x more clicks.</p>
+                  <p className="text-xs text-gray-400 mt-2">Recommended: 400x400px. Max 10MB. Profiles with photos get 7x more clicks.</p>
                 </div>
               </div>
             </div>
@@ -216,6 +330,51 @@ export default function ProfileForm({ profile, unlimitedMessengers }: { profile:
                 )}
               </div>
             </div>
+
+            {/* PROFESSIONAL BIO */}
+            <div className="pt-6 mt-6 border-t border-[#e5e7eb]">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-bold text-[#1A1F2B]">Professional Bio</h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Describe your background, values, and why clients should choose you.
+                  </p>
+                </div>
+              </div>
+
+              {!bioFeature ? (
+                <div className="bg-gray-50 border border-gray-100 rounded-xl p-6 text-center">
+                  <Lock className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                  <h4 className="text-sm font-bold text-[#1A1F2B] mb-1">Custom Bio Locked</h4>
+                  <p className="text-xs text-gray-500 mb-4 max-w-sm mx-auto">
+                    Your current plan uses standard automated bios. Upgrade to write your own rich-text professional background.
+                  </p>
+                  <button type="button" className="bg-[#2FA4A9] text-white px-5 py-2 rounded-lg text-xs font-bold transition-all hover:bg-[#258d92]">
+                    Upgrade Plan
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <BioEditor 
+                    value={bio} 
+                    onChange={setBio} 
+                    placeholder="E.g. I am a licensed RCIC with over 10 years of experience..." 
+                  />
+                  {bioFeature !== "unlimited" && (
+                     <p className="text-xs text-gray-400 text-right mt-1">
+                       {(() => {
+                         try {
+                           const l = JSON.parse(bioFeature).maxLength;
+                           const current = bio.replace(/<[^>]*>?/gm, '').length;
+                           return `${current} / ${l} characters`;
+                         } catch(e) { return ""; }
+                       })()}
+                     </p>
+                  )}
+                </div>
+              )}
+            </div>
+            
           </div>
       </div>
 
@@ -309,16 +468,178 @@ export default function ProfileForm({ profile, unlimitedMessengers }: { profile:
           <div className="space-y-6">
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-wider text-[#1A1F2B]">Spoken Languages</label>
-              <input 
-                type="text" 
-                value={languages}
-                onChange={(e) => setLanguages(e.target.value)}
-                placeholder="Comma separated languages (e.g. English, Persian, Turkish)" 
-                className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3 rounded-xl text-[#1A1F2B] text-sm focus:border-[#2FA4A9]/50 focus:ring-4 focus:ring-[#2FA4A9]/10 outline-none transition-all" 
-              />
-              <p className="text-xs text-gray-400 mt-2">Separate languages with commas.</p>
+
+              {/* Selected tags */}
+              {selectedLangs.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {selectedLangs.map(lang => (
+                    <span key={lang} className="inline-flex items-center gap-1.5 bg-[#2FA4A9]/10 text-[#2FA4A9] border border-[#2FA4A9]/20 text-xs font-bold px-3 py-1.5 rounded-full">
+                      {lang}
+                      <button type="button" onClick={() => toggleLang(lang)} className="hover:text-red-500 transition-colors">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Dropdown trigger */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setLangOpen(o => !o)}
+                  className="w-full bg-white border border-[#e5e7eb] px-4 py-3 rounded-xl text-sm text-left text-gray-500 hover:border-[#2FA4A9] transition-all flex items-center justify-between"
+                >
+                  <span>{selectedLangs.length === 0 ? 'Select languages...' : `${selectedLangs.length} language${selectedLangs.length > 1 ? 's' : ''} selected`}</span>
+                  <span className="text-gray-400 text-xs">{langOpen ? '▲' : '▼'}</span>
+                </button>
+
+                {langOpen && (
+                  <div className="absolute z-50 mt-2 w-full bg-white border border-[#e5e7eb] rounded-2xl shadow-xl overflow-hidden">
+                    <div className="p-2 border-b border-gray-100">
+                      <input
+                        type="text"
+                        value={langSearch}
+                        onChange={e => setLangSearch(e.target.value)}
+                        placeholder="Search languages..."
+                        className="w-full px-3 py-2 text-sm border border-gray-100 rounded-xl outline-none focus:border-[#2FA4A9] bg-gray-50"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="max-h-52 overflow-y-auto p-1">
+                      {filteredLangs.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-4">No results</p>
+                      ) : filteredLangs.map(lang => (
+                        <button
+                          key={lang}
+                          type="button"
+                          onClick={() => toggleLang(lang)}
+                          className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
+                            selectedLangs.includes(lang)
+                              ? 'bg-[#2FA4A9]/10 text-[#2FA4A9] font-semibold'
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                            selectedLangs.includes(lang) ? 'bg-[#2FA4A9] border-[#2FA4A9]' : 'border-gray-300'
+                          }`}>
+                            {selectedLangs.includes(lang) && <Check className="w-2.5 h-2.5 text-white" />}
+                          </div>
+                          {lang}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="p-2 border-t border-gray-100">
+                      <button type="button" onClick={() => setLangOpen(false)} className="w-full text-xs font-bold text-[#2FA4A9] py-1.5 hover:bg-gray-50 rounded-lg transition">
+                        Done ({selectedLangs.length} selected)
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+      </div>
+
+      {/* SECTION: IMMIGRATION SPECIALIZATIONS */}
+      <div className="bg-white rounded-3xl border border-[#e5e7eb] p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-[#1A1F2B] mb-1">Immigration Specializations</h2>
+        <p className="text-xs text-gray-400 mb-5">Select all immigration pathways you practice. Shown on your public profile to help clients find the right consultant.</p>
+
+        {selectedSpecs.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {selectedSpecs.map(key => {
+              const item = allSpecItems.find(i => i.key === key);
+              return item ? (
+                <span key={key} className="inline-flex items-center gap-1.5 bg-[#2FA4A9]/10 text-[#2FA4A9] border border-[#2FA4A9]/20 text-xs font-bold px-3 py-1.5 rounded-full">
+                  {item.label}
+                  <button type="button" onClick={() => toggleSpec(key)} className="hover:text-red-500 transition-colors">×</button>
+                </span>
+              ) : null;
+            })}
+          </div>
+        )}
+
+        <div className="relative">
+          <button type="button" onClick={() => setSpecOpen(o => !o)}
+            className="w-full bg-white border border-[#e5e7eb] px-4 py-3 rounded-xl text-sm text-left text-gray-500 hover:border-[#2FA4A9] transition-all flex items-center justify-between">
+            <span>{selectedSpecs.length === 0 ? 'Select specializations...' : `${selectedSpecs.length} selected`}</span>
+            <span className="text-gray-400 text-xs">{specOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {specOpen && (
+            <div className="absolute z-50 mt-2 w-full bg-white border border-[#e5e7eb] rounded-2xl shadow-xl overflow-hidden">
+              <div className="p-2 border-b border-gray-100">
+                <input type="text" value={specSearch} onChange={e => setSpecSearch(e.target.value)}
+                  placeholder="Search pathways..." autoFocus
+                  className="w-full px-3 py-2 text-sm border border-gray-100 rounded-xl outline-none focus:border-[#2FA4A9] bg-gray-50" />
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {filteredSpecItems ? (
+                  <div className="p-1">
+                    {filteredSpecItems.length === 0 ? (
+                      <p className="text-xs text-gray-400 text-center py-4">No results</p>
+                    ) : filteredSpecItems.map(item => (
+                      <button key={item.key} type="button" onClick={() => toggleSpec(item.key)}
+                        className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${selectedSpecs.includes(item.key) ? 'bg-[#2FA4A9]/10 text-[#2FA4A9] font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}>
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${selectedSpecs.includes(item.key) ? 'bg-[#2FA4A9] border-[#2FA4A9]' : 'border-gray-300'}`}>
+                          {selectedSpecs.includes(item.key) && <Check className="w-2.5 h-2.5 text-white" />}
+                        </div>
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : IMMIGRATION_PATHS.map(cat => (
+                  <div key={cat.category}>
+                    <div className="px-3 pt-3 pb-1">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{cat.category}</p>
+                    </div>
+                    {cat.items.map(item => (
+                      <button key={item.key} type="button" onClick={() => toggleSpec(item.key)}
+                        className={`w-full text-left flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${selectedSpecs.includes(item.key) ? 'bg-[#2FA4A9]/10 text-[#2FA4A9] font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}>
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${selectedSpecs.includes(item.key) ? 'bg-[#2FA4A9] border-[#2FA4A9]' : 'border-gray-300'}`}>
+                          {selectedSpecs.includes(item.key) && <Check className="w-2.5 h-2.5 text-white" />}
+                        </div>
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+              <div className="p-2 border-t border-gray-100">
+                <button type="button" onClick={() => { setSpecOpen(false); setSpecSearch(""); }}
+                  className="w-full text-xs font-bold text-[#2FA4A9] py-1.5 hover:bg-gray-50 rounded-lg transition">
+                  Done ({selectedSpecs.length} selected)
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SECTION: IN-PERSON CONSULTATION */}
+      <div className="bg-white rounded-3xl border border-[#e5e7eb] p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-[#1A1F2B] mb-1">Consultation Mode</h2>
+        <p className="text-xs text-gray-400 mb-5">Specify whether you accept in-person consultations in addition to online sessions.</p>
+
+        <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-2xl mb-4">
+          <div>
+            <p className="font-bold text-sm text-[#1A1F2B]">Accept In-Person Consultations</p>
+            <p className="text-xs text-gray-400 mt-0.5">Clients will be able to request office visits</p>
+          </div>
+          <button type="button" onClick={() => setOffersInPerson(v => !v)}
+            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${offersInPerson ? 'bg-[#2FA4A9]' : 'bg-gray-200'}`}>
+            <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${offersInPerson ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
+        </div>
+
+        {offersInPerson && (
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-[#1A1F2B]">Office Address *</label>
+            <input type="text" value={officeAddress} onChange={e => setOfficeAddress(e.target.value)}
+              placeholder="123 Main St, Toronto, ON M5V 2T6, Canada"
+              className="w-full bg-white border border-[#e5e7eb] px-4 py-3 rounded-xl text-[#1A1F2B] text-sm focus:border-[#2FA4A9]/50 focus:ring-4 focus:ring-[#2FA4A9]/10 outline-none transition-all" />
+            <p className="text-xs text-gray-400">This address will be shown to clients who book in-person meetings.</p>
+          </div>
+        )}
       </div>
 
       {/* SAVE CTA */}

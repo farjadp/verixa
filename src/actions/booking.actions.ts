@@ -7,6 +7,8 @@ import { getConsultantByLicense } from "@/lib/db";
 import { logEvent } from "@/lib/logger";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
+// Issue 12: Example of using centralized permissions — replaces inline getServerSession() in key functions.
+import { requireAuth, requireConsultant, assertOwnership } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { 
   sendNewBookingEmail, 
@@ -14,7 +16,7 @@ import {
   sendBookingConfirmedEmail, 
   sendClientReceiptEmail
 } from "@/lib/mailer";
-import { capturePaymentAction, cancelPaymentAction } from "@/actions/stripe.actions";
+import { capturePaymentAction, cancelPaymentAction, refundPaymentAction } from "@/actions/stripe.actions";
 import { trackEvent } from "@/actions/analytics.actions";
 import { getPlanCommission } from "@/lib/subscription";
 
@@ -277,15 +279,41 @@ export async function updateBookingStatus(
     consultantNotes?: string;
   }
 ) {
-  const existingBooking = await prisma.booking.findUnique({ where: { id: bookingId } });
+  // Fix N+1: fetch booking AND consultant profile in a single query
+  const existingBooking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { profile: { include: { user: true } } }
+  });
   if (!existingBooking) throw new Error("Booking not found");
+
+  // Extract consultant from the included relation — no second query needed
+  const consultant = existingBooking.profile;
+  const consultantUser = consultant.user;
 
   let paymentStatusUpdate = existingBooking.paymentStatus;
   
   if (existingBooking.stripePaymentIntentId && existingBooking.paymentStatus === "REQUIRES_CAPTURE") {
      if (newStatus === "CONFIRMED") {
+         // ── Optimistic lock: atomically claim the "capturing" slot ──────────
+         // If two requests arrive simultaneously, only one will see count === 1.
+         // The loser gets count === 0 and throws before touching Stripe.
+         const guard = await prisma.booking.updateMany({
+           where: { id: bookingId, paymentStatus: "REQUIRES_CAPTURE" },
+           data:  { paymentStatus: "CAPTURING" }, // provisional in-progress marker
+         });
+         if (guard.count === 0) {
+           throw new Error("Payment capture already in progress for this booking. Please wait.");
+         }
+
          const cap = await capturePaymentAction(existingBooking.stripePaymentIntentId);
-         if (!cap.success) throw new Error("Failed to capture funds from Escrow: " + cap.error);
+         if (!cap.success) {
+           // Roll back the lock so a retry is possible
+           await prisma.booking.update({
+             where: { id: bookingId },
+             data: { paymentStatus: "REQUIRES_CAPTURE" },
+           });
+           throw new Error("Failed to capture funds from Escrow: " + cap.error);
+         }
          paymentStatusUpdate = "CAPTURED";
      } else if (["DECLINED", "CANCELLED", "CANCELLED_BY_CONSULTANT", "CANCELLED_BY_USER"].includes(newStatus)) {
          await cancelPaymentAction(existingBooking.stripePaymentIntentId);
@@ -313,9 +341,9 @@ export async function updateBookingStatus(
     }
   });
 
-  const consultant = await prisma.consultantProfile.findUnique({ where: { id: booking.consultantProfileId }});
+  // consultant & consultantUser are already available from the initial findUnique include above
   await logEvent({
-    userId: consultant?.userId || undefined,
+    userId: consultantUser?.id || undefined,
     role: "CONSULTANT",
     action: `BOOKING_${newStatus}`,
     details: { bookingId: booking.id }
@@ -331,7 +359,7 @@ export async function updateBookingStatus(
           userId: clientUser.id,
           type: "BOOKING_CONFIRMED",
           title: "Booking Confirmed",
-          message: `Your booking with ${consultant?.fullName || 'the consultant'} has been confirmed.`,
+          message: `Your booking with ${consultant.fullName || 'the consultant'} has been confirmed.`,
           relatedEntityId: booking.id
         }
       });
@@ -354,12 +382,12 @@ export async function updateBookingStatus(
 }
 
 export async function cancelBookingRequest(bookingId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) throw new Error("Unauthorized");
+  // Issue 12: centralized auth — replaces getServerSession() + manual role check
+  const { userId, email } = await requireAuth();
 
   const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
   
-  if (!booking || booking.userEmail !== session.user.email) {
+  if (!booking || booking.userEmail !== email) {
     throw new Error("Unauthorized");
   }
 
@@ -372,11 +400,31 @@ export async function cancelBookingRequest(bookingId: string) {
     await cancelPaymentAction(booking.stripePaymentIntentId);
   }
 
+  // Issue 10 fix: Refund if payment was already captured (consultant confirmed, then client cancels)
+  let refundedPaymentStatus = booking.paymentStatus;
+  if (booking.stripePaymentIntentId && booking.paymentStatus === "CAPTURED") {
+    const refund = await refundPaymentAction(booking.stripePaymentIntentId);
+    if (refund.success) {
+      refundedPaymentStatus = "REFUNDED";
+      await prisma.bookingEventLog.create({
+        data: {
+          bookingId: booking.id,
+          action: "PAYMENT_REFUNDED",
+          actorType: "SYSTEM",
+          notes: `Full refund issued. Stripe refund ID: ${refund.refundId}`,
+        }
+      });
+    } else {
+      console.error(`[Refund Failed] Booking ${booking.id}:`, refund.error);
+      // Don't block cancellation — log and continue. Stripe webhook will reconcile.
+    }
+  }
+
   const updatedBooking = await prisma.booking.update({
     where: { id: bookingId },
     data: { 
       status: "CANCELLED_BY_USER",
-      ...(booking.paymentStatus === "REQUIRES_CAPTURE" && { paymentStatus: "CANCELED" })
+      paymentStatus: refundedPaymentStatus ?? booking.paymentStatus,
     }
   });
 
@@ -414,8 +462,8 @@ export async function cancelBookingRequest(bookingId: string) {
 }
 
 export async function markBookingNoShow(bookingId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) throw new Error("Unauthorized");
+  // Issue 12: only a logged-in consultant can mark no-shows
+  await requireConsultant();
 
   const booking = await prisma.booking.update({
     where: { id: bookingId },
@@ -435,8 +483,8 @@ export async function markBookingNoShow(bookingId: string) {
 }
 
 export async function markBookingCompleted(bookingId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) throw new Error("Unauthorized");
+  // Issue 12: only a logged-in consultant can complete sessions
+  await requireConsultant();
 
   const booking = await prisma.booking.update({
     where: { id: bookingId },
@@ -466,14 +514,11 @@ export async function updateBookingSettings(data: {
   defaultMeetingLink?: string | null;
   defaultMeetingInstructions?: string | null;
 }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) throw new Error("Unauthorized");
-
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (!user) throw new Error("Unauthorized");
+  // Issue 12: Replaces manual session + findUnique(user) pattern
+  const { userId } = await requireConsultant();
 
   const profile = await prisma.consultantProfile.findUnique({
-    where: { userId: user.id }
+    where: { userId }
   });
 
   if (!profile) throw new Error("Consultant profile not found");

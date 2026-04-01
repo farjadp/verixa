@@ -5,9 +5,45 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { logEvent } from "./logger";
 
+// ── Issue 15b: In-memory rate limiter for login brute-force protection ────────
+// Acceptable for login because: each cold start resets counters, worst case an
+// attacker gets 5 attempts per cold start — which is acceptable given the cost.
+// OTP endpoints use DB-based limiting (more persistent, multi-instance safe).
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function checkLoginRateLimit(email: string): boolean {
+  const now = Date.now();
+  const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+  const MAX_ATTEMPTS = 5;
+
+  const entry = loginAttempts.get(email);
+
+  if (!entry || now > entry.resetAt) {
+    loginAttempts.set(email, { count: 1, resetAt: now + WINDOW_MS });
+    return true; // allowed
+  }
+
+  if (entry.count >= MAX_ATTEMPTS) {
+    return false; // blocked
+  }
+
+  entry.count += 1;
+  return true; // allowed
+}
+
+function resetLoginRateLimit(email: string) {
+  loginAttempts.delete(email);
+}
+
+// ── Issue 13: PrismaAdapter type fix ─────────────────────────────────────────
+// The @ts-ignore was hiding a minor version mismatch between @auth/prisma-adapter
+// and next-auth's Adapter type. Explicit cast to `any` is contained here and does
+// not affect runtime behaviour — the adapter works correctly at runtime.
+// This is the ONLY acceptable `as any` in this file.
+const adapter = PrismaAdapter(prisma) as any;
+
 export const authOptions: NextAuthOptions = {
-  // @ts-ignore - Prisma adapter types might complain depending on version mismatch
-  adapter: PrismaAdapter(prisma),
+  adapter,
   providers: [
     CredentialsProvider({
       name: "Email and Password",
@@ -21,19 +57,17 @@ export const authOptions: NextAuthOptions = {
         }
 
         const email = credentials.email.trim().toLowerCase();
-        console.log("[AUTH] Attempting login for:", email);
 
-        const user = await prisma.user.findUnique({
-          where: { email }
-        });
-
-        if (!user) {
-          console.log("[AUTH] User not found in database:", email);
-          return null;
+        // Issue 15b: reject before touching DB if rate-limited
+        if (!checkLoginRateLimit(email)) {
+          console.warn("[AUTH] Rate limit exceeded for:", email);
+          throw new Error("Too many login attempts. Please try again in 15 minutes.");
         }
 
-        if (!user.hashedPassword) {
-          console.log("[AUTH] User missing hashed password:", email);
+        const user = await prisma.user.findUnique({ where: { email } });
+
+        if (!user || !user.hashedPassword) {
+          console.log("[AUTH] User not found or missing password:", email);
           return null;
         }
 
@@ -44,6 +78,8 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        // Successful login — reset limit so legitimate user isn't locked out
+        resetLoginRateLimit(email);
         console.log("[AUTH] Login successful for:", email);
 
         await logEvent({
@@ -53,6 +89,7 @@ export const authOptions: NextAuthOptions = {
           details: { email }
         });
 
+        // Issue 13: role is now typed via next-auth.d.ts — no cast needed here
         return {
           id: user.id,
           email: user.email,
@@ -68,15 +105,17 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        // Issue 13: JWT interface is augmented in src/types/next-auth.d.ts
         token.id = user.id;
-        token.role = (user as any).role;
+        token.role = user.role;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id;
-        (session.user as any).role = token.role;
+        // Issue 13: Session.user interface is augmented — no cast needed
+        session.user.id = token.id;
+        session.user.role = token.role;
       }
       return session;
     }
@@ -84,5 +123,13 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/login",
   },
-  secret: process.env.NEXTAUTH_SECRET || "SUPER_SECRET_KEY_FOR_JWT_SIGNING_MVP_ONLY",
+  secret: (() => {
+    if (!process.env.NEXTAUTH_SECRET) {
+      throw new Error(
+        "[Auth] NEXTAUTH_SECRET environment variable is not set. " +
+        "Server cannot start safely without a signing secret."
+      );
+    }
+    return process.env.NEXTAUTH_SECRET;
+  })(),
 };

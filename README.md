@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Verixa Platform
 
-## Getting Started
+Verixa is a full-stack Next.js marketplace engineered to bridge immigration consultants with global clients. It features self-contained modules for transaction processing, dual-sided portals, SEO-driven content aggregation, and system administration.
 
-First, run the development server:
+## 🚀 Quick Start
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. **Install Dependencies:**
+   ```bash
+   npm install
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Database Setup (Neon Postgres):**
+   Copy `.env.example` to `.env.local` and configure your credentials.
+   ```bash
+   # Push schema to db
+   npx prisma db push
+   # Generate Prisma client
+   npx prisma generate
+   ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. **Run the Development Server:**
+   ```bash
+   npm run dev
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. **Access Platforms:**
+   - **Public:** `http://localhost:3000`
+   - **Dashboard:** `http://localhost:3000/dashboard`
 
-## Learn More
+## 🛠 Features at a Glance
+- **5-Step Booking Engine:** Real-time scheduling with strict slot conflict prevention.
+- **Role-Based Workspaces:** Granular views for Clients, Consultants, and System Admins.
+- **Automated Lifecycle Pipelines:** Cron-driven email campaigns via Resend and native DB Notifications.
+- **Node-Native Backups:** Automatic database JSON serialization and gzip compression delivered securely to the admin inbox.
+- **SEO & AI Engines:** Headless data scrapers utilizing OpenAI structured outputs for continuous discovery content.
 
-To learn more about Next.js, take a look at the following resources:
+## 🚢 Deployment Guidelines (Vercel)
+This platform is optimized for Vercel Serverless environments. Ensure the follow environment variables are configured in production:
+- `DATABASE_URL` (Neon Postgres URI)
+- `CRON_SECRET` & `NEXTAUTH_SECRET` (Secure Hashes)
+- `RESEND_API_KEY` (Email Dispatch)
+- `OPENAI_API_KEY` (AI Tools)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The repo includes a `vercel.json` designed to orchestrate serverless webhook and database-backup schedules automatically upon deployment.

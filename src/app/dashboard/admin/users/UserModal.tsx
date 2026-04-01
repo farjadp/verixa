@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User, Mail, Shield, Lock, X, Save, KeyRound } from "lucide-react";
+import { User, Mail, Shield, Lock, X, Save, KeyRound, Phone } from "lucide-react";
 import { createUser, updateUser } from "@/actions/users.actions";
 
 export default function UserModal({ 
@@ -21,6 +21,7 @@ export default function UserModal({
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    phone: "",
     password: "",
     role: "CLIENT",
     notifyUser: true
@@ -31,12 +32,13 @@ export default function UserModal({
       setFormData({
         name: userToEdit.name || "",
         email: userToEdit.email || "",
+        phone: userToEdit.phone || "",
         password: "", // Never pre-fill password
         role: userToEdit.role || "CLIENT",
         notifyUser: false // Unchecked by default when editing
       });
     } else {
-      setFormData({ name: "", email: "", password: "", role: "CLIENT", notifyUser: true });
+      setFormData({ name: "", email: "", phone: "", password: "", role: "CLIENT", notifyUser: true });
     }
     setError("");
   }, [userToEdit, isOpen]);
@@ -118,6 +120,23 @@ export default function UserModal({
                 value={formData.email}
                 onChange={(e) => setFormData({...formData, email: e.target.value})}
                 placeholder="jane@example.com"
+                className="w-full bg-black/20 border border-gray-700 pl-10 pr-4 py-3 rounded-xl text-white focus:outline-none focus:border-[#2FA4A9] transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Phone Field */}
+          <div>
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 block flex justify-between">
+              Phone Number <span className="text-gray-600 font-normal lowercase">(For SMS Broadcasts)</span>
+            </label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <input 
+                type="text" 
+                value={formData.phone}
+                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                placeholder="+1234567890"
                 className="w-full bg-black/20 border border-gray-700 pl-10 pr-4 py-3 rounded-xl text-white focus:outline-none focus:border-[#2FA4A9] transition-colors"
               />
             </div>

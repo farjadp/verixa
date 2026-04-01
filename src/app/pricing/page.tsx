@@ -3,13 +3,21 @@ import Footer from "@/components/Footer";
 import { CheckCircle2, ChevronRight, HelpCircle, ShieldCheck, Eye, TrendingUp, CalendarCheck, Target, ArrowUpRight, Check, Minus } from "lucide-react";
 import Link from "next/link";
 import PricingTiers from "./PricingTiers";
+import { prisma } from "@/lib/prisma";
 
 export const metadata = {
   title: "Pricing | Membership for Verified Consultants",
   description: "Join Canada's premier immigration marketplace. Get discovered, build trust, and convert high-intent clients.",
 };
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const [plans, billingModeSetting] = await Promise.all([
+    prisma.plan.findMany({ orderBy: { sortOrder: "asc" } }),
+    prisma.platformSetting.findUnique({ where: { key: "billingMode" } })
+  ]);
+
+  const billingMode = (billingModeSetting?.value ?? "both") as "monthly" | "yearly" | "both";
+
   return (
     <main className="min-h-screen bg-[#F5F7FA] font-sans selection:bg-[#2FA4A9] selection:text-white">
       <Header />
@@ -74,7 +82,7 @@ export default function PricingPage() {
       </section>
 
       {/* 3. INTERACTIVE PRICING TIERS */}
-      <PricingTiers />
+      <PricingTiers plans={plans} billingMode={billingMode} />
 
       {/* 4. ROI SECTION (VERY IMPORTANT) */}
       <section className="py-24 bg-white border-b border-gray-100 relative overflow-hidden">

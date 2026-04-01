@@ -42,3 +42,8 @@ A comprehensive catalog of the technical mechanisms, user interfaces, and server
 - **Autonomous Scraping & Deduplication:** Continuously scans configured nodes, checking for `>50%` contextual similarity against existing articles to prevent duplicate coverage.
 - **LLM Content Generation:** Parses raw HTML arrays through GPT-4o arrays to construct deeply formatted Markdown encompassing direct answers, Policy Analysis, FAQ blocks, and stylized Data Tables.
 - **Visuals & Publishing:** Compiles cinematic imagery via OpenAI DALL-E-3 on the fly, instantly structuring the final output into dynamic typography environments.
+
+## 💾 System Safety & Communications
+*Platform protection mechanics.*
+- **Native Node Backups:** Full-database serialization into highly compressed `gzip` streams. Operated strictly via Vercel scheduled Crons and sent directly to the Admin mailbox via Resend.
+- **In-App Broadcasting:** Direct DB-level persistent messaging pipelines allowing administrators to target specific cohorts with actionable dashboard banners and warning emails.

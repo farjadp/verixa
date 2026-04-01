@@ -54,6 +54,7 @@ export default function PlanPricingEditor({ plans, initialBillingMode }: Props) 
       yearly: p.yearlyPriceCents != null ? centsToStr(p.yearlyPriceCents) : centsToStr(p.priceCents * 10), // default: 10× = 2 months free
       commission: String(p.commission),
       isRecommended: p.isRecommended,
+      isActive: p.isActive,
       saving: false,
       saved: false,
     }))
@@ -76,6 +77,7 @@ export default function PlanPricingEditor({ plans, initialBillingMode }: Props) 
       yearlyPriceCents: strToCents(row.yearly),
       commission: parseInt(row.commission) || 0,
       isRecommended: row.isRecommended,
+      isActive: row.isActive,
     });
 
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, saving: false, saved: true } : r)));
@@ -230,7 +232,7 @@ export default function PlanPricingEditor({ plans, initialBillingMode }: Props) 
                   </div>
 
                   {/* Actions */}
-                  <div className="flex flex-col items-end gap-2 shrink-0">
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
                     <button
                       onClick={() => saveRow(row.id)}
                       disabled={row.saving}
@@ -238,7 +240,7 @@ export default function PlanPricingEditor({ plans, initialBillingMode }: Props) 
                         row.saved
                           ? "bg-teal-500 text-white"
                           : "bg-[#0F2A44] text-white hover:bg-black"
-                      } disabled:opacity-50`}
+                      } disabled:opacity-50 mb-2`}
                     >
                       {row.saving ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -249,15 +251,27 @@ export default function PlanPricingEditor({ plans, initialBillingMode }: Props) 
                       )}
                     </button>
 
+                    {/* Active toggle */}
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500 font-medium select-none">
+                      <input
+                        type="checkbox"
+                        checked={row.isActive}
+                        onChange={(e) => updateRow(row.id, "isActive", e.target.checked)}
+                        className="accent-[#2FA4A9] rounded"
+                        disabled={row.slug === "free"}
+                      />
+                      Active Plan
+                    </label>
+
                     {/* Recommended badge toggle */}
-                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-400 font-medium select-none">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-500 font-medium select-none">
                       <input
                         type="checkbox"
                         checked={row.isRecommended}
                         onChange={(e) => updateRow(row.id, "isRecommended", e.target.checked)}
                         className="accent-[#2FA4A9] rounded"
                       />
-                      Recommended
+                      Recommended Badge
                     </label>
                   </div>
                 </div>

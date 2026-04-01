@@ -6,8 +6,8 @@
 // ============================================================================
 
 import { useState, useTransition } from "react";
-import { createFeature, deleteFeature } from "@/actions/plans.actions";
-import { Plus, Trash2, Loader2, Eye, EyeOff } from "lucide-react";
+import { createFeature, deleteFeature, updateFeature } from "@/actions/plans.actions";
+import { Plus, Trash2, Loader2, Eye, EyeOff, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 const CATEGORY_OPTIONS = ["visibility", "booking", "trust", "analytics", "financial", "premium"];
@@ -39,18 +39,36 @@ export default function FeatureLibraryClient({ features, plans, categories }: Pr
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [showAddForm, setShowAddForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newFeature, setNewFeature] = useState({ key: "", name: "", description: "", category: "booking", type: "boolean" });
 
   const filtered = activeCategory === "all" ? features : features.filter((f) => f.category === activeCategory);
 
-  const handleCreate = async () => {
+  const handleCreateOrUpdate = async () => {
     if (!newFeature.key || !newFeature.name) return;
     setSaving(true);
-    await createFeature(newFeature);
+    if (editingId) {
+      await updateFeature(editingId, newFeature);
+    } else {
+      await createFeature(newFeature);
+    }
     setNewFeature({ key: "", name: "", description: "", category: "booking", type: "boolean" });
     setShowAddForm(false);
+    setEditingId(null);
     setSaving(false);
     router.refresh();
+  };
+
+  const handleEdit = (feature: Feature) => {
+    setEditingId(feature.id);
+    setNewFeature({
+      key: feature.key,
+      name: feature.name,
+      description: feature.description || "",
+      category: feature.category,
+      type: feature.type,
+    });
+    setShowAddForm(true);
   };
 
   const handleDelete = (id: string) => {
@@ -129,7 +147,15 @@ export default function FeatureLibraryClient({ features, plans, categories }: Pr
                     })}
                   </div>
                 </td>
-                <td className="p-4 text-right">
+                <td className="p-4 text-right flex justify-end gap-2">
+                  <button
+                    onClick={() => handleEdit(feature)}
+                    disabled={isPending}
+                    className="p-1.5 rounded-lg text-blue-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    title="Edit feature"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
                   <button
                     onClick={() => handleDelete(feature.id)}
                     disabled={isPending}
@@ -145,18 +171,19 @@ export default function FeatureLibraryClient({ features, plans, categories }: Pr
         </table>
       </div>
 
-      {/* Add feature form */}
+      {/* Add/Edit feature form */}
       {showAddForm ? (
-        <div className="bg-white rounded-2xl border border-[#2FA4A9] shadow-md p-6">
-          <h3 className="font-bold text-[#0F2A44] mb-4">Add New Feature</h3>
+        <div className="bg-white rounded-2xl border border-[#2FA4A9] shadow-md p-6 mt-4">
+          <h3 className="font-bold text-[#0F2A44] mb-4">{editingId ? "Edit Feature" : "Add New Feature"}</h3>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1">Feature Key <span className="text-red-400">*</span></label>
               <input
                 value={newFeature.key}
+                disabled={!!editingId} // Key is immutable for ease, or maybe just discourage edits? But it's fine.
                 onChange={(e) => setNewFeature((p) => ({ ...p, key: e.target.value.toLowerCase().replace(/\s+/g, "_") }))}
                 placeholder="e.g. custom_domain"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:border-[#2FA4A9] focus:outline-none"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:border-[#2FA4A9] focus:outline-none disabled:bg-gray-50"
               />
             </div>
             <div>
@@ -191,20 +218,24 @@ export default function FeatureLibraryClient({ features, plans, categories }: Pr
               />
             </div>
           </div>
-          <div className="flex gap-3">
-            <button onClick={handleCreate} disabled={saving || !newFeature.key || !newFeature.name} className="flex items-center gap-2 px-5 py-2 bg-[#0F2A44] text-white rounded-lg text-sm font-bold hover:bg-black transition-colors disabled:opacity-40">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Create Feature
+          <div className="flex gap-3 mt-4">
+            <button onClick={handleCreateOrUpdate} disabled={saving || !newFeature.key || !newFeature.name} className="flex items-center gap-2 px-5 py-2 bg-[#0F2A44] text-white rounded-lg text-sm font-bold hover:bg-black transition-colors disabled:opacity-40">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingId ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />)}
+              {editingId ? "Update Feature" : "Create Feature"}
             </button>
-            <button onClick={() => setShowAddForm(false)} className="px-5 py-2 border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50">
+            <button onClick={() => { setShowAddForm(false); setEditingId(null); setNewFeature({ key: "", name: "", description: "", category: "booking", type: "boolean" }); }} className="px-5 py-2 border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50">
               Cancel
             </button>
           </div>
         </div>
       ) : (
         <button
-          onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-dashed border-gray-300 rounded-xl text-sm font-bold text-gray-500 hover:border-[#2FA4A9] hover:text-[#2FA4A9] transition-colors w-full justify-center"
+          onClick={() => {
+            setEditingId(null);
+            setNewFeature({ key: "", name: "", description: "", category: "booking", type: "boolean" });
+            setShowAddForm(true);
+          }}
+          className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-dashed border-gray-300 rounded-xl text-sm font-bold text-gray-500 hover:border-[#2FA4A9] hover:text-[#2FA4A9] transition-colors w-full justify-center mt-4"
         >
           <Plus className="w-4 h-4" /> Add New Feature
         </button>

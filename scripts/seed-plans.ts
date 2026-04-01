@@ -63,7 +63,9 @@ const FEATURES = [
   // Trust
   { key: "verified_badge",       name: "Verified Badge",           category: "trust",      type: "boolean", description: "Display the Verixa Verified badge on profile.",   sortOrder: 0 },
   { key: "review_response",      name: "Review Responses",         category: "trust",      type: "boolean", description: "Publicly respond to client reviews.",              sortOrder: 1 },
-  { key: "profile_branding",     name: "Profile Branding",         category: "trust",      type: "boolean", description: "Custom bio, tagline, and logo upload.",           sortOrder: 2 },
+  { key: "profile_branding",     name: "Profile Branding",         category: "trust",      type: "boolean", description: "Custom tagline and logo upload.",                 sortOrder: 2 },
+  { key: "custom_bio",           name: "Professional Bio",         category: "trust",      type: "limit",   description: "Write a rich-text professional background bio.",    sortOrder: 3 },
+
 
   // Booking
   { key: "booking_enabled",      name: "Booking System",           category: "booking",    type: "boolean", description: "Accept bookings directly through Verixa.",        sortOrder: 0 },
@@ -98,6 +100,8 @@ const MATRIX: Record<string, { free: string | boolean; starter: string | boolean
   verified_badge:      { free: false,    starter: true,        growth: true,        pro: true        },
   review_response:     { free: false,    starter: true,        growth: true,        pro: true        },
   profile_branding:    { free: false,    starter: true,        growth: true,        pro: true        },
+  custom_bio:          { free: '{"maxLength": 500}', starter: '{"maxLength": 2000}', growth: 'unlimited', pro: 'unlimited' },
+
 
   booking_enabled:     { free: true,     starter: true,        growth: true,        pro: true        },
   consultation_types:  { free: "1",      starter: "3",         growth: "unlimited", pro: "unlimited" },

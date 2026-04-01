@@ -33,6 +33,14 @@ export default async function FeaturePage() {
             <h1 className="text-3xl font-serif font-black text-[#0F2A44]">Feature Library</h1>
             <p className="text-sm text-gray-500 mt-1">{features.length} features across {categories.length} categories.</p>
           </div>
+          <div className="flex gap-3">
+            <Link
+              href="/dashboard/admin/plans/builder"
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#0F2A44] text-white rounded-xl text-sm font-bold shadow-md hover:bg-[#0a1e30] transition-all"
+            >
+              Go to Plan Builder
+            </Link>
+          </div>
         </div>
         <FeatureLibraryClient features={features} plans={plans} categories={categories} />
       </div>

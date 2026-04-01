@@ -247,7 +247,8 @@ export async function initiatePhoneOTP(licenseNumber: string, phone: string) {
       to: normalizedInput.startsWith("+") ? normalizedInput : `+${normalizedInput}`,
     });
   } catch (err: any) {
-    return { ok: false, error: "Failed to send SMS. Please check your number and try again." };
+    console.error("Twilio SMS Error:", err);
+    return { ok: false, error: `Failed to send SMS. Reason: ${err?.message || 'Unknown error'}` };
   }
 
   return { ok: true, isMatched, smsSentTo: phone };

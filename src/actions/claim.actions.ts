@@ -332,7 +332,15 @@ export async function completeClaim(
 
   try {
     // Check if a user with this email already exists
-    const existingUser = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    const existingUser = await prisma.user.findUnique({ 
+      where: { email: email.toLowerCase() },
+      include: { consultantProfile: true }
+    });
+
+    if (existingUser && existingUser.consultantProfile && existingUser.consultantProfile.licenseNumber !== licenseNumber) {
+      // Trying to claim another profile with the same email
+      return { ok: false, error: "This email is already linked to another consultant profile." };
+    }
 
     let userId: string;
 
@@ -432,7 +440,7 @@ export async function completeClaim(
     return { ok: true, userId };
   } catch (err: any) {
     console.error("[completeClaim error]", err);
-    return { ok: false, error: "Something went wrong. Please try again." };
+    return { ok: false, error: `Something went wrong: ${err?.message || 'Unknown error'}` };
   }
 }
 

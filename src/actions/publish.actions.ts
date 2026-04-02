@@ -160,13 +160,36 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
   if (!accessToken) {
     return { ok: false, platform: "linkedin", error: "LinkedIn not connected. Go to Admin → Social → Connect LinkedIn." };
   }
-  if (!orgId) {
-    return { ok: false, platform: "linkedin", error: "LinkedIn Organization ID missing. Finish OAuth setup." };
+
+  // If orgId not yet stored, fetch from /v2/userinfo and cache it
+  let resolvedOrgId = orgId;
+  if (!resolvedOrgId) {
+    try {
+      const meRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const meData = await meRes.json();
+      if (meData?.sub) {
+        resolvedOrgId = `urn:li:person:${meData.sub}`;
+        // Save for future use
+        await prisma.platformSetting.upsert({
+          where: { key: "linkedin_org_id" },
+          update: { value: resolvedOrgId },
+          create: { key: "linkedin_org_id", value: resolvedOrgId },
+        });
+      }
+    } catch (e) {
+      console.warn("[LinkedIn] Could not fetch person URN:", e);
+    }
+  }
+
+  if (!resolvedOrgId) {
+    return { ok: false, platform: "linkedin", error: "LinkedIn person URN missing. Please reconnect via Admin → Social → Connect LinkedIn." };
   }
 
   try {
-    // orgId is now stored as the full URN (urn:li:person:xxx) from OAuth
-    const author = orgId.startsWith("urn:li:") ? orgId : `urn:li:person:${orgId}`;
+    // orgId is stored as the full URN (urn:li:person:xxx) from OAuth
+    const author = resolvedOrgId.startsWith("urn:li:") ? resolvedOrgId : `urn:li:person:${resolvedOrgId}`;
     const imageUrl = job.blogPost.coverImage;
     let mediaAssetUrn: string | null = null;
 

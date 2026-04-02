@@ -63,6 +63,7 @@ export async function requestPasswordReset(email: string) {
     to: normalised,
     subject: "Reset your Verixa password",
     html,
+    from: "Verixa <noreply@getverixa.com>",
     type: "PASSWORD_RESET",
   });
 

@@ -80,12 +80,14 @@ export async function sendEmail({
   subject,
   html,
   type,
+  from,
   attachments
 }: {
   to: string;
   subject: string;
   html: string;
   type: string;
+  from?: string;
   attachments?: { filename: string; content: Buffer | string; content_type?: string }[];
 }) {
   if (!process.env.RESEND_API_KEY) {
@@ -96,7 +98,7 @@ export async function sendEmail({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Verixa <notifications@getverixa.com>',
+      from: from ?? 'Verixa <notifications@getverixa.com>',
       to: [to],
       subject: subject,
       html: html,
@@ -164,6 +166,7 @@ export async function sendNewBookingEmail(consultantEmail: string, data: any) {
     to: consultantEmail,
     subject: `New booking request from ${escapeHtml(data.userFirstName)}`,
     html,
+    from: 'Verixa <notifications@getverixa.com>',
     type: "NEW_BOOKING_REQUEST"
   });
 }
@@ -183,6 +186,7 @@ export async function sendBookingCancelledEmail(email: string, role: "CLIENT" | 
     to: email,
     subject: `Booking Cancelled - ${new Date(data.scheduledStart).toLocaleDateString()}`,
     html,
+    from: 'Verixa <notifications@getverixa.com>',
     type: "BOOKING_CANCELLED"
   });
 }
@@ -207,6 +211,7 @@ export async function sendBookingConfirmedEmail(clientEmail: string, data: any) 
     to: clientEmail,
     subject: `Booking Confirmed for ${new Date(data.scheduledStart).toLocaleDateString()}`,
     html,
+    from: 'Verixa <notifications@getverixa.com>',
     type: "BOOKING_CONFIRMED"
   });
 }
@@ -236,6 +241,7 @@ export async function sendAnnouncementNotificationEmail(email: string, firstName
     to: email,
     subject: `Important: New Announcement from Verixa Admin`,
     html,
+    from: 'Verixa <notifications@getverixa.com>',
     type: "ADMIN_ANNOUNCEMENT"
   });
 }
@@ -263,6 +269,7 @@ export async function sendDatabaseBackupEmail(email: string, backupBuffer: Buffe
     to: email,
     subject: `System Backup: ${filename}`,
     html,
+    from: 'Verixa <noreply@getverixa.com>',
     type: "SYSTEM_BACKUP",
     attachments: [
       {

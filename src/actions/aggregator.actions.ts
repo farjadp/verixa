@@ -539,6 +539,17 @@ export async function deleteSource(id: string) {
   }
 }
 
+export async function deleteRawArticle(id: string) {
+  try {
+    await verifyAdmin();
+    await prisma.rawArticle.delete({ where: { id } });
+    return { success: true };
+  } catch (err: any) {
+    console.error("deleteRawArticle Error:", err);
+    return { success: false, message: err.message };
+  }
+}
+
 // ----------------------------------------------------------------------------
 // LAYER 7: 1-CLICK AUTONOMOUS DEPLOYMENT ENGINE (AUTO-PILOT)
 // ----------------------------------------------------------------------------

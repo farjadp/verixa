@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { syncContentSource, processPendingRawArticle, addSource, deleteSource, executeAutoPilot } from "@/actions/aggregator.actions";
+import { syncContentSource, processPendingRawArticle, addSource, deleteSource, deleteRawArticle, executeAutoPilot } from "@/actions/aggregator.actions";
 import { 
   Plus, Rss, Loader2, Play, Database, 
   CheckCircle2, AlertCircle, RefreshCcw, FileText, ArrowRight, Sparkles, Trash2
@@ -94,6 +94,16 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
       setQueue(queue.map(q => q.id === rawArticleId ? { ...q, status: "FAILED" } : q));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteArticle = async (articleId: string) => {
+    if (!confirm("Remove this article from the queue?")) return;
+    setQueue(prev => prev.filter(q => q.id !== articleId)); // optimistic
+    const res = await deleteRawArticle(articleId);
+    if (!res.success) {
+      setError("Failed to delete article.");
+      // re-add on failure would need a refresh; just show error
     }
   };
 
@@ -292,15 +302,24 @@ export default function NewsAggregatorClient({ initialSources, initialQueue }: {
                            {q.status === "FAILED" && <span className="text-red-500 font-bold text-[10px] bg-red-500/10 px-2 py-1 rounded flex items-center gap-1 justify-center"><AlertCircle className="w-3 h-3" /> FAILED</span>}
                         </td>
                         <td className="p-4 text-right">
-                           {q.status === "PENDING" || q.status === "FAILED" ? (
-                             <button onClick={() => handleProcessArticle(q.id)} disabled={loading} className="text-[11px] font-bold text-blue-400 hover:text-white bg-blue-900/20 hover:bg-blue-600 px-4 py-2 rounded-lg transition-colors border border-blue-900/30">
-                               Compile <Sparkles className="w-3 h-3 inline ml-1" />
+                           <div className="flex items-center justify-end gap-2">
+                             {q.status === "PENDING" || q.status === "FAILED" ? (
+                               <button onClick={() => handleProcessArticle(q.id)} disabled={loading} className="text-[11px] font-bold text-blue-400 hover:text-white bg-blue-900/20 hover:bg-blue-600 px-4 py-2 rounded-lg transition-colors border border-blue-900/30">
+                                 Compile <Sparkles className="w-3 h-3 inline ml-1" />
+                               </button>
+                             ) : (
+                               <Link href="/dashboard/admin/blog" className="text-[11px] font-bold text-gray-400 hover:text-white bg-gray-800 px-4 py-2 rounded-lg transition-colors border border-gray-700">
+                                 <FileText className="w-3 h-3 inline mr-1" /> View CMS
+                               </Link>
+                             )}
+                             <button
+                               onClick={() => handleDeleteArticle(q.id)}
+                               className="p-2 text-gray-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors border border-transparent hover:border-red-500/20"
+                               title="Remove from queue"
+                             >
+                               <Trash2 className="w-3.5 h-3.5" />
                              </button>
-                           ) : (
-                             <Link href="/dashboard/admin/blog" className="text-[11px] font-bold text-gray-400 hover:text-white bg-gray-800 px-4 py-2 rounded-lg transition-colors border border-gray-700">
-                               <FileText className="w-3 h-3 inline mr-1" /> View CMS
-                             </Link>
-                           )}
+                           </div>
                         </td>
                       </tr>
                    ))

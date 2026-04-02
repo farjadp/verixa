@@ -35,6 +35,29 @@ async function getJobWithPost(jobId: string) {
 // Uses sendPhoto if coverImage exists, otherwise sendMessage.
 // Caption is the bilingual text (EN + FA).
 
+// ─── STATIC FOOTERS ──────────────────────────────────────────────────────────
+const TELEGRAM_FOOTER_EN = `
+\n\n<b>━━━━━━━━━━━━━━━━━━━━━━</b>
+⚠️ <i>Verixa is a directory platform, not a law firm. We do not provide legal or immigration advice. This content is for informational purposes only.</i>
+
+📢 Telegram: @getverixa
+🌐 <a href="https://www.getverixa.com">www.getverixa.com</a>
+
+💼 <b>Find your immigration consultant — fast and free.</b>
+We've built a complete, verified directory of all licensed RCIC consultants in Canada — with full profiles, ratings, and contact details — at zero cost to you. Our mission: connect you with the right consultant for your goals.
+👉 <a href="https://www.getverixa.com">getverixa.com</a>`;
+
+const TELEGRAM_FOOTER_FA = `
+\n\n<b>━━━━━━━━━━━━━━━━━━━━━━</b>
+⚠️ <i>وریکسا یک پلتفرم دایرکتوری است، نه یک دفتر حقوقی. ما مشاوره حقوقی یا مهاجرتی ارائه نمی‌دهیم. این محتوا صرفاً جنبه اطلاع‌رسانی دارد.</i>
+
+📢 کانال تلگرام: @getverixa
+🌐 <a href="https://www.getverixa.com">www.getverixa.com</a>
+
+💼 <b>مشاور مهاجرتی مناسب خود را سریع و رایگان پیدا کنید.</b>
+ما فهرست کاملی از تمام مشاوران مهاجرتی مجاز (RCIC) کانادا را با تمام مشخصات، امتیازبندی و اطلاعات تماس, کاملاً رایگان در اختیار شما قرار داده‌ایم. هدف ما: پیدا کردن مشاور متناسب با اهداف شماست.
+👉 <a href="https://www.getverixa.com">getverixa.com</a>`;
+
 export async function publishToTelegram(jobId: string): Promise<PublishResult> {
   await verifyAdmin();
 
@@ -43,100 +66,96 @@ export async function publishToTelegram(jobId: string): Promise<PublishResult> {
   if (!job.telegramCopy) return { ok: false, platform: "telegram", error: "No Telegram copy generated" };
 
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const channelId = process.env.TELEGRAM_CHANNEL_ID;
-  if (!token || !channelId) return { ok: false, platform: "telegram", error: "TELEGRAM_BOT_TOKEN or TELEGRAM_CHANNEL_ID missing in env" };
+  const primaryChannel = process.env.TELEGRAM_CHANNEL_ID || "@get_verixa"; // FA channel
+  if (!token) return { ok: false, platform: "telegram", error: "TELEGRAM_BOT_TOKEN missing in env" };
 
-  // Support multiple channels (comma-separated)
-  const channels = [channelId, "@getverixa"].filter(Boolean);
+  // Split AI-generated content into EN and FA parts
+  const parts = job.telegramCopy.split("\n\n---\n\n");
+  const enContent = (parts[0] || job.telegramCopy).trim();
+  const faContent = (parts[1] || "").trim();
 
-  try {
-    const imageUrl = job.blogPost.coverImage;
-    // Split EN and FA parts
-    const parts = job.telegramCopy.split("\n\n---\n\n");
-    const enPart = parts[0] || job.telegramCopy;
-    const faPart = parts[1] || "";
+  const imageUrl = job.blogPost.coverImage;
 
-    let lastMsgId = "";
-    let lastError = "";
+  // Channel config: [channelId, content, footer]
+  const channelJobs: [string, string, string][] = [
+    ["@get_verixa",  faContent || enContent, TELEGRAM_FOOTER_FA], // FA channel
+    ["@getverixa",  enContent,              TELEGRAM_FOOTER_EN], // EN channel
+  ];
 
-    for (const channel of channels) {
-      try {
-        // Send EN part with photo (if available)
-        if (imageUrl && imageUrl.startsWith("http")) {
-          // Caption max 1024 chars — send truncated caption with photo
-          const captionText = enPart.substring(0, 1020);
-          const photoRes = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+  let lastMsgId = "";
+  let lastError = "";
+
+  for (const [channel, body, footer] of channelJobs) {
+    if (!body) continue;
+
+    const fullMessage = body + footer;
+
+    try {
+      if (imageUrl && imageUrl.startsWith("http")) {
+        // Send photo with caption (max 1024 chars), then rest as follow-up
+        const captionText = fullMessage.substring(0, 1020);
+        const photoRes = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: channel,
+            photo: imageUrl,
+            caption: captionText,
+            parse_mode: "HTML",
+          }),
+        });
+        const photoData = await photoRes.json();
+        if (photoData.ok) lastMsgId = String(photoData.result?.message_id);
+        else { lastError = photoData.description; console.warn(`[Telegram] Photo failed on ${channel}:`, photoData.description); }
+
+        // Send remaining text if caption was truncated
+        const remaining = fullMessage.length > 1020 ? fullMessage.substring(1020) : "";
+        if (remaining.trim()) {
+          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               chat_id: channel,
-              photo: imageUrl,
-              caption: captionText,
+              text: remaining.substring(0, 4096),
               parse_mode: "HTML",
+              disable_web_page_preview: true,
             }),
           });
-          const photoData = await photoRes.json();
-          if (photoData.ok) lastMsgId = String(photoData.result?.message_id);
-
-          // If EN part was truncated or FA part exists, send rest as separate message
-          const remainingEn = enPart.length > 1020 ? enPart.substring(1020) : "";
-          if (remainingEn || faPart) {
-            const followupText = [remainingEn, faPart].filter(Boolean).join("\n\n");
-            if (followupText.trim()) {
-              await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  chat_id: channel,
-                  text: followupText.substring(0, 4096),
-                  parse_mode: "HTML",
-                  disable_web_page_preview: true,
-                }),
-              });
-            }
-          }
-        } else {
-          // No image — send full text (EN + FA) as single message
-          const fullText = job.telegramCopy.substring(0, 4096);
-          const msgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: channel,
-              text: fullText,
-              parse_mode: "HTML",
-              disable_web_page_preview: false,
-            }),
-          });
-          const msgData = await msgRes.json();
-          if (msgData.ok) lastMsgId = String(msgData.result?.message_id);
-          else lastError = msgData.description;
         }
-      } catch (channelErr: any) {
-        lastError = channelErr.message;
-        console.warn(`[Telegram] Failed to post to ${channel}:`, channelErr.message);
+      } else {
+        // No image — send full message
+        const msgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: channel,
+            text: fullMessage.substring(0, 4096),
+            parse_mode: "HTML",
+            disable_web_page_preview: false,
+          }),
+        });
+        const msgData = await msgRes.json();
+        if (msgData.ok) lastMsgId = String(msgData.result?.message_id);
+        else { lastError = msgData.description; console.warn(`[Telegram] Message failed on ${channel}:`, msgData.description); }
       }
+    } catch (channelErr: any) {
+      lastError = channelErr.message;
+      console.warn(`[Telegram] Exception on ${channel}:`, channelErr.message);
     }
+  }
 
-    if (lastMsgId) {
-      await prisma.socialJob.update({
-        where: { id: jobId },
-        data: { telegramStatus: "POSTED", telegramMsgId: lastMsgId, publishedAt: new Date() } as any,
-      });
-      return { ok: true, platform: "telegram", postId: lastMsgId };
-    } else {
-      await prisma.socialJob.update({
-        where: { id: jobId },
-        data: { telegramStatus: "FAILED", publishError: lastError } as any,
-      });
-      return { ok: false, platform: "telegram", error: lastError || "All channels failed" };
-    }
-  } catch (err: any) {
+  if (lastMsgId) {
     await prisma.socialJob.update({
       where: { id: jobId },
-      data: { telegramStatus: "FAILED", publishError: err.message } as any,
+      data: { telegramStatus: "POSTED", telegramMsgId: lastMsgId, publishedAt: new Date() } as any,
     });
-    return { ok: false, platform: "telegram", error: err.message };
+    return { ok: true, platform: "telegram", postId: lastMsgId };
+  } else {
+    await prisma.socialJob.update({
+      where: { id: jobId },
+      data: { telegramStatus: "FAILED", publishError: lastError } as any,
+    });
+    return { ok: false, platform: "telegram", error: lastError || "All channels failed" };
   }
 }
 

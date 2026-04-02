@@ -544,8 +544,8 @@ export async function getLinkedInAuthUrl(): Promise<string> {
   const redirectUri = encodeURIComponent(`${PROD_URL}/api/linkedin/auth/callback`);
   const clientId = process.env.LINKEDIN_CLIENT_ID;
   // w_member_social: post as personal LinkedIn profile
-  // Requires "Share on LinkedIn" product in LinkedIn Developer Portal (already added)
-  const scope = encodeURIComponent("w_member_social");
+  // openid + profile: needed to fetch person URN via /v2/userinfo
+  const scope = encodeURIComponent("openid profile w_member_social");
   return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
 }
 

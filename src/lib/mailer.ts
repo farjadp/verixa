@@ -96,7 +96,7 @@ export async function sendEmail({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Verixa <notifications@verixa.io>',
+      from: 'Verixa <notifications@getverixa.com>',
       to: [to],
       subject: subject,
       html: html,

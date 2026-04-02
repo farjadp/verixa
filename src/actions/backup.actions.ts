@@ -9,8 +9,7 @@ import { gzipSync } from "zlib";
 export async function generateBackup(cronToken?: string) {
   // Authorization check
   const isCron = cronToken && cronToken === process.env.CRON_SECRET;
-  
-  let adminEmail = "admin@verixa.io";
+  let adminEmail = "farjad@ashavid.ca";
 
   if (!isCron) {
     const session = await getServerSession(authOptions);

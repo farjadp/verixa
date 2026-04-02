@@ -48,8 +48,12 @@ export default function PlatformSettingsClient({
   const handleBackup = async () => {
     setIsBackingUp(true);
     try {
-      await generateBackup();
-      alert("Database Backup generated successfully! Check your admin email.");
+      const res = await generateBackup();
+      if (res && !res.success) {
+        alert("Failed to generate backup: " + res.error);
+      } else {
+        alert("Database Backup generated successfully! Check your admin email.");
+      }
     } catch (err: any) {
       console.error(err);
       alert("Failed to generate backup: " + err.message);

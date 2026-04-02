@@ -157,6 +157,7 @@ export default function SidebarNav({ role }: { role: string }) {
             { label: "General Configs", href: "/dashboard/admin/settings" },
             { label: "Taxonomy & Specs", href: "/dashboard/admin/specializations" },
             { label: "Database Sync", href: "/dashboard/admin/sync" },
+            { label: "Database Backups", href: "/dashboard/admin/settings" },
         ] }
       ]
     }

@@ -68,6 +68,6 @@ export async function generateBackup(cronToken?: string) {
     return { success: true, filename, sizeBytes: compressedBuffer.byteLength };
   } catch (error: any) {
     console.error("Backup Generation Error:", error);
-    throw new Error(error.message || "Failed to generate backup");
+    return { success: false, error: error.message || "Failed to generate backup" };
   }
 }

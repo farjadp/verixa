@@ -199,13 +199,23 @@ export default function SocialHubClient({
   };
 
   const handleConnectLinkedIn = async () => {
-    const url = await getLinkedInAuthUrl();
-    window.location.href = url;
+    try {
+      setError(""); setSuccess("");
+      const url = await getLinkedInAuthUrl();
+      window.location.href = url;
+    } catch (e: any) {
+      setError("LinkedIn Redirect Error: " + e.message);
+    }
   };
 
   const handleConnectFacebook = async () => {
-    const url = await getFacebookAuthUrl();
-    window.location.href = url;
+    try {
+      setError(""); setSuccess("");
+      const url = await getFacebookAuthUrl();
+      window.location.href = url;
+    } catch (e: any) {
+      setError("Facebook Redirect Error: " + e.message);
+    }
   };
 
   let parsedHooks: string[] = [];

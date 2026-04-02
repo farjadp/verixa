@@ -230,7 +230,7 @@ Telegram FA: ${draftSocials?.telegram_fa}`,
       where: { id: job.id },
       data: {
         linkedinCopy: finalSocials?.linkedin,
-        facebookCopy: finalSocials?.facebook,
+        facebookCopy: finalSocials?.facebook || finalSocials?.facebookCopy || draftSocials?.facebook || "",
         twitterCopy: finalSocials?.x_twitter,
         telegramCopy: telegramCombined,
         hooks: JSON.stringify(hooksData?.hooks || []),

@@ -14,7 +14,8 @@ export async function GET(req: Request) {
   }
 
   // MUST match the exact callback URI configured in Facebook Login settings
-  const redirectUri = "https://getverixa.com/api/facebook/auth/callback";
+  const PROD_URL = process.env.NODE_ENV === "production" ? "https://www.getverixa.com" : "http://localhost:3000";
+  const redirectUri = `${PROD_URL}/api/facebook/auth/callback`;
 
   // Request scopes needed for page posting and fetching page data
   const scopes = "pages_show_list,pages_manage_posts,pages_read_engagement";

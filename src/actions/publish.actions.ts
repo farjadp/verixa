@@ -63,10 +63,16 @@ export async function publishToTelegram(jobId: string): Promise<PublishResult> {
 
   const job = await getJobWithPost(jobId);
   if (!job) return { ok: false, platform: "telegram", error: "Job not found" };
-  if (!job.telegramCopy) return { ok: false, platform: "telegram", error: "No Telegram copy generated" };
+  if (!job.telegramCopy) {
+    await prisma.socialJob.update({ where: { id: jobId }, data: { telegramStatus: "FAILED", publishError: "No Telegram copy generated" } as any });
+    return { ok: false, platform: "telegram", error: "No Telegram copy generated" };
+  }
 
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) return { ok: false, platform: "telegram", error: "TELEGRAM_BOT_TOKEN missing in env" };
+  if (!token) {
+    await prisma.socialJob.update({ where: { id: jobId }, data: { telegramStatus: "FAILED", publishError: "TELEGRAM_BOT_TOKEN missing in env" } as any });
+    return { ok: false, platform: "telegram", error: "TELEGRAM_BOT_TOKEN missing in env" };
+  }
 
   // Strip any AI-generated disclaimers (they contain "⚠️" or "Verixa is a directory" or "وریکسا یک پلتفرم")
   function stripAIDisclaimer(text: string): string {
@@ -188,7 +194,10 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
 
   const job = await getJobWithPost(jobId);
   if (!job) return { ok: false, platform: "linkedin", error: "Job not found" };
-  if (!job.linkedinCopy) return { ok: false, platform: "linkedin", error: "No LinkedIn copy generated" };
+  if (!job.linkedinCopy) {
+    await prisma.socialJob.update({ where: { id: jobId }, data: { linkedinStatus: "FAILED", publishError: "No LinkedIn copy generated" } as any });
+    return { ok: false, platform: "linkedin", error: "No LinkedIn copy generated" };
+  }
 
   // Get access token — first try DB (set via OAuth flow), then env
   const dbToken = await prisma.platformSetting.findUnique({ where: { key: "linkedin_access_token" } });
@@ -197,7 +206,9 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
     || process.env.LINKEDIN_ORGANIZATION_ID;
 
   if (!accessToken) {
-    return { ok: false, platform: "linkedin", error: "LinkedIn not connected. Go to Admin → Social → Connect LinkedIn." };
+    const errorMsg = "LinkedIn not connected. Go to Admin → Social → Connect LinkedIn.";
+    await prisma.socialJob.update({ where: { id: jobId }, data: { linkedinStatus: "FAILED", publishError: errorMsg } as any });
+    return { ok: false, platform: "linkedin", error: errorMsg };
   }
 
   // If orgId not yet stored, fetch from /v2/userinfo and cache it
@@ -234,7 +245,9 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
   }
 
   if (!resolvedOrgId) {
-    return { ok: false, platform: "linkedin", error: "LinkedIn person URN missing. Please reconnect via Admin → Social → Connect LinkedIn." };
+    const errorMsg = "LinkedIn person URN missing. Please reconnect via Admin → Social → Connect LinkedIn.";
+    await prisma.socialJob.update({ where: { id: jobId }, data: { linkedinStatus: "FAILED", publishError: errorMsg } as any });
+    return { ok: false, platform: "linkedin", error: errorMsg };
   }
 
   try {
@@ -399,7 +412,10 @@ export async function publishToTwitter(jobId: string): Promise<PublishResult> {
 
   const job = await getJobWithPost(jobId);
   if (!job) return { ok: false, platform: "twitter", error: "Job not found" };
-  if (!job.twitterCopy) return { ok: false, platform: "twitter", error: "No Twitter copy generated" };
+  if (!job.twitterCopy) {
+    await prisma.socialJob.update({ where: { id: jobId }, data: { twitterStatus: "FAILED", publishError: "No Twitter copy generated" } as any });
+    return { ok: false, platform: "twitter", error: "No Twitter copy generated" };
+  }
 
   const apiKey = process.env.TWITTER_API_KEY;
   const apiSecret = process.env.TWITTER_API_SECRET;
@@ -407,10 +423,12 @@ export async function publishToTwitter(jobId: string): Promise<PublishResult> {
   const accessSecret = process.env.TWITTER_ACCESS_SECRET;
 
   if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
+    const errorMsg = "Twitter OAuth 1.0a keys missing. Add TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET to Vercel env vars.";
+    await prisma.socialJob.update({ where: { id: jobId }, data: { twitterStatus: "FAILED", publishError: errorMsg } as any });
     return {
       ok: false,
       platform: "twitter",
-      error: "Twitter OAuth 1.0a keys missing. Add TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET to Vercel env vars.",
+      error: errorMsg,
     };
   }
 
@@ -464,13 +482,18 @@ export async function publishToFacebook(jobId: string): Promise<PublishResult> {
 
   const job = await getJobWithPost(jobId);
   if (!job) return { ok: false, platform: "facebook", error: "Job not found" };
-  if (!job.facebookCopy) return { ok: false, platform: "facebook", error: "No Facebook copy generated" };
+  if (!job.facebookCopy) {
+    await prisma.socialJob.update({ where: { id: jobId }, data: { facebookStatus: "FAILED", publishError: "No Facebook copy generated" } as any });
+    return { ok: false, platform: "facebook", error: "No Facebook copy generated" };
+  }
 
   const dbToken = await prisma.platformSetting.findUnique({ where: { key: "facebook_page_token" } });
   const dbPageId = await prisma.platformSetting.findUnique({ where: { key: "facebook_page_id" } });
   
   if (!dbToken?.value || !dbPageId?.value) {
-    return { ok: false, platform: "facebook", error: "Facebook Page not connected. Go to Admin → Social → Connect Facebook." };
+    const errorMsg = "Facebook Page not connected. Go to Admin → Social → Connect Facebook.";
+    await prisma.socialJob.update({ where: { id: jobId }, data: { facebookStatus: "FAILED", publishError: errorMsg } as any });
+    return { ok: false, platform: "facebook", error: errorMsg };
   }
 
   try {
@@ -532,23 +555,33 @@ export async function publishAll(jobId: string): Promise<PublishResult[]> {
   await prisma.socialJob.update({ where: { id: jobId }, data: { status: "POSTING" } });
 
   const results = await Promise.allSettled([
-    publishToTelegram(jobId),
-    publishToLinkedIn(jobId),
-    publishToTwitter(jobId),
-    publishToFacebook(jobId),
+    publishToTelegram(jobId).catch(err => ({ ok: false, platform: "telegram", error: String(err) })),
+    publishToLinkedIn(jobId).catch(err => ({ ok: false, platform: "linkedin", error: String(err) })),
+    publishToTwitter(jobId).catch(err => ({ ok: false, platform: "twitter", error: String(err) })),
+    publishToFacebook(jobId).catch(err => ({ ok: false, platform: "facebook", error: String(err) })),
   ]);
 
   const outcomes = results.map((r) =>
     r.status === "fulfilled" ? r.value : { ok: false, platform: "unknown", error: String(r.reason) }
-  );
+  ) as PublishResult[];
 
-  // Overall status: POSTED if at least one succeeded
   const anyPosted = outcomes.some((r) => r.ok);
   const allPosted = outcomes.every((r) => r.ok);
 
+  const errors = outcomes.filter(o => !o.ok).map(o => `${o.platform}: ${o.error}`);
+  
   const finalData: any = {
     status: allPosted ? "POSTED" : anyPosted ? "POSTED" : "FAILED",
+    publishError: errors.length > 0 ? errors.join(" | ") : null,
   };
+
+  outcomes.forEach(o => {
+    if (o.platform === "linkedin") finalData.linkedinStatus = o.ok ? "POSTED" : "FAILED";
+    if (o.platform === "twitter") finalData.twitterStatus = o.ok ? "POSTED" : "FAILED";
+    if (o.platform === "facebook") finalData.facebookStatus = o.ok ? "POSTED" : "FAILED";
+    if (o.platform === "telegram") finalData.telegramStatus = o.ok ? "POSTED" : "FAILED";
+  });
+
   if (anyPosted) finalData.publishedAt = new Date();
 
   await prisma.socialJob.update({
@@ -556,7 +589,7 @@ export async function publishAll(jobId: string): Promise<PublishResult[]> {
     data: finalData,
   });
 
-  return outcomes as PublishResult[];
+  return outcomes;
 }
 
 // ─── LinkedIn OAuth Helper ────────────────────────────────────────────────────
@@ -564,8 +597,8 @@ export async function publishAll(jobId: string): Promise<PublishResult[]> {
 
 export async function exchangeLinkedInCode(code: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    // Must match EXACTLY the redirect_uri used in getLinkedInAuthUrl()
-    const redirectUri = "https://getverixa.com/api/linkedin/auth/callback";
+    const PROD_URL = process.env.NODE_ENV === "production" ? "https://www.getverixa.com" : "http://localhost:3000";
+    const redirectUri = `${PROD_URL}/api/linkedin/auth/callback`;
 
     const tokenRes = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
       method: "POST",
@@ -632,13 +665,10 @@ export async function exchangeLinkedInCode(code: string): Promise<{ ok: boolean;
 
 export async function getLinkedInAuthUrl(): Promise<string> {
   await verifyAdmin();
-  // ALWAYS use production URL for LinkedIn OAuth redirect
-  // LinkedIn only accepts registered URIs — localhost doesn't work unless added to Auth tab
-  const PROD_URL = "https://getverixa.com";
+  const PROD_URL = process.env.NODE_ENV === "production" ? "https://www.getverixa.com" : "http://localhost:3000";
   const redirectUri = encodeURIComponent(`${PROD_URL}/api/linkedin/auth/callback`);
   const clientId = process.env.LINKEDIN_CLIENT_ID;
-  // w_member_social: post as personal LinkedIn profile (only approved scope)
-  const scope = encodeURIComponent("w_member_social");
+  const scope = encodeURIComponent("openid profile w_member_social email");
   return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
 }
 
@@ -660,8 +690,7 @@ export async function disconnectLinkedIn(): Promise<{ ok: boolean }> {
 
 export async function getFacebookAuthUrl(): Promise<string> {
   await verifyAdmin();
-  const PROD_URL = "https://getverixa.com";
-  return `${PROD_URL}/api/facebook/auth`;
+  return `/api/facebook/auth`;
 }
 
 export async function checkFacebookStatus(): Promise<{ connected: boolean; name?: string }> {

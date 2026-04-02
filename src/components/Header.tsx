@@ -93,7 +93,7 @@ export default function Header() {
       >
         {/* ── LOGO ── */}
         <Link href="/" className="flex items-center gap-2 group shrink-0 z-10">
-          <img src="/brand/Vertixa3.png" alt="Verixa" className="h-9 w-auto object-contain transition-transform group-hover:scale-105" />
+          <img src="/brand/Verixa2.png" alt="Verixa" className="h-9 w-auto object-contain transition-transform group-hover:scale-105" />
         </Link>
 
         {/* ── DESKTOP NAV ── */}

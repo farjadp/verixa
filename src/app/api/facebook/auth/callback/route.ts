@@ -14,7 +14,8 @@ export async function GET(req: Request) {
   const error = url.searchParams.get("error");
   const errorReason = url.searchParams.get("error_reason");
 
-  const baseUrl = "https://getverixa.com/dashboard/admin/social";
+  const PROD_URL = process.env.NODE_ENV === "production" ? "https://www.getverixa.com" : "http://localhost:3000";
+  const baseUrl = `${PROD_URL}/dashboard/admin/social`;
 
   if (error) {
     return NextResponse.redirect(`${baseUrl}?facebook_error=${encodeURIComponent(errorReason || error)}`);
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
   try {
     const clientId = process.env.FACEBOOK_CLIENT_ID!;
     const clientSecret = process.env.FACEBOOK_CLIENT_SECRET!;
-    const redirectUri = "https://getverixa.com/api/facebook/auth/callback";
+    const redirectUri = `${PROD_URL}/api/facebook/auth/callback`;
 
     // 1. Exchange OAuth code for a short-lived User Access Token
     const tokenRes = await fetch(

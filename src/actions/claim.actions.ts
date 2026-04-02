@@ -120,7 +120,7 @@ export async function initiateEmailOTP(licenseNumber: string, email: string) {
   // Send email via Resend
   try {
     await resend.emails.send({
-      from: "Verixa <info@farjadp.info>",
+        from: "Verixa <notifications@getverixa.com>",
       to: [email],
       subject: "Your Verixa Claim Verification Code",
       html: `
@@ -388,7 +388,7 @@ export async function completeClaim(
           : "Your account is under admin review. We will notify you once your identity is confirmed.";
 
       await resend.emails.send({
-        from: "Verixa <info@farjadp.info>",
+          from: "Verixa <notifications@getverixa.com>",
         to: [email.toLowerCase()],
         subject: "Welcome to Verixa — Your Profile is Now Active 🎉",
         html: `

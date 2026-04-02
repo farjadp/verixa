@@ -443,7 +443,8 @@ export async function getLinkedInAuthUrl(): Promise<string> {
   const redirectUri = encodeURIComponent(`${BASE_URL}/api/linkedin/auth/callback`);
   const clientId = process.env.LINKEDIN_CLIENT_ID;
   // w_member_social: post as personal profile (no special approval needed)
-  const scope = encodeURIComponent("w_member_social openid profile");
+  // Note: requires "Share on LinkedIn" product to be added in LinkedIn Developer Portal
+  const scope = encodeURIComponent("w_member_social");
   return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
 }
 

@@ -66,19 +66,41 @@ export async function publishToTelegram(jobId: string): Promise<PublishResult> {
   if (!job.telegramCopy) return { ok: false, platform: "telegram", error: "No Telegram copy generated" };
 
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const primaryChannel = process.env.TELEGRAM_CHANNEL_ID || "@get_verixa"; // FA channel
   if (!token) return { ok: false, platform: "telegram", error: "TELEGRAM_BOT_TOKEN missing in env" };
+
+  // Strip any AI-generated disclaimers (they contain "⚠️" or "Verixa is a directory" or "وریکسا یک پلتفرم")
+  function stripAIDisclaimer(text: string): string {
+    // Remove lines containing disclaimer keywords
+    return text
+      .split("\n")
+      .filter(line => {
+        const l = line.toLowerCase();
+        return !(
+          l.includes("verixa is a directory") ||
+          l.includes("not a law firm") ||
+          l.includes("does not provide legal") ||
+          l.includes("informational purposes only") ||
+          l.includes("وریکسا یک پلتفرم دایرکتوری") ||
+          l.includes("مشاوره حقوقی") ||
+          l.includes("اطلاع‌رسانی دارد") ||
+          (l.includes("⚠️") && (l.includes("verixa") || l.includes("وریکسا")))
+        );
+      })
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n") // collapse triple+ newlines
+      .trim();
+  }
 
   // Split AI-generated content into EN and FA parts
   const parts = job.telegramCopy.split("\n\n---\n\n");
-  const enContent = (parts[0] || job.telegramCopy).trim();
-  const faContent = (parts[1] || "").trim();
+  const enContent = stripAIDisclaimer((parts[0] || job.telegramCopy).trim());
+  const faContent = stripAIDisclaimer((parts[1] || "").trim());
 
   const imageUrl = job.blogPost.coverImage;
 
   // Channel config: [channelId, content, footer]
   const channelJobs: [string, string, string][] = [
-    ["@get_verixa",  faContent || enContent, TELEGRAM_FOOTER_FA], // FA channel
+    ["@get_verixa", faContent || enContent, TELEGRAM_FOOTER_FA], // FA channel
     ["@getverixa",  enContent,              TELEGRAM_FOOTER_EN], // EN channel
   ];
 
@@ -88,48 +110,46 @@ export async function publishToTelegram(jobId: string): Promise<PublishResult> {
   for (const [channel, body, footer] of channelJobs) {
     if (!body) continue;
 
-    const fullMessage = body + footer;
+    const fullMessage = (body + footer).substring(0, 4096);
 
     try {
       if (imageUrl && imageUrl.startsWith("http")) {
-        // Send photo with caption (max 1024 chars), then rest as follow-up
-        const captionText = fullMessage.substring(0, 1020);
+        // Step 1: Send photo WITHOUT caption (avoids the 1024-char limit split)
         const photoRes = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: channel,
             photo: imageUrl,
-            caption: captionText,
-            parse_mode: "HTML",
           }),
         });
         const photoData = await photoRes.json();
-        if (photoData.ok) lastMsgId = String(photoData.result?.message_id);
-        else { lastError = photoData.description; console.warn(`[Telegram] Photo failed on ${channel}:`, photoData.description); }
-
-        // Send remaining text if caption was truncated
-        const remaining = fullMessage.length > 1020 ? fullMessage.substring(1020) : "";
-        if (remaining.trim()) {
-          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: channel,
-              text: remaining.substring(0, 4096),
-              parse_mode: "HTML",
-              disable_web_page_preview: true,
-            }),
-          });
+        if (!photoData.ok) {
+          console.warn(`[Telegram] Photo failed on ${channel}:`, photoData.description);
         }
-      } else {
-        // No image — send full message
+
+        // Step 2: Send full text as ONE message (no split, up to 4096 chars)
         const msgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: channel,
-            text: fullMessage.substring(0, 4096),
+            text: fullMessage,
+            parse_mode: "HTML",
+            disable_web_page_preview: true,
+          }),
+        });
+        const msgData = await msgRes.json();
+        if (msgData.ok) lastMsgId = String(msgData.result?.message_id);
+        else { lastError = msgData.description; console.warn(`[Telegram] Text msg failed on ${channel}:`, msgData.description); }
+      } else {
+        // No image — send full message as single text
+        const msgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: channel,
+            text: fullMessage,
             parse_mode: "HTML",
             disable_web_page_preview: false,
           }),

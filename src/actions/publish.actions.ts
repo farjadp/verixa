@@ -204,13 +204,22 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
   let resolvedOrgId = orgId;
   if (!resolvedOrgId) {
     try {
-      const meRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+      // /v2/me works with w_member_social scope and returns { id: "..." }
+      const meRes = await fetch("https://api.linkedin.com/v2/me", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const meData = await meRes.json();
-      if (meData?.sub) {
-        resolvedOrgId = `urn:li:person:${meData.sub}`;
-        // Save for future use
+      if (meData?.id) {
+        resolvedOrgId = `urn:li:person:${meData.id}`;
+      } else {
+        // Fallback to userinfo if app has openid scope
+        const uiRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const uiData = await uiRes.json();
+        if (uiData?.sub) resolvedOrgId = `urn:li:person:${uiData.sub}`;
+      }
+      if (resolvedOrgId) {
         await prisma.platformSetting.upsert({
           where: { key: "linkedin_org_id" },
           update: { value: resolvedOrgId },
@@ -504,15 +513,24 @@ export async function exchangeLinkedInCode(code: string): Promise<{ ok: boolean;
       return { ok: false, error: tokenData?.error_description || "Failed to exchange code" };
     }
 
-    // Fetch member URN (personal profile)
+    // Fetch member URN — try /v2/me first, then /v2/userinfo as fallback
     let personUrn: string | null = null;
     try {
-      const meRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+      // /v2/me works with w_member_social and returns { id: "..." }
+      const meRes = await fetch("https://api.linkedin.com/v2/me", {
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
       });
       const meData = await meRes.json();
-      // LinkedIn OpenID Connect returns sub as the person ID
-      personUrn = meData?.sub ? `urn:li:person:${meData.sub}` : null;
+      if (meData?.id) {
+        personUrn = `urn:li:person:${meData.id}`;
+      } else {
+        // Fallback: try userinfo (if app has openid scope)
+        const uiRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+        const uiData = await uiRes.json();
+        if (uiData?.sub) personUrn = `urn:li:person:${uiData.sub}`;
+      }
     } catch {}
 
     // Store in PlatformSetting
@@ -543,9 +561,8 @@ export async function getLinkedInAuthUrl(): Promise<string> {
   const PROD_URL = "https://getverixa.com";
   const redirectUri = encodeURIComponent(`${PROD_URL}/api/linkedin/auth/callback`);
   const clientId = process.env.LINKEDIN_CLIENT_ID;
-  // w_member_social: post as personal LinkedIn profile
-  // openid + profile: needed to fetch person URN via /v2/userinfo
-  const scope = encodeURIComponent("openid profile w_member_social");
+  // w_member_social: post as personal LinkedIn profile (only approved scope)
+  const scope = encodeURIComponent("w_member_social");
   return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
 }
 

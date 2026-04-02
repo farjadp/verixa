@@ -19,8 +19,11 @@ export default async function SocialDistributionPage() {
   if (!session || (session.user as any).role !== "ADMIN") redirect("/login");
 
   const posts = await prisma.blogPost.findMany({
+    where: { isPublished: true },
     orderBy: { createdAt: "desc" },
-    include: { socialJobs: true } // We fetch the first or only SocialJob associated
+    include: {
+      socialJobs: true,
+    },
   });
 
   return (

@@ -204,20 +204,21 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
   let resolvedOrgId = orgId;
   if (!resolvedOrgId) {
     try {
-      // /v2/me works with w_member_social scope and returns { id: "..." }
-      const meRes = await fetch("https://api.linkedin.com/v2/me", {
-        headers: { Authorization: `Bearer ${accessToken}` },
+      // Use token introspection (no extra scope needed)
+      const introspectRes = await fetch("https://www.linkedin.com/oauth/v2/introspectToken", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          token: accessToken,
+          client_id: process.env.LINKEDIN_CLIENT_ID!,
+          client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
+        }),
       });
-      const meData = await meRes.json();
-      if (meData?.id) {
-        resolvedOrgId = `urn:li:person:${meData.id}`;
-      } else {
-        // Fallback to userinfo if app has openid scope
-        const uiRes = await fetch("https://api.linkedin.com/v2/userinfo", {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        const uiData = await uiRes.json();
-        if (uiData?.sub) resolvedOrgId = `urn:li:person:${uiData.sub}`;
+      const introspect = await introspectRes.json();
+      if (introspect?.authorized_user) {
+        resolvedOrgId = introspect.authorized_user;
+      } else if (introspect?.sub) {
+        resolvedOrgId = `urn:li:person:${introspect.sub}`;
       }
       if (resolvedOrgId) {
         await prisma.platformSetting.upsert({
@@ -225,9 +226,10 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
           update: { value: resolvedOrgId },
           create: { key: "linkedin_org_id", value: resolvedOrgId },
         });
+        console.log("[LinkedIn] Resolved person URN:", resolvedOrgId);
       }
     } catch (e) {
-      console.warn("[LinkedIn] Could not fetch person URN:", e);
+      console.warn("[LinkedIn] Could not resolve person URN via introspect:", e);
     }
   }
 
@@ -513,25 +515,30 @@ export async function exchangeLinkedInCode(code: string): Promise<{ ok: boolean;
       return { ok: false, error: tokenData?.error_description || "Failed to exchange code" };
     }
 
-    // Fetch member URN — try /v2/me first, then /v2/userinfo as fallback
+    // Fetch member URN via token introspection (works with any valid token, no extra scope needed)
     let personUrn: string | null = null;
     try {
-      // /v2/me works with w_member_social and returns { id: "..." }
-      const meRes = await fetch("https://api.linkedin.com/v2/me", {
-        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      // LinkedIn introspect endpoint returns the authorized_user which contains the member URN
+      const introspectRes = await fetch("https://www.linkedin.com/oauth/v2/introspectToken", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          token: tokenData.access_token,
+          client_id: process.env.LINKEDIN_CLIENT_ID!,
+          client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
+        }),
       });
-      const meData = await meRes.json();
-      if (meData?.id) {
-        personUrn = `urn:li:person:${meData.id}`;
-      } else {
-        // Fallback: try userinfo (if app has openid scope)
-        const uiRes = await fetch("https://api.linkedin.com/v2/userinfo", {
-          headers: { Authorization: `Bearer ${tokenData.access_token}` },
-        });
-        const uiData = await uiRes.json();
-        if (uiData?.sub) personUrn = `urn:li:person:${uiData.sub}`;
+      const introspect = await introspectRes.json();
+      // introspect returns { authorized_user: "urn:li:person:xxx", ... }
+      if (introspect?.authorized_user) {
+        personUrn = introspect.authorized_user;
+      } else if (introspect?.sub) {
+        personUrn = `urn:li:person:${introspect.sub}`;
       }
-    } catch {}
+      console.log("[LinkedIn] Introspect result:", JSON.stringify(introspect).substring(0, 200));
+    } catch (e) {
+      console.warn("[LinkedIn] Introspect failed:", e);
+    }
 
     // Store in PlatformSetting
     await prisma.platformSetting.upsert({

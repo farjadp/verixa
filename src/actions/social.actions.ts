@@ -147,18 +147,19 @@ TWITTER/X:
 
 TELEGRAM ENGLISH:
 - Tone: Informative, fast to scan
-- Structure: <b>Bold headline</b> → 3-4 bullet lines starting with • → article link → disclaimer on its own line
+- Structure: <b>Bold headline</b> → 3-4 bullet lines starting with • → article link at the end
 - 1-2 emojis max (placed naturally, not at start of every line)
 - CRITICAL: Use ONLY Telegram HTML tags: <b>bold</b>, <i>italic</i>, <a href="url">link text</a>
 - Do NOT use markdown **stars**, _underscores_, or any other non-HTML formatting
-- Keep disclaimer short and clean, on its own line at the very end
+- Do NOT include any disclaimer or footer — those are added automatically
 
 TELEGRAM FARSI (Persian):
 - Write entirely in Persian/Farsi
 - RTL-compatible text, natural Persian style — start with <b>Persian headline</b>
 - Same bullet structure as English version
-- Include Farsi disclaimer at end on its own line
 - CRITICAL: Use ONLY Telegram HTML tags: <b>bold</b>, <i>italic</i> — no **stars**
+- Do NOT include any disclaimer or footer — those are added automatically
+- End with the article link
 
 Return all four versions. ALWAYS include the article link in every version.`,
         },

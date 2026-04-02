@@ -287,11 +287,19 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
       ${recentPostsText}
 
       Compare the core facts and key events of this new extracted text against our recent posts.
-      If this raw text is reporting on the EXACT SAME general news event or policy update as ANY of the recent posts above (>50% factual similarity in coverage), YOU MUST set isDuplicate to true. 
-      Furthermore, if this text is completely irrelevant to Canadian Immigration or just marketing noise, set isDuplicate to true.
-      We absolutely do NOT want to publish similar news twice.
+      Only set isDuplicate to true if BOTH of these conditions are met:
+      1. This article covers the EXACT SAME specific event, announcement, or policy change as one of the posts above (>85% factual overlap — same date, same policy, same announcement)
+      2. AND our existing post already covers the key information fully — not just the same topic area
 
-      If it is a genuinely NEW event NOT listed above, determine a unique new angle for the Verixa Platform.
+      IMPORTANT: Do NOT mark as duplicate just because it's in the same subject area.
+      For example: two different immigration policy announcements are NOT duplicates even if they're both about immigration.
+
+      Also set isDuplicate to true ONLY if the content has zero connection to: Canadian immigration law, 
+      immigration policy, visa programs, RCIC consultants, citizenship, border security, refugee programs, 
+      international students in Canada, work permits, or related government/public health announcements 
+      that directly affect immigrants or newcomers to Canada.
+
+      If it is a genuinely NEW event or announcement NOT already covered above, determine a unique new angle for the Verixa Platform.
       Additionally, scan the raw text carefully to extract the true original publication date of the press release/article. Ensure originalPublishedDate is set.
     `;
 

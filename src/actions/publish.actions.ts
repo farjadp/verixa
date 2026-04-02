@@ -128,7 +128,8 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
   }
 
   try {
-    const author = `urn:li:organization:${orgId}`;
+    // orgId is now stored as the full URN (urn:li:person:xxx) from OAuth
+    const author = orgId.startsWith("urn:li:") ? orgId : `urn:li:person:${orgId}`;
     const imageUrl = job.blogPost.coverImage;
     let mediaAssetUrn: string | null = null;
 
@@ -404,13 +405,16 @@ export async function exchangeLinkedInCode(code: string): Promise<{ ok: boolean;
       return { ok: false, error: tokenData?.error_description || "Failed to exchange code" };
     }
 
-    // Fetch organization ID from vanity name
-    const orgRes = await fetch(
-      "https://api.linkedin.com/v2/organizations?q=vanityName&vanityName=getverixa",
-      { headers: { Authorization: `Bearer ${tokenData.access_token}` } }
-    );
-    const orgData = await orgRes.json();
-    const orgId = orgData?.elements?.[0]?.id;
+    // Fetch member URN (personal profile)
+    let personUrn: string | null = null;
+    try {
+      const meRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+      const meData = await meRes.json();
+      // LinkedIn OpenID Connect returns sub as the person ID
+      personUrn = meData?.sub ? `urn:li:person:${meData.sub}` : null;
+    } catch {}
 
     // Store in PlatformSetting
     await prisma.platformSetting.upsert({
@@ -419,11 +423,11 @@ export async function exchangeLinkedInCode(code: string): Promise<{ ok: boolean;
       create: { key: "linkedin_access_token", value: tokenData.access_token },
     });
 
-    if (orgId) {
+    if (personUrn) {
       await prisma.platformSetting.upsert({
         where: { key: "linkedin_org_id" },
-        update: { value: String(orgId) },
-        create: { key: "linkedin_org_id", value: String(orgId) },
+        update: { value: personUrn },
+        create: { key: "linkedin_org_id", value: personUrn },
       });
     }
 
@@ -435,11 +439,11 @@ export async function exchangeLinkedInCode(code: string): Promise<{ ok: boolean;
 
 export async function getLinkedInAuthUrl(): Promise<string> {
   await verifyAdmin();
-  // Always use production URL for LinkedIn OAuth — localhost is not registered
   const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "https://getverixa.com";
   const redirectUri = encodeURIComponent(`${BASE_URL}/api/linkedin/auth/callback`);
   const clientId = process.env.LINKEDIN_CLIENT_ID;
-  const scope = encodeURIComponent("w_organization_social r_organization_social openid profile");
+  // w_member_social: post as personal profile (no special approval needed)
+  const scope = encodeURIComponent("w_member_social openid profile");
   return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
 }
 

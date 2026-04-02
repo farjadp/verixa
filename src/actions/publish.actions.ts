@@ -435,10 +435,11 @@ export async function exchangeLinkedInCode(code: string): Promise<{ ok: boolean;
 
 export async function getLinkedInAuthUrl(): Promise<string> {
   await verifyAdmin();
-  const BASE_URL = process.env.NEXTAUTH_URL || "https://getverixa.com";
+  // Always use production URL for LinkedIn OAuth — localhost is not registered
+  const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "https://getverixa.com";
   const redirectUri = encodeURIComponent(`${BASE_URL}/api/linkedin/auth/callback`);
   const clientId = process.env.LINKEDIN_CLIENT_ID;
-  const scope = encodeURIComponent("w_organization_social r_organization_social");
+  const scope = encodeURIComponent("w_organization_social r_organization_social openid profile");
   return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
 }
 

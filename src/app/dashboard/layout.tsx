@@ -42,8 +42,8 @@ export default async function DashboardLayout({
         
         {/* Logo Area */}
         <div className="h-20 flex items-center px-8 border-b border-[#e5e7eb] shrink-0">
-          <Link href="/" className="text-2xl font-black font-serif tracking-tight text-[#1A1F2B]">
-            Verixa<span className="text-[#2FA4A9]">.</span>
+          <Link href="/" className="flex items-center gap-2">
+            <img src="/brand/Vertixa3.png" alt="Verixa" className="h-7 w-auto object-contain" />
             <span className="ml-2 text-[10px] bg-[#F5F7FA] text-[#2FA4A9] px-2 py-1 rounded border border-[#e5e7eb] uppercase tracking-widest font-bold align-middle">Portal</span>
           </Link>
         </div>

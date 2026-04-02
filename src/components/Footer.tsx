@@ -82,10 +82,7 @@ export default function Footer() {
             </div>
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-[#0F2A44] rounded-xl flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-2xl font-black text-[#0F2A44] tracking-tight">VERIXA</span>
+                <img src="/brand/Vertixa3.png" alt="Verixa" className="h-10 w-auto object-contain" />
               </div>
               <p className="text-sm font-medium text-gray-500 leading-relaxed">
                 The premier verified directory for Canadian immigration professionals. Connecting applicants with licensed RCICs through a secure, transparent platform.

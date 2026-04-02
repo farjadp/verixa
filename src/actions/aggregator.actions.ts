@@ -444,6 +444,45 @@ export async function processPendingRawArticle(rawArticleId: string, autoPublish
     // Drop Home Page Cache automatically to feature the newest post
     try { revalidatePath("/"); } catch(e) {}
 
+    // ── AUTO-SOCIAL PIPELINE ─────────────────────────────────────────────────
+    // Automatically generate AI social drafts and publish to all platforms
+    if (autoPublish) {
+      try {
+        console.log(`[SocialEngine] Auto-igniting social engine for post: ${blogPost.id}`);
+        
+        // Step 1: Generate social media content with AI
+        const { igniteSocialEngine } = await import("@/actions/social.actions");
+        const socialResult = await igniteSocialEngine(blogPost.id);
+        
+        if (socialResult?.jobId) {
+          console.log(`[SocialEngine] Social content generated. Job ID: ${socialResult.jobId}. Auto-publishing...`);
+          
+          // Step 2: Auto-publish to all platforms
+          const { publishAll } = await import("@/actions/publish.actions");
+          const publishResults = await publishAll(socialResult.jobId);
+          
+          const publishedCount = publishResults.filter(r => r.ok).length;
+          console.log(`[SocialEngine] Published to ${publishedCount}/${publishResults.length} platforms.`);
+          
+          await logEvent({
+            userId: (session.user as any)?.id,
+            role: "ADMIN",
+            action: "AUTO_SOCIAL_PUBLISH",
+            details: { blogPostId: blogPost.id, jobId: socialResult.jobId, publishedCount, results: publishResults }
+          });
+        }
+      } catch (socialErr: any) {
+        // Social publishing failure should NOT block the article from being published
+        console.warn(`[SocialEngine] Auto-social failed (non-fatal): ${socialErr.message}`);
+        await logEvent({
+          userId: (session.user as any)?.id,
+          role: "ADMIN",
+          action: "AUTO_SOCIAL_ERROR",
+          details: { blogPostId: blogPost.id, error: socialErr.message }
+        });
+      }
+    }
+
     return { success: true, status: "SUCCESS", articleId: blogPost.id, message: "AI Extracted and Generated Successfully." };
   } catch (err: any) {
     console.error("processPendingRawArticle Error:", err);

@@ -228,7 +228,7 @@ Telegram FA: ${draftSocials?.telegram_fa}`,
       },
     });
 
-    return { status: "SUCCESS" };
+    return { status: "SUCCESS", jobId: job.id };
   } catch (error: any) {
     console.error("Social Engine Error:", error);
     await prisma.socialJob.update({ where: { id: job.id }, data: { status: "FAILED" } });

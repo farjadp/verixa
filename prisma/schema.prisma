@@ -563,6 +563,7 @@ model Subscription {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan Plan @relation(fields: [planId], references: [id])
+  discountUsages DiscountCodeUsage[]
 }
 
 // ============================================================================
@@ -720,3 +721,45 @@ model PasswordResetToken {
 
   @@index([email])
 }
+
+// ============================================================================
+// DISCOUNT / COUPON CODE SYSTEM
+// ============================================================================
+
+model DiscountCode {
+  id              String    @id @default(cuid())
+  code            String    @unique // e.g. "LAUNCH50", "EARLYBIRD"
+  description     String?   // Admin-facing note
+  type            String    // PERCENT | FIXED_CENTS
+  value           Int       // 50 = 50% discount, or 5000 = $50 off
+  applicableTo    String    @default("SUBSCRIPTION") // SUBSCRIPTION | ALL
+  allowedPlanIds  String?   // JSON array of planId strings; null = all plans
+  maxUses         Int?      // null = unlimited
+  usedCount       Int       @default(0)
+  durationMonths  Int?      // null = one-time; 3 = discount applies for 3 renewals
+  startsAt        DateTime? // null = active immediately
+  expiresAt       DateTime? // null = never expires
+  isActive        Boolean   @default(true)
+  createdBy       String    // admin userId
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  usages DiscountCodeUsage[]
+}
+
+model DiscountCodeUsage {
+  id              String    @id @default(cuid())
+  codeId          String
+  userId          String
+  subscriptionId  String?
+  discountCents   Int       // exact discount amount applied
+  createdAt       DateTime  @default(now())
+
+  code         DiscountCode  @relation(fields: [codeId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@unique([codeId, userId]) // one use per user per code
+  @@index([codeId])
+  @@index([userId])
+}
+

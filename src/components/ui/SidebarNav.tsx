@@ -8,7 +8,7 @@ import {
   MessageSquare, Activity, Bell, User, CreditCard, LifeBuoy, HelpCircle, 
   UserCircle, Bookmark, Settings, Users, CheckCircle, Award, Database, 
   Mailbox, Flag, FileText, Zap, DollarSign, RefreshCw, Building, Layers, 
-  Cpu, Share2, Rss, NotebookPen, FileImage
+  Cpu, Share2, Rss, NotebookPen, FileImage, Tag
 } from "lucide-react";
 
 export type NavItem = {
@@ -121,6 +121,7 @@ export default function SidebarNav({ role }: { role: string }) {
       label: "Marketing & Tools",
       items: [
         { label: "Plans & Features", href: "/dashboard/admin/plans", icon: Zap },
+        { label: "Coupon Codes", href: "/dashboard/admin/coupons", icon: Tag },
         { 
           label: "Marketing & Reach", 
           icon: Share2,

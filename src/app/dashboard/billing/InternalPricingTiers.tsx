@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, Target, Zap, AlertCircle } from "lucide-react";
 import { createUpgradeCheckoutSession } from "@/actions/checkout.actions";
 import { useRouter } from "next/navigation";
+import CouponBox from "./CouponBox";
 
 type Plan = {
   id: string;
@@ -256,13 +257,23 @@ export default function InternalPricingTiers({ plans, billingMode, currentPlanId
                      {loadingPortal ? "Opening Portal..." : "Manage Subscription"}
                   </button>
                 ) : (
-                  <button
-                    disabled={isActive || loadingPlan === plan.id || plan.priceCents === 0}
-                    onClick={() => handleUpgrade(plan.id, plan.slug, plan.priceCents)}
-                    className={`${style.ctaClass} ${isActive || plan.priceCents === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                  >
-                    {loadingPlan === plan.id ? "Processing..." : isActive ? "Current Plan" : style.ctaText}
-                  </button>
+                  <>
+                    <button
+                      disabled={isActive || loadingPlan === plan.id || plan.priceCents === 0}
+                      onClick={() => handleUpgrade(plan.id, plan.slug, plan.priceCents)}
+                      className={`${style.ctaClass} ${isActive || plan.priceCents === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      {loadingPlan === plan.id ? "Processing..." : isActive ? "Current Plan" : style.ctaText}
+                    </button>
+                    {!isActive && plan.priceCents > 0 && (
+                      <CouponBox
+                        planId={plan.id}
+                        planName={plan.name}
+                        planPriceCents={plan.priceCents}
+                        onApplied={() => router.refresh()}
+                      />
+                    )}
+                  </>
                 )}
              </div>
           );

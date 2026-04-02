@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { igniteSocialEngine, updateSocialJob, getSocialJobs } from "@/actions/social.actions";
 import {
   publishToLinkedIn, publishToTwitter, publishToTelegram, publishAll,
-  getLinkedInAuthUrl, checkLinkedInStatus
+  getLinkedInAuthUrl, checkLinkedInStatus, disconnectLinkedIn
 } from "@/actions/publish.actions";
 import {
   Play, Share2, CheckCircle2, AlertCircle, RefreshCcw,
@@ -206,8 +206,19 @@ export default function SocialHubClient({
           : linkedinConnected === false ? "bg-orange-50 text-orange-700 border-orange-100"
           : "bg-gray-50 text-gray-500 border-gray-100"
         }`}>
-          {linkedinConnected === true ? <><ShieldCheck className="w-4 h-4" /> LinkedIn Connected</> :
-           linkedinConnected === false ? (
+          {linkedinConnected === true ? (
+            <div className="flex items-center justify-between w-full">
+              <span className="flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> LinkedIn Connected</span>
+              <button
+                onClick={async () => {
+                  await disconnectLinkedIn();
+                  setLinkedinConnected(false);
+                  setSuccess("LinkedIn disconnected.");
+                }}
+                className="text-xs text-blue-500 hover:text-red-600 underline ml-2 font-normal"
+              >Disconnect</button>
+            </div>
+          ) : linkedinConnected === false ? (
             <><ShieldX className="w-4 h-4" /> LinkedIn not connected —<button onClick={handleConnectLinkedIn} className="underline ml-1 hover:text-blue-900">Connect Now</button></>
           ) : <><Wifi className="w-4 h-4" /> Checking LinkedIn...</>}
         </div>

@@ -554,3 +554,11 @@ export async function checkLinkedInStatus(): Promise<{ connected: boolean }> {
   const token = await prisma.platformSetting.findUnique({ where: { key: "linkedin_access_token" } });
   return { connected: !!(token?.value) };
 }
+
+export async function disconnectLinkedIn(): Promise<{ ok: boolean }> {
+  await verifyAdmin();
+  await prisma.platformSetting.deleteMany({
+    where: { key: { in: ["linkedin_access_token", "linkedin_org_id"] } },
+  });
+  return { ok: true };
+}

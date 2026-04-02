@@ -215,22 +215,15 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
   let resolvedOrgId = orgId;
   if (!resolvedOrgId) {
     try {
-      // Use token introspection (no extra scope needed)
-      const introspectRes = await fetch("https://www.linkedin.com/oauth/v2/introspectToken", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          token: accessToken,
-          client_id: process.env.LINKEDIN_CLIENT_ID!,
-          client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
-        }),
+      // Use /v2/me instead of introspection to fetch legacy profile URN safely
+      const meRes = await fetch("https://api.linkedin.com/v2/me", {
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const introspect = await introspectRes.json();
-      if (introspect?.authorized_user) {
-        resolvedOrgId = introspect.authorized_user;
-      } else if (introspect?.sub) {
-        resolvedOrgId = `urn:li:person:${introspect.sub}`;
+      const meData = await meRes.json();
+      if (meData.id) {
+        resolvedOrgId = `urn:li:person:${meData.id}`;
       }
+      
       if (resolvedOrgId) {
         await prisma.platformSetting.upsert({
           where: { key: "linkedin_org_id" },
@@ -240,7 +233,7 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
         console.log("[LinkedIn] Resolved person URN:", resolvedOrgId);
       }
     } catch (e) {
-      console.warn("[LinkedIn] Could not resolve person URN via introspect:", e);
+      console.warn("[LinkedIn] Could not resolve person URN via /me:", e);
     }
   }
 

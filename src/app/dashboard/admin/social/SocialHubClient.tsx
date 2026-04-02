@@ -198,24 +198,19 @@ export default function SocialHubClient({
     }
   };
 
-  const handleConnectLinkedIn = async () => {
-    try {
-      setError(""); setSuccess("");
-      const url = await getLinkedInAuthUrl();
-      window.location.href = url;
-    } catch (e: any) {
-      setError("LinkedIn Redirect Error: " + e.message);
-    }
+  const handleConnectLinkedIn = () => {
+    // Generate URL statically on client side since it only needs CLIENT_ID
+    const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID || "780962bzhgweer"; // Fallback to avoid breaking if not prefixed with NEXT_PUBLIC in env
+    const PROD_URL = process.env.NODE_ENV === "production" ? "https://www.getverixa.com" : "http://localhost:3000";
+    const redirectUri = encodeURIComponent(`${PROD_URL}/api/linkedin/auth/callback`);
+    // Reverting to legacy LinkedIn scopes to prevent app-specific Unauthorized errors
+    const scope = encodeURIComponent("r_liteprofile r_emailaddress w_member_social");
+    const url = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
+    window.location.href = url;
   };
 
-  const handleConnectFacebook = async () => {
-    try {
-      setError(""); setSuccess("");
-      const url = await getFacebookAuthUrl();
-      window.location.href = url;
-    } catch (e: any) {
-      setError("Facebook Redirect Error: " + e.message);
-    }
+  const handleConnectFacebook = () => {
+    window.location.href = "/api/facebook/auth";
   };
 
   let parsedHooks: string[] = [];

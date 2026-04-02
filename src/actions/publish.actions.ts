@@ -385,8 +385,8 @@ export async function publishAll(jobId: string): Promise<PublishResult[]> {
 
 export async function exchangeLinkedInCode(code: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    const BASE_URL = process.env.NEXTAUTH_URL || "https://getverixa.com";
-    const redirectUri = `${BASE_URL}/api/linkedin/auth/callback`;
+    // Must match EXACTLY the redirect_uri used in getLinkedInAuthUrl()
+    const redirectUri = "https://getverixa.com/api/linkedin/auth/callback";
 
     const tokenRes = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
       method: "POST",
@@ -439,11 +439,13 @@ export async function exchangeLinkedInCode(code: string): Promise<{ ok: boolean;
 
 export async function getLinkedInAuthUrl(): Promise<string> {
   await verifyAdmin();
-  const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "https://getverixa.com";
-  const redirectUri = encodeURIComponent(`${BASE_URL}/api/linkedin/auth/callback`);
+  // ALWAYS use production URL for LinkedIn OAuth redirect
+  // LinkedIn only accepts registered URIs — localhost doesn't work unless added to Auth tab
+  const PROD_URL = "https://getverixa.com";
+  const redirectUri = encodeURIComponent(`${PROD_URL}/api/linkedin/auth/callback`);
   const clientId = process.env.LINKEDIN_CLIENT_ID;
-  // w_member_social: post as personal profile (no special approval needed)
-  // Note: requires "Share on LinkedIn" product to be added in LinkedIn Developer Portal
+  // w_member_social: post as personal LinkedIn profile
+  // Requires "Share on LinkedIn" product in LinkedIn Developer Portal (already added)
   const scope = encodeURIComponent("w_member_social");
   return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
 }

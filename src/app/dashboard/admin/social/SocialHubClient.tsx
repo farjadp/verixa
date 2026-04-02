@@ -4,13 +4,14 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { igniteSocialEngine, updateSocialJob, getSocialJobs } from "@/actions/social.actions";
 import {
-  publishToLinkedIn, publishToTwitter, publishToTelegram, publishAll,
-  getLinkedInAuthUrl, checkLinkedInStatus, disconnectLinkedIn
+  publishToLinkedIn, publishToTwitter, publishToTelegram, publishToFacebook, publishAll,
+  getLinkedInAuthUrl, checkLinkedInStatus, disconnectLinkedIn,
+  getFacebookAuthUrl, checkFacebookStatus, disconnectFacebook
 } from "@/actions/publish.actions";
 import {
   Play, Share2, CheckCircle2, AlertCircle, RefreshCcw,
   Linkedin, Twitter, Send, Save, Loader2, Link2, Sparkles,
-  Rocket, ExternalLink, ShieldCheck, ShieldX, Wifi
+  Rocket, ExternalLink, ShieldCheck, ShieldX, Wifi, Facebook
 } from "lucide-react";
 
 // ─── Status Badge Component ───────────────────────────────────────────────────
@@ -70,8 +71,10 @@ export default function SocialHubClient({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [linkedinConnected, setLinkedinConnected] = useState<boolean | null>(null);
+  const [facebookConnected, setFacebookConnected] = useState<boolean | null>(null);
+  const [facebookName, setFacebookName] = useState("");
 
-  const [editForms, setEditForms] = useState({ linkedin: "", x: "", telegram: "" });
+  const [editForms, setEditForms] = useState({ linkedin: "", facebook: "", x: "", telegram: "" });
 
   const selectedPost = posts.find((p) => p.id === selectedPostId);
   const socialJob = selectedPost?.socialJobs?.[0];
@@ -88,9 +91,22 @@ export default function SocialHubClient({
       setError(`LinkedIn Error: ${params.get("linkedin_error")}`);
       window.history.replaceState({}, "", window.location.pathname);
     }
+    if (params.get("facebook_connected")) {
+      setSuccess("✅ Facebook Connected Successfully!");
+      setFacebookConnected(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    if (params.get("facebook_error")) {
+      setError(`Facebook Error: ${params.get("facebook_error")}`);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
 
-    // Check LinkedIn status
+    // Check statuses
     checkLinkedInStatus().then((r) => setLinkedinConnected(r.connected));
+    checkFacebookStatus().then((r) => {
+      setFacebookConnected(r.connected);
+      if (r.name) setFacebookName(r.name);
+    });
   }, []);
 
   const handleSelectPost = (id: string) => {
@@ -99,6 +115,7 @@ export default function SocialHubClient({
     const job = post?.socialJobs?.[0];
     setEditForms({
       linkedin: job?.linkedinCopy || "",
+      facebook: job?.facebookCopy || "",
       x: job?.twitterCopy || "",
       telegram: job?.telegramCopy || "",
     });
@@ -124,6 +141,7 @@ export default function SocialHubClient({
     try {
       await updateSocialJob(socialJob.id, {
         linkedinCopy: editForms.linkedin,
+        facebookCopy: editForms.facebook,
         twitterCopy: editForms.x,
         telegramCopy: editForms.telegram,
         status: "APPROVED",
@@ -134,6 +152,7 @@ export default function SocialHubClient({
           p.socialJobs[0] = {
             ...p.socialJobs[0],
             linkedinCopy: editForms.linkedin,
+            facebookCopy: editForms.facebook,
             twitterCopy: editForms.x,
             telegramCopy: editForms.telegram,
             status: "APPROVED",
@@ -148,7 +167,7 @@ export default function SocialHubClient({
     }
   };
 
-  const handlePublish = async (platform: "linkedin" | "twitter" | "telegram" | "all") => {
+  const handlePublish = async (platform: "linkedin" | "twitter" | "facebook" | "telegram" | "all") => {
     if (!socialJob) return;
     if (socialJob.status !== "APPROVED") {
       setError("Please approve the drafts first before publishing.");
@@ -161,6 +180,7 @@ export default function SocialHubClient({
       if (platform === "telegram") results = [await publishToTelegram(socialJob.id)];
       else if (platform === "linkedin") results = [await publishToLinkedIn(socialJob.id)];
       else if (platform === "twitter") results = [await publishToTwitter(socialJob.id)];
+      else if (platform === "facebook") results = [await publishToFacebook(socialJob.id)];
       else results = await publishAll(socialJob.id);
 
       const failed = results.filter((r) => !r.ok);
@@ -180,6 +200,11 @@ export default function SocialHubClient({
 
   const handleConnectLinkedIn = async () => {
     const url = await getLinkedInAuthUrl();
+    window.location.href = url;
+  };
+
+  const handleConnectFacebook = async () => {
+    const url = await getFacebookAuthUrl();
     window.location.href = url;
   };
 
@@ -223,6 +248,28 @@ export default function SocialHubClient({
           ) : <><Wifi className="w-4 h-4" /> Checking LinkedIn...</>}
         </div>
 
+        <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold ${
+          facebookConnected === true ? "bg-blue-50 text-blue-700 border-blue-100"
+          : facebookConnected === false ? "bg-orange-50 text-orange-700 border-orange-100"
+          : "bg-gray-50 text-gray-500 border-gray-100"
+        }`}>
+          {facebookConnected === true ? (
+            <div className="flex items-center justify-between w-full">
+              <span className="flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> FB: {facebookName}</span>
+              <button
+                onClick={async () => {
+                  await disconnectFacebook();
+                  setFacebookConnected(false);
+                  setSuccess("Facebook disconnected.");
+                }}
+                className="text-xs text-blue-500 hover:text-red-600 underline ml-2 font-normal"
+              >Disconnect</button>
+            </div>
+          ) : facebookConnected === false ? (
+            <><ShieldX className="w-4 h-4" /> FB not connected —<button onClick={handleConnectFacebook} className="underline ml-1 hover:text-blue-900">Connect Now</button></>
+          ) : <><Wifi className="w-4 h-4" /> Checking Facebook...</>}
+        </div>
+
         <div className="bg-white border border-[#e5e7eb] p-5 rounded-2xl flex flex-col shadow-sm">
           <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest border-b border-[#e5e7eb] pb-3 mb-4">
             Published CMS Articles
@@ -259,6 +306,7 @@ export default function SocialHubClient({
                       <>
                         <PlatformBadge status={job.telegramStatus} label="TG" icon={Send} />
                         <PlatformBadge status={job.linkedinStatus} label="LI" icon={Linkedin} />
+                        <PlatformBadge status={job.facebookStatus} label="FB" icon={Facebook} />
                         <PlatformBadge status={job.twitterStatus} label="X" icon={Twitter} />
                       </>
                     )}
@@ -327,6 +375,9 @@ export default function SocialHubClient({
                   <PublishBtn label="LinkedIn" icon={Linkedin} colorClass="bg-[#0A66C2]"
                     status={socialJob.linkedinStatus} loading={publishingPlatform === "linkedin"}
                     onClick={() => handlePublish("linkedin")} />
+                  <PublishBtn label="Facebook" icon={Facebook} colorClass="bg-[#1877F2]"
+                    status={socialJob.facebookStatus} loading={publishingPlatform === "facebook"}
+                    onClick={() => handlePublish("facebook")} />
                   <PublishBtn label="X / Twitter" icon={Twitter} colorClass="bg-black"
                     status={socialJob.twitterStatus} loading={publishingPlatform === "twitter"}
                     onClick={() => handlePublish("twitter")} />
@@ -395,6 +446,19 @@ export default function SocialHubClient({
                     <textarea rows={10} className="w-full p-4 text-sm text-gray-700 focus:outline-none resize-y"
                       value={editForms.linkedin}
                       onChange={(e) => setEditForms({ ...editForms, linkedin: e.target.value })} />
+                  </div>
+
+                  {/* ─ Facebook ─ */}
+                  <div className="bg-white border border-[#e5e7eb] rounded-xl overflow-hidden shadow-sm">
+                    <div className="bg-blue-50/60 px-4 py-2.5 flex items-center gap-2 border-b border-[#e5e7eb]">
+                      <Facebook className="w-4 h-4 text-[#1877F2]" />
+                      <span className="text-sm font-bold text-gray-900">Facebook</span>
+                      <span className="text-[10px] text-gray-400 ml-auto">Community · Friendly</span>
+                      <PlatformBadge status={socialJob.facebookStatus} label="" icon={Facebook} />
+                    </div>
+                    <textarea rows={8} className="w-full p-4 text-sm text-gray-700 focus:outline-none resize-y"
+                      value={editForms.facebook}
+                      onChange={(e) => setEditForms({ ...editForms, facebook: e.target.value })} />
                   </div>
 
                   {/* ─ Twitter ─ */}

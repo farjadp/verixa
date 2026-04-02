@@ -455,6 +455,74 @@ export async function publishToTwitter(jobId: string): Promise<PublishResult> {
   }
 }
 
+// ─── FACEBOOK ────────────────────────────────────────────────────────────────
+// Uses Meta Graph API v19.0.
+// Requires: facebook_page_token extracted from OAuth flow.
+
+export async function publishToFacebook(jobId: string): Promise<PublishResult> {
+  await verifyAdmin();
+
+  const job = await getJobWithPost(jobId);
+  if (!job) return { ok: false, platform: "facebook", error: "Job not found" };
+  if (!job.facebookCopy) return { ok: false, platform: "facebook", error: "No Facebook copy generated" };
+
+  const dbToken = await prisma.platformSetting.findUnique({ where: { key: "facebook_page_token" } });
+  const dbPageId = await prisma.platformSetting.findUnique({ where: { key: "facebook_page_id" } });
+  
+  if (!dbToken?.value || !dbPageId?.value) {
+    return { ok: false, platform: "facebook", error: "Facebook Page not connected. Go to Admin → Social → Connect Facebook." };
+  }
+
+  try {
+    const imageUrl = job.blogPost.coverImage;
+    const fbUrl = `https://graph.facebook.com/v19.0/${dbPageId.value}/photos`;
+    
+    // Facebook allows publishing photos with a message acting as the post body
+    const body = new URLSearchParams();
+    body.append("access_token", dbToken.value);
+    body.append("message", job.facebookCopy);
+    if (imageUrl && imageUrl.startsWith("http")) {
+      body.append("url", imageUrl);
+    }
+
+    // If there is no image, we should post to /feed instead
+    const postEndpoint = (imageUrl && imageUrl.startsWith("http")) 
+      ? fbUrl 
+      : `https://graph.facebook.com/v19.0/${dbPageId.value}/feed`;
+
+    const res = await fetch(postEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString()
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      const errMsg = data?.error?.message || `HTTP ${res.status}`;
+      await prisma.socialJob.update({
+        where: { id: jobId },
+        data: { facebookStatus: "FAILED", publishError: `Facebook: ${errMsg}` } as any,
+      });
+      return { ok: false, platform: "facebook", error: errMsg };
+    }
+
+    const postId = data?.post_id || data?.id; // /photos returns post_id, /feed returns id
+    await prisma.socialJob.update({
+      where: { id: jobId },
+      data: { facebookStatus: "POSTED", facebookPostId: postId, publishedAt: new Date() } as any,
+    });
+
+    return { ok: true, platform: "facebook", postId };
+  } catch (err: any) {
+    await prisma.socialJob.update({
+      where: { id: jobId },
+      data: { facebookStatus: "FAILED", publishError: err.message } as any,
+    });
+    return { ok: false, platform: "facebook", error: err.message };
+  }
+}
+
 // ─── PUBLISH ALL ──────────────────────────────────────────────────────────────
 
 export async function publishAll(jobId: string): Promise<PublishResult[]> {
@@ -467,6 +535,7 @@ export async function publishAll(jobId: string): Promise<PublishResult[]> {
     publishToTelegram(jobId),
     publishToLinkedIn(jobId),
     publishToTwitter(jobId),
+    publishToFacebook(jobId),
   ]);
 
   const outcomes = results.map((r) =>
@@ -583,6 +652,29 @@ export async function disconnectLinkedIn(): Promise<{ ok: boolean }> {
   await verifyAdmin();
   await prisma.platformSetting.deleteMany({
     where: { key: { in: ["linkedin_access_token", "linkedin_org_id"] } },
+  });
+  return { ok: true };
+}
+
+// ─── Facebook Auth Helper ─────────────────────────────────────────────────────
+
+export async function getFacebookAuthUrl(): Promise<string> {
+  await verifyAdmin();
+  const PROD_URL = "https://getverixa.com";
+  return `${PROD_URL}/api/facebook/auth`;
+}
+
+export async function checkFacebookStatus(): Promise<{ connected: boolean; name?: string }> {
+  await verifyAdmin();
+  const token = await prisma.platformSetting.findUnique({ where: { key: "facebook_page_token" } });
+  const name = await prisma.platformSetting.findUnique({ where: { key: "facebook_page_name" } });
+  return { connected: !!(token?.value), name: name?.value || "Unknown Page" };
+}
+
+export async function disconnectFacebook(): Promise<{ ok: boolean }> {
+  await verifyAdmin();
+  await prisma.platformSetting.deleteMany({
+    where: { key: { in: ["facebook_page_token", "facebook_page_id", "facebook_page_name"] } },
   });
   return { ok: true };
 }

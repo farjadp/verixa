@@ -414,6 +414,7 @@ model SocialJob {
   linkedinCopy    String?
   twitterCopy     String?
   telegramCopy    String?
+  facebookCopy    String?
   hooks           String?      // JSON of 5 Hooks
   ctas            String?      // JSON of 3 CTAs
   status          String       @default("PENDING") // PENDING, GENERATING, REVIEW, APPROVED, POSTING, POSTED, FAILED
@@ -422,11 +423,13 @@ model SocialJob {
   linkedinStatus  String?      @default("PENDING") // PENDING | POSTED | FAILED | SKIPPED
   twitterStatus   String?      @default("PENDING")
   telegramStatus  String?      @default("PENDING")
+  facebookStatus  String?      @default("PENDING")
 
   // Platform result IDs (returned after successful publish)
   linkedinPostId  String?
   twitterPostId   String?
   telegramMsgId   String?
+  facebookPostId  String?
 
   // Timestamps & errors
   publishedAt     DateTime?

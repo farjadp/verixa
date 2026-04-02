@@ -30,6 +30,9 @@ const SocialSchema = z.object({
   linkedin: z.string().describe(
     "Professional LinkedIn post: hook + 2-3 paragraphs + article link + 4-6 hashtags + disclaimer. Max 2-3 emojis total."
   ),
+  facebook: z.string().describe(
+    "Facebook Page post: Story-driven hook + engaging conversational body + community question/poll + article link + 2-3 emojis."
+  ),
   x_twitter: z.string().describe(
     "Friendly Twitter/X post: hook + 3-4 sentences summary + 1-2 emojis + article link + 3-4 hashtags + consultant CTA at end."
   ),
@@ -138,6 +141,11 @@ LINKEDIN:
 - End with hashtags then disclaimer
 - No salesy language
 
+FACEBOOK:
+- Tone: Conversational, Story-driven, Community-focused
+- Structure: Relatable hook → 2-3 engaging paragraphs → ask a question to drive comments → article link
+- Avoid looking like a generic corporate feed. Treat it like a community group post.
+
 TWITTER/X:
 - Tone: Friendly, direct, conversational (NOT corporate)
 - Length: 280-800 characters (no limit, but be punchy)
@@ -161,11 +169,11 @@ TELEGRAM FARSI (Persian):
 - Do NOT include any disclaimer or footer — those are added automatically
 - End with the article link
 
-Return all four versions. ALWAYS include the article link in every version.`,
+Return all five versions. ALWAYS include the article link in every version.`,
         },
         {
           role: "user",
-          content: `Generate four platform-specific posts for this article:
+          content: `Generate five platform-specific posts for this article:
 
 Title: ${extractedData?.title}
 Summary: ${extractedData?.summary}
@@ -194,8 +202,8 @@ Consultant CTA (Twitter only): ${CONSULTANT_CTA}`,
           role: "system",
           content: `You are the Editor-In-Chief for Verixa. Review these 4 social posts and silently rewrite to fix:
 1. Any robotic or generic language
-2. Missing article links (MUST be present in all 4)
-3. Tone mismatch (LinkedIn=professional, X=friendly, Telegram=scannable)
+2. Missing article links (MUST be present in all 5)
+3. Tone mismatch (LinkedIn=professional, Facebook=community, X=friendly, Telegram=scannable)
 4. Missing disclaimers (both EN and FA telegram posts must have disclaimers)
 5. Persian text quality (Farsi must sound natural and professional)
 Return only the improved JSON.`,
@@ -204,6 +212,7 @@ Return only the improved JSON.`,
           role: "user",
           content: `Review and improve:
 LinkedIn: ${draftSocials?.linkedin}
+Facebook: ${draftSocials?.facebook}
 X/Twitter: ${draftSocials?.x_twitter}
 Telegram EN: ${draftSocials?.telegram_en}
 Telegram FA: ${draftSocials?.telegram_fa}`,
@@ -221,12 +230,14 @@ Telegram FA: ${draftSocials?.telegram_fa}`,
       where: { id: job.id },
       data: {
         linkedinCopy: finalSocials?.linkedin,
+        facebookCopy: finalSocials?.facebook,
         twitterCopy: finalSocials?.x_twitter,
         telegramCopy: telegramCombined,
         hooks: JSON.stringify(hooksData?.hooks || []),
         ctas: JSON.stringify(hooksData?.ctas || []),
         status: "REVIEW",
         linkedinStatus: "PENDING",
+        facebookStatus: "PENDING",
         twitterStatus: "PENDING",
         telegramStatus: "PENDING",
       },
@@ -254,6 +265,7 @@ export async function updateSocialJob(
   jobId: string,
   data: {
     linkedinCopy?: string;
+    facebookCopy?: string;
     twitterCopy?: string;
     telegramCopy?: string;
     status?: string;

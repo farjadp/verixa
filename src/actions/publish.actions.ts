@@ -10,6 +10,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
+import { logSystemEvent } from "@/lib/logger";
 
 async function verifyAdmin() {
   const session = await getServerSession(authOptions);
@@ -195,8 +196,10 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
   const job = await getJobWithPost(jobId);
   if (!job) return { ok: false, platform: "linkedin", error: "Job not found" };
   if (!job.linkedinCopy) {
-    await prisma.socialJob.update({ where: { id: jobId }, data: { linkedinStatus: "FAILED", publishError: "No LinkedIn copy generated" } as any });
-    return { ok: false, platform: "linkedin", error: "No LinkedIn copy generated" };
+    const errorMsg = "No LinkedIn copy generated";
+    await logSystemEvent("PUBLISH_LINKEDIN_FAILED", { jobId, error: errorMsg });
+    await prisma.socialJob.update({ where: { id: jobId }, data: { linkedinStatus: "FAILED", publishError: errorMsg } as any });
+    return { ok: false, platform: "linkedin", error: errorMsg };
   }
 
   // Get access token — first try DB (set via OAuth flow), then env
@@ -207,6 +210,7 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
 
   if (!accessToken) {
     const errorMsg = "LinkedIn not connected. Go to Admin → Social → Connect LinkedIn.";
+    await logSystemEvent("PUBLISH_LINKEDIN_FAILED", { jobId, error: "Missing Access Token" });
     await prisma.socialJob.update({ where: { id: jobId }, data: { linkedinStatus: "FAILED", publishError: errorMsg } as any });
     return { ok: false, platform: "linkedin", error: errorMsg };
   }
@@ -239,6 +243,7 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
 
   if (!resolvedOrgId) {
     const errorMsg = "LinkedIn person URN missing. Please reconnect via Admin → Social → Connect LinkedIn.";
+    await logSystemEvent("PUBLISH_LINKEDIN_FAILED", { jobId, error: "Missing URN" });
     await prisma.socialJob.update({ where: { id: jobId }, data: { linkedinStatus: "FAILED", publishError: errorMsg } as any });
     return { ok: false, platform: "linkedin", error: errorMsg };
   }
@@ -335,6 +340,7 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
     }
 
     const postId = postRes.headers.get("x-restli-id") || "unknown";
+    await logSystemEvent("PUBLISH_LINKEDIN_SUCCESS", { jobId, postId });
     await prisma.socialJob.update({
       where: { id: jobId },
       data: { linkedinStatus: "POSTED", linkedinPostId: postId, publishedAt: new Date() } as any,
@@ -342,6 +348,7 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
 
     return { ok: true, platform: "linkedin", postId };
   } catch (err: any) {
+    await logSystemEvent("PUBLISH_LINKEDIN_EXCEPTION", { jobId, error: err.message || err });
     await prisma.socialJob.update({
       where: { id: jobId },
       data: { linkedinStatus: "FAILED", publishError: err.message } as any,
@@ -406,8 +413,10 @@ export async function publishToTwitter(jobId: string): Promise<PublishResult> {
   const job = await getJobWithPost(jobId);
   if (!job) return { ok: false, platform: "twitter", error: "Job not found" };
   if (!job.twitterCopy) {
-    await prisma.socialJob.update({ where: { id: jobId }, data: { twitterStatus: "FAILED", publishError: "No Twitter copy generated" } as any });
-    return { ok: false, platform: "twitter", error: "No Twitter copy generated" };
+    const errorMsg = "No Twitter copy generated";
+    await logSystemEvent("PUBLISH_TWITTER_FAILED", { jobId, error: errorMsg });
+    await prisma.socialJob.update({ where: { id: jobId }, data: { twitterStatus: "FAILED", publishError: errorMsg } as any });
+    return { ok: false, platform: "twitter", error: errorMsg };
   }
 
   const apiKey = process.env.TWITTER_API_KEY;
@@ -417,6 +426,7 @@ export async function publishToTwitter(jobId: string): Promise<PublishResult> {
 
   if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
     const errorMsg = "Twitter OAuth 1.0a keys missing. Add TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET to Vercel env vars.";
+    await logSystemEvent("PUBLISH_TWITTER_FAILED", { jobId, error: "Missing Keys" });
     await prisma.socialJob.update({ where: { id: jobId }, data: { twitterStatus: "FAILED", publishError: errorMsg } as any });
     return {
       ok: false,
@@ -424,6 +434,8 @@ export async function publishToTwitter(jobId: string): Promise<PublishResult> {
       error: errorMsg,
     };
   }
+
+  await logSystemEvent("PUBLISH_TWITTER_START", { jobId });
 
   try {
     const tweetUrl = "https://api.twitter.com/2/tweets";
@@ -442,6 +454,7 @@ export async function publishToTwitter(jobId: string): Promise<PublishResult> {
     const data = await res.json();
 
     if (!res.ok) {
+      await logSystemEvent("PUBLISH_TWITTER_FAILED", { jobId, payload: data });
       const errMsg = data?.detail || data?.errors?.[0]?.message || `HTTP ${res.status}`;
       await prisma.socialJob.update({
         where: { id: jobId },
@@ -451,6 +464,7 @@ export async function publishToTwitter(jobId: string): Promise<PublishResult> {
     }
 
     const tweetId = data?.data?.id;
+    await logSystemEvent("PUBLISH_TWITTER_SUCCESS", { jobId, tweetId });
     await prisma.socialJob.update({
       where: { id: jobId },
       data: { twitterStatus: "POSTED", twitterPostId: tweetId, publishedAt: new Date() } as any,
@@ -458,6 +472,7 @@ export async function publishToTwitter(jobId: string): Promise<PublishResult> {
 
     return { ok: true, platform: "twitter", postId: tweetId };
   } catch (err: any) {
+    await logSystemEvent("PUBLISH_TWITTER_EXCEPTION", { jobId, error: err.message || err });
     await prisma.socialJob.update({
       where: { id: jobId },
       data: { twitterStatus: "FAILED", publishError: err.message } as any,
@@ -476,8 +491,10 @@ export async function publishToFacebook(jobId: string): Promise<PublishResult> {
   const job = await getJobWithPost(jobId);
   if (!job) return { ok: false, platform: "facebook", error: "Job not found" };
   if (!job.facebookCopy) {
-    await prisma.socialJob.update({ where: { id: jobId }, data: { facebookStatus: "FAILED", publishError: "No Facebook copy generated" } as any });
-    return { ok: false, platform: "facebook", error: "No Facebook copy generated" };
+    const errorMsg = "No Facebook copy generated";
+    await logSystemEvent("PUBLISH_FACEBOOK_FAILED", { jobId, error: errorMsg });
+    await prisma.socialJob.update({ where: { id: jobId }, data: { facebookStatus: "FAILED", publishError: errorMsg } as any });
+    return { ok: false, platform: "facebook", error: errorMsg };
   }
 
   const dbToken = await prisma.platformSetting.findUnique({ where: { key: "facebook_page_token" } });
@@ -485,9 +502,12 @@ export async function publishToFacebook(jobId: string): Promise<PublishResult> {
   
   if (!dbToken?.value || !dbPageId?.value) {
     const errorMsg = "Facebook Page not connected. Go to Admin → Social → Connect Facebook.";
+    await logSystemEvent("PUBLISH_FACEBOOK_FAILED", { jobId, error: "Missing DB Tokens" });
     await prisma.socialJob.update({ where: { id: jobId }, data: { facebookStatus: "FAILED", publishError: errorMsg } as any });
     return { ok: false, platform: "facebook", error: errorMsg };
   }
+
+  await logSystemEvent("PUBLISH_FACEBOOK_START", { jobId, pageId: dbPageId.value });
 
   try {
     const imageUrl = job.blogPost.coverImage;
@@ -515,6 +535,7 @@ export async function publishToFacebook(jobId: string): Promise<PublishResult> {
     const data = await res.json();
 
     if (!res.ok) {
+      await logSystemEvent("PUBLISH_FACEBOOK_FAILED", { jobId, payload: data });
       const errMsg = data?.error?.message || `HTTP ${res.status}`;
       await prisma.socialJob.update({
         where: { id: jobId },
@@ -524,6 +545,8 @@ export async function publishToFacebook(jobId: string): Promise<PublishResult> {
     }
 
     const postId = data?.post_id || data?.id; // /photos returns post_id, /feed returns id
+    await logSystemEvent("PUBLISH_FACEBOOK_SUCCESS", { jobId, postId });
+    
     await prisma.socialJob.update({
       where: { id: jobId },
       data: { facebookStatus: "POSTED", facebookPostId: postId, publishedAt: new Date() } as any,
@@ -531,6 +554,7 @@ export async function publishToFacebook(jobId: string): Promise<PublishResult> {
 
     return { ok: true, platform: "facebook", postId };
   } catch (err: any) {
+    await logSystemEvent("PUBLISH_FACEBOOK_EXCEPTION", { jobId, error: err.message || err });
     await prisma.socialJob.update({
       where: { id: jobId },
       data: { facebookStatus: "FAILED", publishError: err.message } as any,
@@ -607,6 +631,7 @@ export async function exchangeLinkedInCode(code: string): Promise<{ ok: boolean;
 
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok || !tokenData.access_token) {
+      await logSystemEvent("LINKEDIN_AUTH_TOKEN_EXCHANGE_FAILED", tokenData);
       return { ok: false, error: tokenData?.error_description || "Failed to exchange code" };
     }
 
@@ -650,9 +675,12 @@ export async function exchangeLinkedInCode(code: string): Promise<{ ok: boolean;
       });
     }
 
+    await logSystemEvent("LINKEDIN_AUTH_SUCCESS", { success: true });
     return { ok: true };
   } catch (err: any) {
-    return { ok: false, error: err.message };
+    console.error("[LinkedIn] Callback Exception:", err);
+    await logSystemEvent("LINKEDIN_AUTH_EXCEPTION", err);
+    return { ok: false, error: "Server Exception" };
   }
 }
 

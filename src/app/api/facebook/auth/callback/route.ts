@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
+import { logSystemEvent } from "@/lib/logger";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -18,10 +19,12 @@ export async function GET(req: Request) {
   const baseUrl = `${PROD_URL}/dashboard/admin/social`;
 
   if (error) {
+    await logSystemEvent("FACEBOOK_AUTH_CALLBACK_FAILED", { error, errorReason }, "ADMIN", (session.user as any).id);
     return NextResponse.redirect(`${baseUrl}?facebook_error=${encodeURIComponent(errorReason || error)}`);
   }
 
   if (!code) {
+    await logSystemEvent("FACEBOOK_AUTH_CALLBACK_FAILED", { msg: "No code provided" }, "ADMIN", (session.user as any).id);
     return NextResponse.redirect(`${baseUrl}?facebook_error=No+code+provided`);
   }
 
@@ -38,6 +41,7 @@ export async function GET(req: Request) {
 
     if (!tokenData.access_token) {
       console.error("[Facebook] Error exchanging code:", tokenData);
+      await logSystemEvent("FACEBOOK_AUTH_TOKEN_EXCHANGE_FAILED", tokenData, "ADMIN", (session.user as any).id);
       return NextResponse.redirect(`${baseUrl}?facebook_error=TokenExchnageFailed`);
     }
 
@@ -56,6 +60,7 @@ export async function GET(req: Request) {
 
     if (!pagesData.data || pagesData.data.length === 0) {
       console.error("[Facebook] No pages found for user.", pagesData);
+      await logSystemEvent("FACEBOOK_AUTH_NO_PAGES_FOUND", pagesData, "ADMIN", (session.user as any).id);
       return NextResponse.redirect(`${baseUrl}?facebook_error=NoPagesUnderAccount`);
     }
 
@@ -84,9 +89,12 @@ export async function GET(req: Request) {
       create: { key: "facebook_page_name", value: pageName },
     });
 
+    await logSystemEvent("FACEBOOK_AUTH_SUCCESS", { pageId, pageName }, "ADMIN", (session.user as any).id);
+
     return NextResponse.redirect(`${baseUrl}?facebook_connected=true`);
   } catch (err: any) {
     console.error("[Facebook] Callback Exception:", err);
+    await logSystemEvent("FACEBOOK_AUTH_EXCEPTION", err, "ADMIN", (session.user as any).id);
     return NextResponse.redirect(`${baseUrl}?facebook_error=ExceptionOccurred`);
   }
 }

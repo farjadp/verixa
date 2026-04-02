@@ -8,6 +8,7 @@ import {
   getLinkedInAuthUrl, checkLinkedInStatus, disconnectLinkedIn,
   getFacebookAuthUrl, checkFacebookStatus, disconnectFacebook
 } from "@/actions/publish.actions";
+import { logClientError } from "@/actions/log.actions";
 import {
   Play, Share2, CheckCircle2, AlertCircle, RefreshCcw,
   Linkedin, Twitter, Send, Save, Loader2, Link2, Sparkles,
@@ -161,7 +162,8 @@ export default function SocialHubClient({
         return p;
       }));
     } catch (e: any) {
-      setError(e.message || "Failed to save.");
+      logClientError("UI_PUBLISH_ALL_ERROR", e.message, e.stack);
+      setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -192,6 +194,7 @@ export default function SocialHubClient({
       // Refresh post data
       setTimeout(() => window.location.reload(), 2000);
     } catch (e: any) {
+      await logClientError("UI_ENGINE_ERROR", e.message, e.stack);
       setError(e.message);
     } finally {
       setPublishingPlatform(null);
@@ -199,14 +202,7 @@ export default function SocialHubClient({
   };
 
   const handleConnectLinkedIn = () => {
-    // Generate URL statically on client side since it only needs CLIENT_ID
-    const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID || "780962bzhgweer"; // Fallback to avoid breaking if not prefixed with NEXT_PUBLIC in env
-    const PROD_URL = process.env.NODE_ENV === "production" ? "https://www.getverixa.com" : "http://localhost:3000";
-    const redirectUri = encodeURIComponent(`${PROD_URL}/api/linkedin/auth/callback`);
-    // Reverting to legacy LinkedIn scopes to prevent app-specific Unauthorized errors
-    const scope = encodeURIComponent("r_liteprofile r_emailaddress w_member_social");
-    const url = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
-    window.location.href = url;
+    window.location.href = "/api/linkedin/auth";
   };
 
   const handleConnectFacebook = () => {

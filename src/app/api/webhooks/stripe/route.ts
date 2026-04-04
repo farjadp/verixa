@@ -14,7 +14,6 @@ import { revalidatePath } from "next/cache";
 // Local testing:
 //   stripe listen --forward-to localhost:3000/api/webhooks/stripe
 
-export const config = { api: { bodyParser: false } };
 
 export async function POST(req: NextRequest) {
   // 1. ── Signature Verification ────────────────────────────────────────────

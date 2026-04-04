@@ -243,19 +243,38 @@ export async function initiatePhoneOTP(licenseNumber: string, phone: string) {
   });
 
   try {
-    const twilioClient = getTwilioClient();
-    if (!twilioClient) {
-      return { ok: false, error: "Twilio credentials are not configured on the server." };
+    const sid = process.env.TWILIO_ACCOUNT_SID;
+    const token = process.env.TWILIO_AUTH_TOKEN;
+    const fromPhone = process.env.TWILIO_PHONE_NUMBER;
+
+    if (!sid || !token || !fromPhone) {
+      return { ok: false, error: "Twilio credentials are not fully configured on the server." };
     }
 
-    await twilioClient.messages.create({
-      body: `Your Verixa verification code is: ${otp}. Valid for 1 hour.`,
-      from: process.env.TWILIO_PHONE_NUMBER!,
-      to: normalizedInput.startsWith("+") ? normalizedInput : `+${normalizedInput}`,
+    const auth = Buffer.from(`${sid}:${token}`).toString("base64");
+    const toPhone = normalizedInput.startsWith("+") ? normalizedInput : `+${normalizedInput}`;
+
+    const twilioRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        To: toPhone,
+        From: fromPhone,
+        Body: `Your Verixa verification code is: ${otp}. Valid for 1 hour.`,
+      }),
     });
+
+    if (!twilioRes.ok) {
+      const errorData = await twilioRes.json().catch(() => ({}));
+      console.error("Twilio SMS API Error:", errorData);
+      return { ok: false, error: `Failed to send SMS. Reason: ${errorData?.message || twilioRes.statusText}` };
+    }
   } catch (err: any) {
-    console.error("Twilio SMS Error:", err);
-    return { ok: false, error: `Failed to send SMS. Reason: ${err?.message || 'Unknown error'}` };
+    console.error("Twilio SMS Fetch Error:", err);
+    return { ok: false, error: `Failed to connect to SMS provider. Reason: ${err?.message || 'Unknown error'}` };
   }
 
   return { ok: true, isMatched, smsSentTo: phone };

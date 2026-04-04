@@ -8,10 +8,12 @@ import { signIn } from "next-auth/react";
 import { getConsultantByLicense } from "@/lib/db";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
-const twilioClient = 
-  process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-    ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
-    : null;
+function getTwilioClient() {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  if (!sid || !token) return null;
+  return twilio(sid, token);
+}
 
 // ─── RATE LIMIT CONSTANTS (Issue 15a) ────────────────────────────────────────
 const OTP_RATE_LIMIT = 3;           // max OTPs per window
@@ -241,15 +243,16 @@ export async function initiatePhoneOTP(licenseNumber: string, phone: string) {
   });
 
   try {
-    if (twilioClient) {
-      await twilioClient.messages.create({
-        body: `Your Verixa verification code is: ${otp}. Valid for 1 hour.`,
-        from: process.env.TWILIO_PHONE_NUMBER!,
-        to: normalizedInput.startsWith("+") ? normalizedInput : `+${normalizedInput}`,
-      });
-    } else {
-      console.log(`[MOCK SMS] To: ${normalizedInput}, Body: Your Verixa verification code is: ${otp}. Valid for 1 hour.`);
+    const twilioClient = getTwilioClient();
+    if (!twilioClient) {
+      return { ok: false, error: "Twilio credentials are not configured on the server." };
     }
+
+    await twilioClient.messages.create({
+      body: `Your Verixa verification code is: ${otp}. Valid for 1 hour.`,
+      from: process.env.TWILIO_PHONE_NUMBER!,
+      to: normalizedInput.startsWith("+") ? normalizedInput : `+${normalizedInput}`,
+    });
   } catch (err: any) {
     console.error("Twilio SMS Error:", err);
     return { ok: false, error: `Failed to send SMS. Reason: ${err?.message || 'Unknown error'}` };

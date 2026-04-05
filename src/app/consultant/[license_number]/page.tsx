@@ -18,7 +18,8 @@ import Footer from "@/components/Footer";
 import SaveProfileButton from "@/components/SaveProfileButton";
 import { checkIsSaved } from "@/actions/savedProfiles.actions";
 import TrackPageView from "@/components/TrackPageView";
-
+import GuestReviewButton from "@/components/GuestReviewButton";
+import { ALL_SPECIALIZATION_ITEMS } from "@/lib/immigration-paths";
 import { Metadata } from "next";
 
 export async function generateMetadata({
@@ -95,6 +96,19 @@ export default async function ConsultantProfilePage({
 
   const messengers = Array.isArray(dbProfile?.messengers) ? dbProfile.messengers : [];
 
+  let specKeys: string[] = [];
+  if (dbProfile?.specializations) {
+    try {
+      const parsed = JSON.parse(dbProfile.specializations);
+      if (Array.isArray(parsed)) {
+        specKeys = parsed;
+      }
+    } catch(e) {}
+  }
+
+  const specializations = specKeys.length > 0 
+    ? ALL_SPECIALIZATION_ITEMS.filter(item => specKeys.includes(item.key))
+    : [];
 
   return (
     <div className="min-h-screen bg-[#F4F6F9] font-sans text-[#1A1F2B] pt-[80px] lg:pt-[88px]">
@@ -445,15 +459,22 @@ export default async function ConsultantProfilePage({
           <section>
             <h2 className="text-lg font-bold font-serif mb-4">Areas of Practice</h2>
             <div className="flex flex-wrap gap-2.5">
-              {(consultationTypes.length > 0
-                ? consultationTypes.map(ct => ct.title)
-                : ['Express Entry', 'Study Permits', 'Work Permits', 'Family Sponsorship', 'Provincial Nominee Programs', 'Citizenship Applications']
-              ).map(tag => (
-                <span key={tag} className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${consultationTypes.length > 0 ? 'bg-[#2FA4A9]/5 border-[#2FA4A9]/20 text-[#2FA4A9] hover:bg-[#2FA4A9]/10' : 'bg-white border-gray-100 text-gray-400'}`}>
-                  {tag}
-                </span>
-              ))}
-              {consultationTypes.length === 0 && !isClaimed && (
+              {specializations.length > 0 ? (
+                specializations.map(item => (
+                  <span key={item.key} className="px-4 py-2 rounded-xl text-sm font-medium border bg-[#2FA4A9]/5 border-[#2FA4A9]/20 text-[#2FA4A9] hover:bg-[#2FA4A9]/10 transition-colors">
+                    {item.label}
+                  </span>
+                ))
+              ) : isClaimed ? (
+                <span className="text-sm font-medium text-gray-400 italic">Not specified</span>
+              ) : (
+                ['Express Entry', 'Study Permits', 'Work Permits', 'Family Sponsorship', 'Provincial Nominee Programs', 'Citizenship Applications'].map(tag => (
+                  <span key={tag} className="px-4 py-2 rounded-xl text-sm font-medium border bg-white border-gray-100 text-gray-400 transition-colors">
+                    {tag}
+                  </span>
+                ))
+              )}
+              {specializations.length === 0 && !isClaimed && (
                 <span className="text-xs text-gray-400 italic self-center">Default categories — claim to customize</span>
               )}
             </div>
@@ -462,43 +483,76 @@ export default async function ConsultantProfilePage({
           {/* REVIEWS */}
           <section>
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold font-serif flex items-center gap-2">Client Reviews</h2>
-              {avgRating !== null && (
-                <div className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-100 text-amber-700 px-3 py-1.5 rounded-xl font-bold text-sm">
-                  <Star className="w-4 h-4 fill-amber-400 text-amber-400" /> {avgRating.toFixed(1)}
-                </div>
-              )}
+              <div className="flex items-center gap-4">
+                <h2 className="text-lg font-bold font-serif flex items-center gap-2">Client Reviews</h2>
+                {avgRating !== null && (
+                  <div className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-100 text-amber-700 px-3 py-1.5 rounded-xl font-bold text-sm">
+                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" /> {avgRating.toFixed(1)}
+                  </div>
+                )}
+              </div>
+              <GuestReviewButton licenseNumber={data.License_Number} consultantName={data.Full_Name.split(' ')[0]} />
             </div>
 
             {reviews.length > 0 ? (
               <div className="space-y-4">
-                {reviews.map((review) => (
-                  <div key={review.id} className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} className={`w-3.5 h-3.5 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`} />
-                        ))}
+                {reviews.map((review) => {
+                  const isUnverifiedGuest = !review.userId;
+                  const reviewerName = isUnverifiedGuest ? (review.guestName || "Unverified Guest") : (review.user?.name || "Verified Client");
+                  
+                  return (
+                    <div key={review.id} className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star key={i} className={`w-3.5 h-3.5 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`} />
+                          ))}
+                        </div>
+                        <span className="text-xs font-medium text-gray-400">
+                          {new Date(review.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                        </span>
                       </div>
-                      <span className="text-xs font-medium text-gray-400">
-                        {new Date(review.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                      </span>
-                    </div>
-                    {review.comment && <p className="text-[15px] text-gray-600 leading-relaxed mb-4">{review.comment}</p>}
-                    <div className="inline-flex items-center gap-2 text-xs font-bold text-gray-400 bg-gray-50 border border-gray-100 px-3 py-1.5 rounded-full">
-                      <div className="w-5 h-5 rounded-full bg-[#2FA4A9]/10 flex items-center justify-center text-[#2FA4A9] font-black text-[10px]">
-                        {review.user?.name?.[0]?.toUpperCase() ?? 'C'}
+                      {review.comment && <p className="text-[15px] text-gray-600 leading-relaxed mb-4">{review.comment}</p>}
+                      <div className="flex items-center gap-3">
+                        <div className={`inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full ${isUnverifiedGuest ? 'bg-orange-50 text-orange-700 border border-orange-100' : 'bg-gray-50 text-gray-400 border border-gray-100'}`}>
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center font-black text-[10px] ${isUnverifiedGuest ? 'bg-orange-200 text-orange-800' : 'bg-[#2FA4A9]/10 text-[#2FA4A9]'}`}>
+                            {reviewerName[0]?.toUpperCase() ?? 'U'}
+                          </div>
+                          {reviewerName}
+                        </div>
+                        {isUnverifiedGuest && (
+                          <div className="inline-flex items-center gap-1.5 bg-red-50 border border-red-100 text-red-600 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest" title="This review was submitted by a guest who is not verified by the platform.">
+                            <AlertCircle className="w-3.5 h-3.5" /> Unverified
+                          </div>
+                        )}
                       </div>
-                      {review.user?.name ?? 'Verified Client'}
+
+                      {review.replyText && (
+                        <div className="mt-4 ml-6 p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-start gap-3">
+                           <div className="mt-0.5 bg-white border border-gray-200 p-1 rounded-full text-gray-400">
+                             <CheckCircle2 className="w-3.5 h-3.5" />
+                           </div>
+                           <div className="flex-1">
+                             <div className="flex items-center gap-2 mb-1.5">
+                               <h5 className="text-[13px] font-bold text-gray-900">Response from {data.Full_Name.split(' ')[0]}</h5>
+                               {review.repliedAt && <span className="text-[11px] text-gray-400 font-medium ml-auto">{new Date(review.repliedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
+                             </div>
+                             <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+                               {review.replyText}
+                             </p>
+                           </div>
+                        </div>
+                      )}
+                      
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="bg-white rounded-3xl border border-dashed border-gray-200 p-10 text-center">
                 <MessageSquare className="w-10 h-10 text-gray-200 mx-auto mb-3" />
                 <p className="text-sm font-semibold text-gray-400">No reviews yet</p>
-                <p className="text-xs text-gray-300 mt-1">Reviews appear after verified consultations.</p>
+                <p className="text-xs text-gray-300 mt-1">Be the first to review this consultant.</p>
               </div>
             )}
           </section>

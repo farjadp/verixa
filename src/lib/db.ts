@@ -40,11 +40,24 @@ export function searchConsultants(query: {
   province?: string;
   page?: number;
   limit?: number;
+  inLicenseNumbers?: string[];
 }) {
-  const { search = '', status = '', province = '', page = 1, limit = 20 } = query;
+  const { search = '', status = '', province = '', page = 1, limit = 20, inLicenseNumbers } = query;
+
+  // Optimization: If an external filter yielded 0 matches, return early
+  if (inLicenseNumbers && inLicenseNumbers.length === 0) {
+    return { data: [], total: 0, page, totalPages: 0 };
+  }
   
   let baseQuery = `SELECT * FROM consultants WHERE 1=1`;
   const params: any[] = [];
+
+  if (inLicenseNumbers && inLicenseNumbers.length > 0) {
+    // Note: SQLite allows 32,766 variables. It's safe for our scale.
+    const placeholders = inLicenseNumbers.map(() => '?').join(',');
+    baseQuery += ` AND License_Number IN (${placeholders})`;
+    params.push(...inLicenseNumbers);
+  }
 
   if (search) {
     baseQuery += ` AND (Full_Name LIKE ? OR License_Number LIKE ? OR Company LIKE ?)`;

@@ -31,11 +31,31 @@ export default async function ConsultantHome() {
     take: 5
   }) : [];
 
+  // Real Metrics (last 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(now.getDate() - 30);
+  
+  const summaries = profile ? await prisma.consultantDailySummary.findMany({
+    where: {
+      consultantProfileId: profile.id,
+      date: { gte: thirtyDaysAgo }
+    }
+  }) : [];
+
+  const totalViews = summaries.reduce((acc, sum) => acc + sum.profileViews, 0);
+  const totalClicks = summaries.reduce((acc, sum) => acc + sum.bookingStarts, 0);
+  
+  const reviews = profile ? await prisma.review.aggregate({
+    where: { consultantProfileId: profile.id, status: "PUBLISHED" },
+    _avg: { rating: true }
+  }) : null;
+  const avgRating = reviews?._avg?.rating ? reviews._avg.rating.toFixed(1) : "New";
+
   const metrics = [
-    { label: "Profile Views", value: "342", increase: "+14%", icon: Eye },
+    { label: "Profile Views (30d)", value: totalViews.toString(), increase: totalViews > 0 ? "Active" : "New", icon: Eye },
     { label: "Pending Actions", value: actionRequiredBookings.length.toString(), increase: "Priority", icon: AlertCircle },
-    { label: "Booking Clicks", value: "48", increase: "+22%", icon: MousePointerClick },
-    { label: "Avg Rating", value: "4.9", increase: "Top 5%", icon: Star },
+    { label: "Booking Clicks", value: totalClicks.toString(), increase: totalClicks > 0 ? "Active" : "New", icon: MousePointerClick },
+    { label: "Avg Rating", value: avgRating, increase: avgRating === "New" ? "Unrated" : "Top %", icon: Star },
   ];
 
   const unreadAnnouncement = await prisma.notification.findFirst({
@@ -46,6 +66,25 @@ export default async function ConsultantHome() {
     },
     orderBy: { createdAt: "desc" }
   });
+
+  // Profile Checklist Logic
+  let specList = [];
+  try { specList = profile?.specializations ? JSON.parse(profile.specializations) : []; } catch(e) {}
+  const hasSpecializations = specList.length > 0;
+  
+  // They haven't specifically configured booking integration yet, but we will count it as 
+  // "configured" if they have an active consultationType.
+  const consultationTypes = profile ? await prisma.consultationType.count({ where: { consultantProfileId: profile.id, isActive: true }}) : 0;
+  const hasBooking = profile?.bookingEnabled && consultationTypes > 0;
+
+  const hasAvatar = !!profile?.avatarImage;
+
+  const checklistItems = [
+    { title: "Add Areas of Practice", desc: "List Express Entry, Study Permits, etc.", done: hasSpecializations, link: "/dashboard/profile" },
+    { title: "Enable Booking", desc: "Add a consultation type to get paid bookings.", done: hasBooking, link: "/dashboard/booking" },
+    { title: "Upload Headshot", desc: "Increase trust and click-through rates.", done: hasAvatar, link: "/dashboard/profile" },
+  ];
+  const incompleteItems = checklistItems.filter(i => !i.done);
 
   return (
     <div className="space-y-8">
@@ -148,20 +187,22 @@ export default async function ConsultantHome() {
         {/* QUICK SETUP ACTIONS */}
         <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-6">
            <h2 className="font-bold text-lg text-[#1A1F2B] mb-5">Profile Checklist</h2>
-           <div className="space-y-4">
-             <Link href="/dashboard/profile" className="block w-full p-4 rounded-2xl border border-gray-100 hover:border-[#2FA4A9]/30 hover:bg-[#ffffff] transition-all group">
-               <h4 className="font-bold text-sm text-[#1A1F2B] group-hover:text-[#2FA4A9] transition-colors mb-1">Add Areas of Practice</h4>
-               <p className="text-xs text-gray-500">List Express Entry, Study Permits, etc.</p>
-             </Link>
-             <Link href="/dashboard/booking" className="block w-full p-4 rounded-2xl border border-gray-100 hover:border-[#2FA4A9]/30 hover:bg-[#ffffff] transition-all group">
-               <h4 className="font-bold text-sm text-[#1A1F2B] group-hover:text-[#2FA4A9] transition-colors mb-1">Enable Booking</h4>
-               <p className="text-xs text-gray-500">Connect your calendar to get paid.</p>
-             </Link>
-             <Link href="/dashboard/profile" className="block w-full p-4 rounded-2xl border border-gray-100 hover:border-[#2FA4A9]/30 hover:bg-[#ffffff] transition-all group">
-               <h4 className="font-bold text-sm text-[#1A1F2B] group-hover:text-[#2FA4A9] transition-colors mb-1">Upload Headshot</h4>
-               <p className="text-xs text-gray-500">Increase trust and click-through rates.</p>
-             </Link>
-           </div>
+           {incompleteItems.length === 0 ? (
+             <div className="p-6 text-center bg-gray-50 border border-gray-100 rounded-2xl h-[200px] flex flex-col justify-center items-center">
+               <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-3 opacity-80" />
+               <p className="text-sm font-bold text-[#1A1F2B]">Profile 100% Complete</p>
+               <p className="text-xs text-gray-400 mt-1">Excellent job! Your profile is operating at maximum visibility.</p>
+             </div>
+           ) : (
+             <div className="space-y-4">
+               {incompleteItems.map((item, idx) => (
+                 <Link key={idx} href={item.link} className="block w-full p-4 rounded-2xl border border-gray-100 hover:border-[#2FA4A9]/30 hover:bg-[#ffffff] transition-all group">
+                   <h4 className="font-bold text-sm text-[#1A1F2B] group-hover:text-[#2FA4A9] transition-colors mb-1">{item.title}</h4>
+                   <p className="text-xs text-gray-500">{item.desc}</p>
+                 </Link>
+               ))}
+             </div>
+           )}
         </div>
 
       </div>

@@ -19,8 +19,8 @@ export async function getMyConsultantProfile() {
 
   if (!profile) throw new Error("Profile not found");
 
-  // Also return if they have unlimited messengers feature
   const unlimitedFeature = await hasFeature(userId, "unlimited_messengers");
+  const unlimitedSpecs = await hasFeature(userId, "unlimited_specializations");
   
   // Custom bio feature limit
   const bioFeature = await hasFeature(userId, "custom_bio");
@@ -28,6 +28,7 @@ export async function getMyConsultantProfile() {
   return {
     profile,
     canHaveUnlimitedMessengers: unlimitedFeature?.enabled || false,
+    canHaveUnlimitedSpecializations: unlimitedSpecs?.enabled || false,
     bioFeature: bioFeature?.enabled ? bioFeature.value : null
   };
 }
@@ -101,6 +102,24 @@ export async function updateConsultantProfile(data: {
       ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'h2', 'h3', 'h4', 'span'],
       ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style'],
     });
+  }
+
+  // Validate Specializations limit
+  if (data.specializations !== undefined) {
+    let specs = [];
+    try {
+      specs = JSON.parse(data.specializations) || [];
+    } catch (err) {}
+    
+    if (specs.length > 3) {
+      const unlimitedSpecs = await hasFeature(userId, "unlimited_specializations");
+      if (!unlimitedSpecs?.enabled) {
+         // if they had more than 3 before but didn't change it, let it slide? 
+         // it's better to strictly check payload length versus old limit.
+         // For a seamless edit, we can throw if length > 3
+         throw new Error("Your current plan is limited to 3 specializations. Upgrade to add more.");
+      }
+    }
   }
 
   await (prisma as any).consultantProfile.update({

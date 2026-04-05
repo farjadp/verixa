@@ -72,3 +72,90 @@ export async function submitReview(data: {
 
   return review;
 }
+
+import { headers } from "next/headers";
+
+export async function submitGuestReview(data: {
+  licenseNumber: string;
+  guestName: string;
+  guestEmail: string;
+  rating: number;
+  comment?: string;
+}) {
+  const profile = await prisma.consultantProfile.findUnique({
+    where: { licenseNumber: data.licenseNumber }
+  });
+
+  if (!profile) throw new Error("Consultant not found");
+
+  const headersList = await headers();
+  const ip = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "Unknown IP";
+  const userAgent = headersList.get("user-agent") || "Unknown Browser";
+  const secChUa = headersList.get("sec-ch-ua") || "";
+  const secChUaPlatform = headersList.get("sec-ch-ua-platform") || "";
+
+  const review = await prisma.review.create({
+    data: {
+      consultantProfileId: profile.id,
+      guestName: data.guestName,
+      guestEmail: data.guestEmail,
+      rating: data.rating,
+      comment: data.comment,
+      status: "PUBLISHED",
+      metadata: {
+        ip,
+        userAgent,
+        secChUa,
+        secChUaPlatform,
+        timestamp: new Date().toISOString()
+      }
+    }
+  });
+
+  revalidatePath(`/consultant/${data.licenseNumber}`);
+
+  await trackEvent({
+    eventName: "guest_review_submitted",
+    consultantId: profile.id,
+    metadata: { rating: data.rating }
+  });
+
+  return review;
+}
+
+export async function replyToReview(reviewId: string, replyText: string) {
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user?.email || (session.user as any).role !== "CONSULTANT") {
+    throw new Error("Unauthorized");
+  }
+
+  const consultantProfile = await prisma.consultantProfile.findUnique({
+    where: { userId: (session.user as any).id },
+    select: { id: true, licenseNumber: true }
+  });
+
+  if (!consultantProfile) throw new Error("Profile not found");
+
+  const review = await prisma.review.findUnique({
+    where: { id: reviewId }
+  });
+
+  if (!review || review.consultantProfileId !== consultantProfile.id) {
+    throw new Error("Review not found or unauthorized");
+  }
+
+  const updatedValue = replyText.trim() === "" ? null : replyText.trim();
+
+  const updated = await prisma.review.update({
+    where: { id: reviewId },
+    data: {
+      replyText: updatedValue,
+      repliedAt: updatedValue ? new Date() : null
+    }
+  });
+
+  revalidatePath(`/dashboard/reviews`);
+  revalidatePath(`/consultant/${consultantProfile.licenseNumber}`);
+
+  return updated;
+}

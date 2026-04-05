@@ -8,80 +8,8 @@ import { uploadConsultantImageAction } from "@/actions/upload.actions";
 import { useRouter } from "next/navigation";
 import { BioEditor } from "@/components/ui/BioEditor";
 
-const ALL_LANGUAGES = [
-  "English", "French", "Persian (Farsi)", "Spanish", "Arabic", "Mandarin",
-  "Cantonese", "Hindi", "Punjabi", "Urdu", "Tagalog", "Korean", "Japanese",
-  "Portuguese", "Russian", "Polish", "Ukrainian", "Turkish", "Vietnamese",
-  "Bengali", "Gujarati", "Tamil", "Telugu", "Sinhala", "Nepali", "Somali",
-  "Amharic", "Romanian", "Hungarian", "Italian", "German", "Dutch",
-  "Greek", "Hebrew", "Swahili", "Indonesian", "Malay", "Thai",
-];
-
-const IMMIGRATION_PATHS = [
-  { category: "Express Entry", items: [
-    { key: "fswp", label: "Federal Skilled Worker Program (FSWP)" },
-    { key: "cec", label: "Canadian Experience Class (CEC)" },
-    { key: "fstp", label: "Federal Skilled Trades Program (FSTP)" },
-    { key: "ee_healthcare", label: "Category-Based: Healthcare" },
-    { key: "ee_stem", label: "Category-Based: STEM" },
-    { key: "ee_trades", label: "Category-Based: Trades" },
-    { key: "ee_transport", label: "Category-Based: Transport" },
-    { key: "ee_agri", label: "Category-Based: Agriculture & Agri-food" },
-    { key: "ee_french", label: "Category-Based: French-Language Proficiency" },
-  ]},
-  { category: "Provincial Nominee Programs (PNP)", items: [
-    { key: "pnp_on", label: "Ontario – OINP" },
-    { key: "pnp_bc", label: "British Columbia – BCPNP" },
-    { key: "pnp_ab", label: "Alberta – AAIP" },
-    { key: "pnp_sk", label: "Saskatchewan – SINP" },
-    { key: "pnp_mb", label: "Manitoba – MPNP" },
-    { key: "pnp_ns", label: "Nova Scotia – NSNP" },
-    { key: "pnp_nb", label: "New Brunswick – NBPNP" },
-    { key: "pnp_pei", label: "Prince Edward Island – PEI PNP" },
-    { key: "pnp_nl", label: "Newfoundland & Labrador – NLPNP" },
-  ]},
-  { category: "Business & Investor Pathways", items: [
-    { key: "biz_startup", label: "Start-Up Visa Program" },
-    { key: "biz_selfemployed", label: "Self-Employed Persons Program" },
-    { key: "biz_ict", label: "Intra-Company Transfer (ICT)" },
-    { key: "biz_prov", label: "Provincial Entrepreneur Streams" },
-  ]},
-  { category: "Pilot Programs & Regional Pathways", items: [
-    { key: "pilot_aip", label: "Atlantic Immigration Program (AIP)" },
-    { key: "pilot_rcip", label: "Rural Community Immigration Pilot (RCIP)" },
-    { key: "pilot_fcip", label: "Francophone Community Immigration Pilot (FCIP)" },
-    { key: "pilot_agrifood", label: "Agri-Food Pilot" },
-    { key: "pilot_empp", label: "Economic Mobility Pathways Pilot (EMPP)" },
-  ]},
-  { category: "Family Sponsorship", items: [
-    { key: "fam_spouse", label: "Spouse / Common-law / Conjugal Partner" },
-    { key: "fam_children", label: "Dependent Children" },
-    { key: "fam_pgp", label: "Parent & Grandparent Program (PGP)" },
-    { key: "fam_orphan", label: "Orphaned Relatives" },
-    { key: "fam_lonely", label: "Lonely Canadian Exception" },
-  ]},
-  { category: "Quebec-Specific Programs", items: [
-    { key: "qc_qswp", label: "Quebec Skilled Worker Program (QSWP)" },
-    { key: "qc_peq", label: "Quebec Experience Program (PEQ)" },
-    { key: "qc_biz", label: "Quebec Business Immigration" },
-  ]},
-  { category: "Caregiver Programs", items: [
-    { key: "care_child", label: "Home Child Care Provider Pilot" },
-    { key: "care_support", label: "Home Support Worker Pilot" },
-  ]},
-  { category: "Temporary to Permanent (TR to PR)", items: [
-    { key: "tr_pgwp", label: "Post-Graduation Work Permit (PGWP)" },
-    { key: "tr_lmia", label: "LMIA-based Work Permits" },
-    { key: "tr_iec", label: "International Experience Canada (IEC)" },
-  ]},
-  { category: "Humanitarian & Refugee Pathways", items: [
-    { key: "hum_gar", label: "Government-Assisted Refugees" },
-    { key: "hum_psr", label: "Privately Sponsored Refugees" },
-    { key: "hum_hc", label: "Humanitarian & Compassionate (H&C)" },
-  ]},
-];
-
-export default function ProfileForm({ profile, unlimitedMessengers, bioFeature }: { profile: any; unlimitedMessengers: boolean; bioFeature?: string | null }) {
+import { IMMIGRATION_PATHS, ALL_LANGUAGES } from "@/lib/immigration-paths";
+export default function ProfileForm({ profile, unlimitedMessengers, unlimitedSpecializations, bioFeature }: { profile: any; unlimitedMessengers: boolean; unlimitedSpecializations?: boolean; bioFeature?: string | null }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
@@ -120,7 +48,16 @@ export default function ProfileForm({ profile, unlimitedMessengers, bioFeature }
   const [specOpen, setSpecOpen] = useState(false);
 
   const toggleSpec = (key: string) => {
-    setSelectedSpecs(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+    setSelectedSpecs(prev => {
+      if (prev.includes(key)) {
+        return prev.filter(k => k !== key);
+      }
+      if (!unlimitedSpecializations && prev.length >= 3) {
+        alert("Free accounts are limited to 3 specializations. Upgrade to PRO for unlimited selections.");
+        return prev;
+      }
+      return [...prev, key];
+    });
   };
 
   const allSpecItems = IMMIGRATION_PATHS.flatMap(c => c.items);
@@ -171,7 +108,7 @@ export default function ProfileForm({ profile, unlimitedMessengers, bioFeature }
         specializations: JSON.stringify(selectedSpecs),
         offersInPerson,
         officeAddress: offersInPerson ? officeAddress : "",
-        bio,
+        ...(bioFeature ? { bio } : {}),
       });
       alert("Profile Saved Successfully!");
       router.refresh();
@@ -364,7 +301,8 @@ export default function ProfileForm({ profile, unlimitedMessengers, bioFeature }
                      <p className="text-xs text-gray-400 text-right mt-1">
                        {(() => {
                          try {
-                           const l = JSON.parse(bioFeature).maxLength;
+                           if (!bioFeature) return "";
+                           const l = JSON.parse(bioFeature as string).maxLength;
                            const current = bio.replace(/<[^>]*>?/gm, '').length;
                            return `${current} / ${l} characters`;
                          } catch(e) { return ""; }
@@ -379,7 +317,7 @@ export default function ProfileForm({ profile, unlimitedMessengers, bioFeature }
       </div>
 
       {/* SECTION: COMPANY ENRICHMENT SNAPSHOT */}
-      {profile?.companyEnrichments?.filter((e: any) => e.matchStatus === 'ambiguous' || e.matchStatus === 'matched' || e.matchStatus === 'consultant_verified').map((enrichment: any) => {
+      {(profile?.companyEnrichments?.filter((e: any) => e.matchStatus === 'ambiguous' || e.matchStatus === 'matched' || e.matchStatus === 'consultant_verified') || []).map((enrichment: any) => {
         const isVerified = enrichment.matchStatus === 'consultant_verified';
         const isAuto = enrichment.matchStatus === 'ambiguous';
 

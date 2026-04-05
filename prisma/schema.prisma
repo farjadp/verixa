@@ -196,16 +196,21 @@ model BookingEventLog {
 
 model Review {
   id                  String   @id @default(cuid())
-  userId              String
+  userId              String?
+  guestName           String?
+  guestEmail          String?
+  metadata            Json?
   consultantProfileId String
   bookingId           String?  @unique
   rating              Int
   comment             String?
+  replyText           String?  @db.Text
+  repliedAt           DateTime?
   status              String   @default("PUBLISHED") // PUBLISHED, PENDING_MODERATION
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
   profile ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
   booking Booking?          @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 }

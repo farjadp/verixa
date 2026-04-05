@@ -34,6 +34,7 @@ export default async function ProfileManagementPage() {
       <ProfileForm 
         profile={initialData.profile} 
         unlimitedMessengers={initialData.canHaveUnlimitedMessengers} 
+        unlimitedSpecializations={initialData.canHaveUnlimitedSpecializations}
         bioFeature={initialData.bioFeature}
       />
     </main>

@@ -5,7 +5,7 @@ import { getToken } from "next-auth/jwt";
 // page component or API handler. It is the last line of defense for route
 // protection and cannot be bypassed by component-level auth checks.
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // ── Admin routes: require ADMIN role ────────────────────────────────────

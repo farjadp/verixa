@@ -421,7 +421,10 @@ export default async function SearchPage({
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {results.map((c) => {
-                  const isActive = c.Status?.toLowerCase()?.includes("active");
+                  // Status is stored as "Yes"/"No" from CICC data
+                  const isActive = c.Status === "Yes" || c.Status?.toLowerCase()?.includes("active");
+                  const statusLabel = c.Status === "Yes" ? "Active" : c.Status === "No" ? "Inactive" : (c.Status || "Unknown");
+
                   return (
                     <div
                       key={c.License_Number}
@@ -456,7 +459,7 @@ export default async function SearchPage({
                                 : "bg-[#F5F7FA] border-[#e5e7eb] text-orange-600"
                             }`}
                           >
-                            {c.Status}
+                            {statusLabel}
                           </div>
                         </div>
 
@@ -465,14 +468,16 @@ export default async function SearchPage({
                             <Building2 className="w-4 h-4 text-[#2FA4A9]" />
                             <span className="truncate">{c.Company || "Independent"}</span>
                           </div>
+                          {(c.Province || c.Country) && (
                           <div className="flex items-center gap-3 text-sm text-gray-600 font-medium">
                             <MapPin className="w-4 h-4 text-[#2FA4A9]" />
                             <span>
-                              {c.Province || "N/A"}
+                              {c.Province || ""}
                               {c.Province && c.Country ? ", " : ""}
-                              {c.Country}
+                              {c.Country || ""}
                             </span>
                           </div>
+                          )}
                         </div>
 
                         <div className="flex items-center justify-between pt-6 border-t border-[#e5e7eb]">

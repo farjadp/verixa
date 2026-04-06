@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Settings, Save, Layout, CreditCard, Users, Shield, Cpu, ExternalLink, RefreshCw, Bell, ShieldAlert, Bot, Sparkles } from "lucide-react";
+import { Settings, Save, Layout, CreditCard, Users, Shield, Cpu, ExternalLink, RefreshCw, Bell, ShieldAlert, Bot, Sparkles, UploadCloud, X, Image as ImageIcon } from "lucide-react";
 import { updatePlatformSettings } from "@/actions/settings.actions";
 import { generateBackup } from "@/actions/backup.actions";
+import { uploadImageAction } from "@/actions/upload.actions";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AnnouncementComposer from "../announcements/AnnouncementComposer";
@@ -24,8 +25,31 @@ export default function PlatformSettingsClient({
     maintenanceMode: initialSettings.maintenanceMode === "true",
     stripeMode: initialSettings.stripeMode || "TEST",
     aiContentModel: initialSettings.aiContentModel || "gpt-4o",
-    aiImageModel: initialSettings.aiImageModel || "FAL_FLUX_SCHNELL"
+    aiImageModel: initialSettings.aiImageModel || "FAL_FLUX_SCHNELL",
+    siteName: initialSettings.siteName || "",
+    headerLogo: initialSettings.headerLogo || "",
+    footerLogo: initialSettings.footerLogo || "",
+    favicon: initialSettings.favicon || "",
+    supportEmail: initialSettings.supportEmail || "",
+    primaryPhone: initialSettings.primaryPhone || "",
+    seoTitle: initialSettings.seoTitle || "",
+    seoDescription: initialSettings.seoDescription || "",
+    seoImage: initialSettings.seoImage || ""
   });
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, key: 'headerLogo' | 'footerLogo' | 'favicon' | 'seoImage') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const form = new FormData();
+      form.append("image", file);
+      const url = await uploadImageAction(form);
+      setFormData(f => ({ ...f, [key]: url }));
+    } catch (err) {
+      alert("Upload failed: " + (err as Error).message);
+    }
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -120,6 +144,118 @@ export default function PlatformSettingsClient({
            {/* GLOBAL VARIABLES TAB */}
            {activeTab === "VARIABLES" && (
              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+               
+               {/* BRANDING & IDENTITY */}
+               <div className="bg-white p-8 rounded-3xl border border-[#e5e7eb] shadow-sm">
+                 <h2 className="text-xl font-bold text-[#1A1F2B] mb-6 flex items-center gap-2">
+                   <ImageIcon className="w-5 h-5 text-[#2FA4A9]" /> Branding & Identity
+                 </h2>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                   <div className="space-y-2">
+                     <label className="text-sm font-bold text-gray-400 uppercase tracking-widest block">Website Name</label>
+                     <input 
+                       type="text"
+                       value={formData.siteName}
+                       onChange={(e) => setFormData(f => ({...f, siteName: e.target.value}))}
+                       className="w-full border-b-2 border-gray-200 focus:border-[#2FA4A9] focus:outline-none py-3 text-lg font-bold text-[#1A1F2B] bg-transparent"
+                       placeholder="e.g. Verixa Global"
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-sm font-bold text-gray-400 uppercase tracking-widest block">Support Email</label>
+                     <input 
+                       type="email"
+                       value={formData.supportEmail}
+                       onChange={(e) => setFormData(f => ({...f, supportEmail: e.target.value}))}
+                       className="w-full border-b-2 border-gray-200 focus:border-[#2FA4A9] focus:outline-none py-3 text-lg font-bold text-[#1A1F2B] bg-transparent"
+                       placeholder="e.g. support@verixa.com"
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-sm font-bold text-gray-400 uppercase tracking-widest block">Primary Phone</label>
+                     <input 
+                       type="text"
+                       value={formData.primaryPhone}
+                       onChange={(e) => setFormData(f => ({...f, primaryPhone: e.target.value}))}
+                       className="w-full border-b-2 border-gray-200 focus:border-[#2FA4A9] focus:outline-none py-3 text-lg font-bold text-[#1A1F2B] bg-transparent"
+                       placeholder="e.g. +1 800 123 4567"
+                     />
+                   </div>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                   {[{ key: 'headerLogo', label: 'Header Logo (Light/Dark)' }, { key: 'footerLogo', label: 'Footer Logo (Monochrome/Dark)' }, { key: 'favicon', label: 'Favicon (Square Icon)' }].map(item => (
+                     <div key={item.key} className="space-y-3">
+                       <label className="text-xs font-bold uppercase tracking-wider text-[#1A1F2B] block">{item.label}</label>
+                       {(formData as any)[item.key] ? (
+                         <div className="h-32 w-full rounded-2xl bg-[#F5F7FA] border border-[#e5e7eb] flex items-center justify-center relative overflow-hidden group">
+                           <img src={(formData as any)[item.key]} alt={item.label} className="max-h-full max-w-full object-contain p-4" />
+                           <button type="button" onClick={() => setFormData(f => ({...f, [item.key]: ""}))} className="absolute top-2 right-2 bg-white/90 p-2 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 shadow-sm transition-all opacity-0 group-hover:opacity-100">
+                             <X className="w-4 h-4" />
+                           </button>
+                         </div>
+                       ) : (
+                         <div className="flex items-center justify-center">
+                           <div className="relative w-full h-32 rounded-2xl bg-gray-50 border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 hover:border-[#2FA4A9] hover:bg-[#F5F7FA] transition-colors cursor-pointer group">
+                             <UploadCloud className="w-6 h-6 mb-2 group-hover:text-[#2FA4A9]" />
+                             <span className="text-xs font-bold group-hover:text-[#2FA4A9]">Upload Image</span>
+                             <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, item.key as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                           </div>
+                         </div>
+                       )}
+                     </div>
+                   ))}
+                 </div>
+               </div>
+
+               {/* GLOBAL SEO SETTINGS */}
+               <div className="bg-white p-8 rounded-3xl border border-[#e5e7eb] shadow-sm">
+                 <h2 className="text-xl font-bold text-[#1A1F2B] mb-6 flex items-center gap-2">
+                   <ExternalLink className="w-5 h-5 text-[#2FA4A9]" /> Full Site Global SEO
+                 </h2>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                   <div className="space-y-2">
+                     <label className="text-sm font-bold text-gray-400 uppercase tracking-widest block">Global Meta Title</label>
+                     <input 
+                       type="text"
+                       value={formData.seoTitle}
+                       onChange={(e) => setFormData(f => ({...f, seoTitle: e.target.value}))}
+                       className="w-full border-b-2 border-gray-200 focus:border-[#2FA4A9] focus:outline-none py-3 text-lg font-bold text-[#1A1F2B] bg-transparent"
+                       placeholder="e.g. Verixa | Trusted Immigration Consultants"
+                     />
+                   </div>
+                   <div className="space-y-4 row-span-2">
+                     <label className="text-sm font-bold text-gray-400 uppercase tracking-widest block">Default OpenGraph Image</label>
+                     {formData.seoImage ? (
+                       <div className="h-40 w-full rounded-2xl bg-[#F5F7FA] border border-[#e5e7eb] flex items-center justify-center relative overflow-hidden group">
+                         <img src={formData.seoImage} alt="SEO OpenGraph" className="max-h-full max-w-full object-cover p-1" />
+                         <button type="button" onClick={() => setFormData(f => ({...f, seoImage: ""}))} className="absolute top-2 right-2 bg-white/90 p-2 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 shadow-sm transition-all opacity-0 group-hover:opacity-100">
+                           <X className="w-4 h-4" />
+                         </button>
+                       </div>
+                     ) : (
+                       <div className="flex items-center justify-center w-full">
+                         <div className="relative w-full h-40 rounded-2xl bg-gray-50 border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 hover:border-[#2FA4A9] hover:bg-[#F5F7FA] transition-colors cursor-pointer group">
+                           <UploadCloud className="w-6 h-6 mb-2 group-hover:text-[#2FA4A9]" />
+                           <span className="text-xs font-bold group-hover:text-[#2FA4A9]">Upload Default Share Image (1200x630)</span>
+                           <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'seoImage')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                         </div>
+                       </div>
+                     )}
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-sm font-bold text-gray-400 uppercase tracking-widest block">Global Meta Description</label>
+                     <textarea 
+                       value={formData.seoDescription}
+                       onChange={(e) => setFormData(f => ({...f, seoDescription: e.target.value}))}
+                       rows={4}
+                       className="w-full border-2 border-gray-100 rounded-2xl focus:border-[#2FA4A9] focus:outline-none p-4 text-base font-medium text-[#1A1F2B] bg-gray-50 transition-colors"
+                       placeholder="e.g. Find, verify, and choose licensed immigration consultants..."
+                     />
+                   </div>
+                 </div>
+               </div>
+
                <div className="bg-white p-8 rounded-3xl border border-[#e5e7eb] shadow-sm">
             <h2 className="text-xl font-bold text-[#1A1F2B] mb-6 flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-[#2FA4A9]" /> Transactional & Revenue Logic

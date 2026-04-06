@@ -20,29 +20,13 @@ export async function uploadImageAction(formData: FormData) {
     throw new Error("File must be an image.");
   }
 
-  // 3. Convert to Buffer
+  // 3. Convert to Buffer and then Base64
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
-
-  // 4. Generate Unique Filename & Path
-  const ext = file.name.split('.').pop() || 'png';
-  const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${ext}`;
-  const uploadDir = join(process.cwd(), "public", "uploads");
-
-  // Ensure directory exists
-  try {
-    await mkdir(uploadDir, { recursive: true });
-  } catch (e) {
-    // Ignore if exists
-  }
-
-  const path = join(uploadDir, filename);
-
-  // 5. Write to Disk
-  await writeFile(path, buffer);
-
-  // 6. Return Public Markdown URL
-  return `/uploads/${filename}`;
+  
+  // Create Base64 URI
+  const base64 = buffer.toString('base64');
+  return `data:${file.type};base64,${base64}`;
 }
 
 export async function uploadConsultantImageAction(formData: FormData) {

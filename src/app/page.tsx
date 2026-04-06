@@ -10,7 +10,7 @@
 
 import { Search, ShieldCheck, Star, ArrowRight, Check, MapPin, Globe, Shield, User } from "lucide-react";
 import Link from "next/link";
-import { getTotalConsultantsCount, getFeaturedConsultants } from "@/lib/db";
+
 import { prisma } from "@/lib/prisma";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -19,107 +19,35 @@ import LatestArticles from "@/components/home/LatestArticles";
 export const revalidate = 600; // Refetch data every 10 minutes
 
 export default async function Home() {
-  const totalCount = getTotalConsultantsCount();
-  let featuredRCICs = getFeaturedConsultants(8);
-  if (!featuredRCICs || featuredRCICs.length === 0) {
-    featuredRCICs = [
-      {
-        License_Number: "R513045",
-        Full_Name: "Sarah Jenkins",
-        Status: "Active",
-        Company: "Jenkins Immigration Services",
-        Email: "",
-        Phone: "",
-        Province: "Ontario",
-        Country: "Canada",
-        Scrape_Status: "Verified"
-      },
-      {
-        License_Number: "R532104",
-        Full_Name: "David Chen",
-        Status: "Active",
-        Company: "Chen & Associates",
-        Email: "",
-        Phone: "",
-        Province: "British Columbia",
-        Country: "Canada",
-        Scrape_Status: "Verified"
-      },
-      {
-        License_Number: "R745231",
-        Full_Name: "Elena Rodriguez",
-        Status: "Active",
-        Company: "Global Horizons Immigration",
-        Email: "",
-        Phone: "",
-        Province: "Alberta",
-        Country: "Canada",
-        Scrape_Status: "Verified"
-      },
-      {
-        License_Number: "R412987",
-        Full_Name: "Michael O'Connor",
-        Status: "Active",
-        Company: "Maple Pathways",
-        Email: "",
-        Phone: "",
-        Province: "Nova Scotia",
-        Country: "Canada",
-        Scrape_Status: "Verified"
-      },
-      {
-        License_Number: "R610222",
-        Full_Name: "Amina Patel",
-        Status: "Active",
-        Company: "Patel Visa Consulting",
-        Email: "",
-        Phone: "",
-        Province: "Ontario",
-        Country: "Canada",
-        Scrape_Status: "Verified"
-      }
-    ];
-  }
 
-  const formattedCount = new Intl.NumberFormat('en-US').format(totalCount === 0 ? 15420 : totalCount);
+  const totalCount = await prisma.consultantProfile.count();
+  const formattedCount = new Intl.NumberFormat('en-US').format(totalCount || 15420);
 
-  // Fetch newest verified accounts from Postgres
-  let newestVerified = await prisma.consultantProfile.findMany({
+  // Featured: ordered by claimed first, then random sampling
+  let featuredRaw = await prisma.consultantProfile.findMany({
     take: 8,
-    orderBy: { createdAt: "desc" },
-    where: {
-      status: { not: "PENDING" } // Assuming verified means they have a profile created and are not just 'PENDING'
-    }
+    orderBy: [
+      { userId: { sort: "desc", nulls: "last" } },
+      { fullName: "asc" }
+    ],
   });
 
-  if (!newestVerified || newestVerified.length === 0) {
-    newestVerified = [
-      {
-        licenseNumber: "R412987",
-        fullName: "Michael O'Connor",
-        company: "Maple Pathways",
-        province: "Nova Scotia",
-        country: "Canada",
-        avatarImage: null,
-      },
-      {
-        licenseNumber: "R532104",
-        fullName: "David Chen",
-        company: "Chen & Associates",
-        province: "British Columbia",
-        country: "Canada",
-        avatarImage: null,
-      },
-      {
-        licenseNumber: "R610222",
-        fullName: "Amina Patel",
-        company: "Patel Visa Consulting",
-        province: "Ontario",
-        country: "Canada",
-        avatarImage: null,
-      }
-    ] as any;
-  }
+  const featuredRCICs = featuredRaw.map((p) => ({
+    License_Number: p.licenseNumber,
+    Full_Name: p.fullName,
+    Status: p.status || "Active",
+    Company: p.company || null,
+    Province: p.province || null,
+    Country: p.country || null,
+  }));
+
+  // Newest verified accounts
+  const newestVerified = await prisma.consultantProfile.findMany({
+    take: 8,
+    orderBy: { createdAt: "desc" },
+    where: { status: { not: "PENDING" } }
+  });
+
 
   return (
     <main className="min-h-screen bg-[#ffffff] text-[#1A1F2B] font-serif">

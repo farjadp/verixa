@@ -501,4 +501,14 @@ export default async function Home() {
               </h3>
               <p className="text-gray-400 font-sans text-sm md:text-base leading-relaxed">
                 Update frequency to ensure <br className="hidden md:block"/> data absolute accuracy.
-              
+              </p>
+            </div>
+
+          </div>
+        </div>
+      </section>
+      
+      <Footer />
+    </main>
+  );
+}

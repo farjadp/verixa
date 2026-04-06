@@ -8,6 +8,8 @@ import {
   HelpCircle, Briefcase, Star, CreditCard, Users
 } from "lucide-react";
 
+import { usePlatformSettings } from "@/components/providers/PlatformProvider";
+
 // ─── NAV DATA ────────────────────────────────────────────────────────────────
 
 const FIND_CONSULTANTS = {
@@ -53,6 +55,7 @@ export default function Header() {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [mobileSection, setMobileSection] = useState<string | null>(null);
   const navRef = useRef<HTMLDivElement>(null);
+  const settings = usePlatformSettings();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -79,6 +82,9 @@ export default function Header() {
   const toggle = (key: string) =>
     setOpenDropdown((prev) => (prev === key ? null : key));
 
+  const logoImage = "/api/assets/logo?type=header";
+  const siteName = settings?.siteName || "Verixa";
+
   return (
     <header
       className={`fixed top-0 w-full z-50 transition-all duration-300 ${
@@ -93,7 +99,7 @@ export default function Header() {
       >
         {/* ── LOGO ── */}
         <Link href="/" className="flex items-center gap-2 group shrink-0 z-10">
-          <img src="/brand/Verixa2.png" alt="Verixa" className="h-9 w-auto object-contain transition-transform group-hover:scale-105" />
+          <img src={logoImage} alt={siteName} className="h-9 w-auto object-contain transition-transform group-hover:scale-105" />
         </Link>
 
         {/* ── DESKTOP NAV ── */}

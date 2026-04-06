@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { Shield, Linkedin, Twitter, Send, ArrowUpRight, CheckCircle2, Target } from "lucide-react";
 
+import { usePlatformSettings } from "@/components/providers/PlatformProvider";
+
 const FOOTER_LINKS = {
   registry: [
     { label: "Find RCICs", href: "/search" },
@@ -38,6 +40,10 @@ const FOOTER_LINKS = {
 };
 
 export default function Footer() {
+  const settings = usePlatformSettings();
+  const logoImage = "/api/assets/logo?type=footer";
+  const siteName = settings?.siteName || "Verixa";
+  
   return (
     <footer className="bg-[#F8FAFC] pb-8 pt-12 border-t border-gray-200 selection:bg-[#2FA4A9] selection:text-white">
       <div className="max-w-[1400px] mx-auto px-6 lg:px-12">
@@ -54,7 +60,7 @@ export default function Footer() {
               Stop fighting algorithms.<br />Start booking clients.
             </h2>
             <p className="text-lg text-gray-300 font-medium max-w-xl leading-relaxed mb-10">
-              Verixa is Canada's definitive marketplace for trusted RCICs. Claim your profile, verify your license, and instantly access thousands of high-intent search queries.
+              {siteName} is Canada's definitive marketplace for trusted RCICs. Claim your profile, verify your license, and instantly access thousands of high-intent search queries.
             </p>
             <Link
               href="/claim"
@@ -82,7 +88,7 @@ export default function Footer() {
             </div>
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-6">
-                <img src="/brand/Vertixa3.png" alt="Verixa" className="h-10 w-auto object-contain" />
+                <img src={logoImage} alt={siteName} className="h-10 w-auto object-contain" />
               </div>
               <p className="text-sm font-medium text-gray-500 leading-relaxed">
                 The premier verified directory for Canadian immigration professionals. Connecting applicants with licensed RCICs through a secure, transparent platform.

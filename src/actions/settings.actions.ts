@@ -23,6 +23,8 @@ export async function updatePlatformSettings(settings: { key: string; value: str
   // Brutally revalidate the blog paths so the frontend updates immediately
   revalidatePath("/blog");
   revalidatePath("/blog/[slug]", "page");
+  revalidatePath("/");
+  revalidatePath("/", "layout");
 
   return { success: true };
 }

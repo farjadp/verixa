@@ -15,6 +15,7 @@ import { prisma } from "@/lib/prisma";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import LatestArticles from "@/components/home/LatestArticles";
+import HeroSearch from "@/components/home/HeroSearch";
 
 export const revalidate = 600; // Refetch data every 10 minutes
 
@@ -86,19 +87,7 @@ export default async function Home() {
             {/* باکس سرچ پیشرفته با افکت Shadow و Focus جذاب */}
             <div className="relative max-w-2xl font-sans group">
               <div className="absolute -inset-1 bg-gradient-to-r from-[#2FA4A9]/20 to-transparent rounded-[32px] blur opacity-25 group-focus-within:opacity-100 transition duration-1000"></div>
-              <div className="relative flex items-center bg-white border border-gray-200 p-2 rounded-[30px] shadow-2xl shadow-gray-200/50">
-                <div className="flex-1 flex items-center px-4">
-                  <Search className="w-6 h-6 text-[#2FA4A9] mr-3" />
-                  <input 
-                    type="text" 
-                    placeholder="Find by name, city, or RCIC number..." 
-                    className="w-full bg-transparent py-4 text-lg outline-none placeholder:text-gray-400"
-                  />
-                </div>
-                <button className="bg-[#0F2A44] text-white px-10 py-4 rounded-[22px] font-bold hover:bg-[#2FA4A9] transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg">
-                  Search
-                </button>
-              </div>
+              <HeroSearch />
               
               {/* تاییدیه اجتماعی (Social Proof) زیر سرچ باکس */}
               <div className="flex items-center gap-6 mt-6 px-4">
@@ -512,17 +501,4 @@ export default async function Home() {
               </h3>
               <p className="text-gray-400 font-sans text-sm md:text-base leading-relaxed">
                 Update frequency to ensure <br className="hidden md:block"/> data absolute accuracy.
-              </p>
-            </div>
-
-          </div>
-        </div>
-        
-        {/* Subtle Bottom Glow */}
-        <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 w-2/3 h-48 bg-[#2FA4A9]/10 blur-[100px] rounded-full" />
-      </section>
-
-      <Footer />
-    </main>
-  );
-}
+              

@@ -22,6 +22,7 @@ import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import { logSystemEvent } from "@/lib/logger";
+import { TwitterApi } from "twitter-api-v2";
 
 async function verifyAdmin() {
   const session = await getServerSession(authOptions);
@@ -230,13 +231,13 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
   let resolvedOrgId = orgId;
   if (!resolvedOrgId) {
     try {
-      // Use /v2/me instead of introspection to fetch legacy profile URN safely
-      const meRes = await fetch("https://api.linkedin.com/v2/me", {
+      // Use OIDC /v2/userinfo to fetch profile URN safely
+      const userRes = await fetch("https://api.linkedin.com/v2/userinfo", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const meData = await meRes.json();
-      if (meData.id) {
-        resolvedOrgId = `urn:li:person:${meData.id}`;
+      const userData = await userRes.json();
+      if (userData.sub) {
+        resolvedOrgId = `urn:li:person:${userData.sub}`;
       }
       
       if (resolvedOrgId) {
@@ -430,13 +431,13 @@ export async function publishToTwitter(jobId: string): Promise<PublishResult> {
     return { ok: false, platform: "twitter", error: errorMsg };
   }
 
-  const apiKey = process.env.TWITTER_API_KEY;
-  const apiSecret = process.env.TWITTER_API_SECRET;
-  const accessToken = process.env.TWITTER_ACCESS_TOKEN;
-  const accessSecret = process.env.TWITTER_ACCESS_SECRET;
+  const apiKey = (await prisma.platformSetting.findUnique({ where: { key: "twitter_api_key" } }))?.value || process.env.TWITTER_API_KEY;
+  const apiSecret = (await prisma.platformSetting.findUnique({ where: { key: "twitter_api_secret" } }))?.value || process.env.TWITTER_API_SECRET;
+  const accessToken = (await prisma.platformSetting.findUnique({ where: { key: "twitter_access_token" } }))?.value || process.env.TWITTER_ACCESS_TOKEN;
+  const accessSecret = (await prisma.platformSetting.findUnique({ where: { key: "twitter_access_secret" } }))?.value || process.env.TWITTER_ACCESS_SECRET;
 
   if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
-    const errorMsg = "Twitter OAuth 1.0a keys missing. Add TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET to Vercel env vars.";
+    const errorMsg = "Twitter OAuth 1.0a keys missing. Add them via Developer Fallback in the Admin hub.";
     await logSystemEvent("PUBLISH_TWITTER_FAILED", { jobId, error: "Missing Keys" });
     await prisma.socialJob.update({ where: { id: jobId }, data: { twitterStatus: "FAILED", publishError: errorMsg } as any });
     return {
@@ -446,35 +447,18 @@ export async function publishToTwitter(jobId: string): Promise<PublishResult> {
     };
   }
 
-  await logSystemEvent("PUBLISH_TWITTER_START", { jobId });
-
   try {
-    const tweetUrl = "https://api.twitter.com/2/tweets";
-    const body = { text: job.twitterCopy };
-    const oauthHeader = buildOAuthHeader("POST", tweetUrl, {});
-
-    const res = await fetch(tweetUrl, {
-      method: "POST",
-      headers: {
-        Authorization: oauthHeader,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
+    const client = new TwitterApi({
+      appKey: apiKey as string,
+      appSecret: apiSecret as string,
+      accessToken: accessToken as string,
+      accessSecret: accessSecret as string,
     });
+    
+    const rwClient = client.readWrite;
+    const { data } = await rwClient.v2.tweet(job.twitterCopy);
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      await logSystemEvent("PUBLISH_TWITTER_FAILED", { jobId, payload: data });
-      const errMsg = data?.detail || data?.errors?.[0]?.message || `HTTP ${res.status}`;
-      await prisma.socialJob.update({
-        where: { id: jobId },
-        data: { twitterStatus: "FAILED", publishError: `Twitter: ${errMsg}` } as any,
-      });
-      return { ok: false, platform: "twitter", error: errMsg };
-    }
-
-    const tweetId = data?.data?.id;
+    const tweetId = data.id;
     await logSystemEvent("PUBLISH_TWITTER_SUCCESS", { jobId, tweetId });
     await prisma.socialJob.update({
       where: { id: jobId },
@@ -740,16 +724,27 @@ export async function disconnectFacebook(): Promise<{ ok: boolean }> {
   return { ok: true };
 }
 
+// ─── Twitter Auth Helper ──────────────────────────────────────────────────────
+
+export async function checkTwitterStatus(): Promise<{ connected: boolean }> {
+  await verifyAdmin();
+  const key = await prisma.platformSetting.findUnique({ where: { key: "twitter_api_key" } });
+  // If it's saved in DB or present in environment variables
+  return { connected: !!(key?.value) || !!process.env.TWITTER_API_KEY };
+}
+
 // ─── Manual Bypass ────────────────────────────────────────────────────────────
 
-export async function saveManualTokens(platform: "linkedin" | "facebook", data: Record<string, string>): Promise<{ ok: boolean }> {
+export async function saveManualTokens(platform: "linkedin" | "facebook" | "twitter", data: Record<string, string>): Promise<{ ok: boolean }> {
   await verifyAdmin();
   const keys = platform === "linkedin" 
     ? ["linkedin_access_token", "linkedin_org_id"] 
-    : ["facebook_page_token", "facebook_page_id", "facebook_page_name"];
+    : platform === "facebook"
+      ? ["facebook_page_token", "facebook_page_id", "facebook_page_name"]
+      : ["twitter_api_key", "twitter_api_secret", "twitter_access_token", "twitter_access_secret"];
 
   for (const key of keys) {
-    if (data[key]) {
+    if (data[key] || typeof data[key] === "string") {
       await prisma.platformSetting.upsert({
         where: { key },
         update: { value: data[key] },

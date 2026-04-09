@@ -16,7 +16,8 @@ import { igniteSocialEngine, updateSocialJob, getSocialJobs } from "@/actions/so
 import {
   publishToLinkedIn, publishToTwitter, publishToTelegram, publishToFacebook, publishAll,
   getLinkedInAuthUrl, checkLinkedInStatus, disconnectLinkedIn,
-  getFacebookAuthUrl, checkFacebookStatus, disconnectFacebook, saveManualTokens
+  getFacebookAuthUrl, checkFacebookStatus, disconnectFacebook,
+  checkTwitterStatus, saveManualTokens
 } from "@/actions/publish.actions";
 import { logClientError } from "@/actions/log.actions";
 import {
@@ -84,11 +85,13 @@ export default function SocialHubClient({
   const [linkedinConnected, setLinkedinConnected] = useState<boolean | null>(null);
   const [facebookConnected, setFacebookConnected] = useState<boolean | null>(null);
   const [facebookName, setFacebookName] = useState("");
-  const [showManualConnect, setShowManualConnect] = useState<"linkedin" | "facebook" | null>(null);
+  const [twitterConnected, setTwitterConnected] = useState<boolean | null>(null);
+  const [showManualConnect, setShowManualConnect] = useState<"linkedin" | "facebook" | "twitter" | null>(null);
   
   const [manualState, setManualState] = useState({
     linkedin_access_token: "", linkedin_org_id: "",
-    facebook_page_token: "", facebook_page_id: "", facebook_page_name: ""
+    facebook_page_token: "", facebook_page_id: "", facebook_page_name: "",
+    twitter_api_key: "", twitter_api_secret: "", twitter_access_token: "", twitter_access_secret: ""
   });
 
   const [editForms, setEditForms] = useState({ linkedin: "", facebook: "", x: "", telegram: "" });
@@ -124,6 +127,17 @@ export default function SocialHubClient({
       setFacebookConnected(r.connected);
       if (r.name) setFacebookName(r.name);
     });
+  }, []);
+
+  // Update effect to check Twitter accurately
+  useEffect(() => {
+    async function checkX() {
+      try {
+        const res = await checkTwitterStatus();
+        setTwitterConnected(res.connected);
+      } catch (e) {}
+    }
+    checkX();
   }, []);
 
   const handleSelectPost = (id: string) => {
@@ -225,7 +239,7 @@ export default function SocialHubClient({
     window.location.href = "/api/facebook/auth";
   };
 
-  const handleSaveManualTokens = async (platform: "linkedin" | "facebook") => {
+  const handleSaveManualTokens = async (platform: "linkedin" | "facebook" | "twitter") => {
     setLoading(true); setError(""); setSuccess("");
     try {
       if (platform === "linkedin" && (!manualState.linkedin_access_token || !manualState.linkedin_org_id)) {
@@ -234,9 +248,12 @@ export default function SocialHubClient({
       if (platform === "facebook" && (!manualState.facebook_page_token || !manualState.facebook_page_id)) {
         throw new Error("Both Page Token and Page ID are required.");
       }
+      if (platform === "twitter" && (!manualState.twitter_api_key || !manualState.twitter_access_token)) {
+        throw new Error("Minimum API Key and Access Token required.");
+      }
       
       await saveManualTokens(platform, manualState);
-      setSuccess(`✅ ${platform.toUpperCase()} keys saved successfully!`);
+      setSuccess(`✅ ${platform.toUpperCase()} keys saved!`);
       setShowManualConnect(null);
       setTimeout(() => window.location.reload(), 1000);
     } catch (e: any) {
@@ -286,7 +303,6 @@ export default function SocialHubClient({
               <div className="flex items-center">
                 <ShieldX className="w-4 h-4" /> 
                 <span className="ml-[2px]">LinkedIn not connected —</span>
-                <button onClick={handleConnectLinkedIn} className="underline ml-1 hover:text-blue-900 text-blue-600">Connect via OAuth</button>
                 <span className="mx-2 text-gray-300">|</span>
                 <button onClick={() => setShowManualConnect(showManualConnect === "linkedin" ? null : "linkedin")} className={`underline hover:text-orange-900 font-medium ${showManualConnect === "linkedin" ? "text-orange-900" : "text-gray-500"}`}>
                   Developer Fallback
@@ -354,6 +370,54 @@ export default function SocialHubClient({
               )}
             </div>
           ) : <><Wifi className="w-4 h-4" /> Checking Facebook...</>}
+        </div>
+
+        {/* Twitter Banner */}
+        <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold ${
+          twitterConnected === true ? "bg-black text-white border-gray-800"
+          : twitterConnected === false ? "bg-gray-50 text-gray-700 border-gray-200"
+          : "bg-gray-50 text-gray-400 border-gray-100"
+        }`}>
+          {twitterConnected === true ? (
+            <div className="flex items-center justify-between w-full">
+              <span className="flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> X (Twitter) Connected</span>
+              <button
+                onClick={async () => {
+                  await saveManualTokens("twitter", { twitter_api_key: "", twitter_access_token: "" });
+                  setTwitterConnected(false);
+                  setSuccess("Twitter credentials cleared.");
+                }}
+                className="text-xs text-gray-400 hover:text-red-400 underline ml-2 font-normal"
+              >Disconnect</button>
+            </div>
+          ) : twitterConnected === false ? (
+            <div className="flex flex-col w-full gap-2">
+              <div className="flex items-center">
+                <ShieldX className="w-4 h-4" /> 
+                <span className="ml-[2px]">X (Twitter) not connected —</span>
+                <button onClick={() => setShowManualConnect(showManualConnect === "twitter" ? null : "twitter")} className={`underline hover:text-blue-600 font-medium ${showManualConnect === "twitter" ? "text-blue-600" : "text-gray-500"}`}>
+                  Developer Fallback
+                </button>
+              </div>
+
+              {showManualConnect === "twitter" && (
+                <div className="mt-2 flex flex-col gap-2.5 bg-white p-4 rounded-xl border border-gray-200 shadow-inner">
+                   <p className="text-[10px] text-gray-500 font-medium mb-1">Paste OAuth 1.0a keys from X Developer Portal (Project Apps):</p>
+                   <input type="text" placeholder="API Key" className="border border-gray-200 p-2 rounded-lg text-xs w-full focus:outline-none focus:border-blue-400 font-mono text-black" 
+                    value={manualState.twitter_api_key} onChange={e => setManualState({...manualState, twitter_api_key: e.target.value})} />
+                   <input type="text" placeholder="API Key Secret" className="border border-gray-200 p-2 rounded-lg text-xs w-full focus:outline-none focus:border-blue-400 font-mono text-black" 
+                    value={manualState.twitter_api_secret} onChange={e => setManualState({...manualState, twitter_api_secret: e.target.value})} />
+                   <input type="text" placeholder="Access Token" className="border border-gray-200 p-2 rounded-lg text-xs w-full focus:outline-none focus:border-blue-400 font-mono text-black" 
+                    value={manualState.twitter_access_token} onChange={e => setManualState({...manualState, twitter_access_token: e.target.value})} />
+                   <input type="text" placeholder="Access Token Secret" className="border border-gray-200 p-2 rounded-lg text-xs w-full focus:outline-none focus:border-blue-400 font-mono text-black" 
+                    value={manualState.twitter_access_secret} onChange={e => setManualState({...manualState, twitter_access_secret: e.target.value})} />
+                   <button onClick={() => handleSaveManualTokens("twitter")} className="bg-black hover:bg-gray-800 text-white rounded-lg px-3 py-2 text-xs font-bold transition-colors w-max mt-1">
+                     Save Twitter Keys
+                   </button>
+                </div>
+              )}
+            </div>
+          ) : <><Wifi className="w-4 h-4" /> Checking X...</>}
         </div>
 
         <div className="bg-white border border-[#e5e7eb] p-5 rounded-2xl flex flex-col shadow-sm">

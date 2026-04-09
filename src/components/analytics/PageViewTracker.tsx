@@ -10,11 +10,11 @@
 // ============================================================================
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { trackEvent } from "@/actions/analytics.actions";
 
-export function PageViewTracker() {
+function TrackerLogic() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const hasTrackedInitialRender = useRef(false);
@@ -59,4 +59,12 @@ export function PageViewTracker() {
   }, [pathname, searchParams]);
 
   return null;
+}
+
+export function PageViewTracker() {
+  return (
+    <Suspense fallback={null}>
+      <TrackerLogic />
+    </Suspense>
+  );
 }

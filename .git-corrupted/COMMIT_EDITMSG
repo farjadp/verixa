@@ -1,0 +1,1 @@
+fix: sync 9912 rawEmail fields to postgres + fix status display Yes/No → Active/Inactive

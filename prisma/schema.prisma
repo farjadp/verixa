@@ -1,0 +1,789 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  phone         String?
+  emailVerified DateTime?
+  image         String?
+  hashedPassword String?
+  role          String    @default("USER") // USER, CONSULTANT, ADMIN
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  savedProfiles SavedProfile[]
+  reviews       Review[]
+  clientProfile     ClientProfile?
+  consultantProfile ConsultantProfile?
+  systemLogs        SystemLog[]
+  tickets           Ticket[]
+  sentMessages      TicketMessage[]
+  notifications     Notification[]
+  blogPosts         BlogPost[]
+  subscription      Subscription?
+}
+
+model ConsultantProfile {
+  id                        String   @id @default(cuid())
+  userId                    String?  @unique
+  user                      User?    @relation(fields: [userId], references: [id])
+  fullName                  String
+  slug                      String   @unique
+  licenseNumber             String   @unique
+  status                    String
+  company                   String?
+  city                      String?
+  province                  String?
+  country                   String?
+  timezone                  String   @default("America/Toronto")
+  bookingEnabled            Boolean  @default(true)
+  defaultMeetingMethod      String?
+  defaultMeetingLink        String?
+  customMeetingInstructions String?
+  languages                 String?
+  
+  // Customization
+  coverImage                String?
+  avatarImage               String?
+  website                   String?
+  messengers                Json?    // [{ type: "whatsapp", value: "..." }]
+  bio                       String?  @db.Text
+
+  // CICC Registry Contact Data (migrated from SQLite, read-only reference)
+  rawEmail                  String?  // Email from CICC official registry
+  rawPhone                  String?  // Phone from CICC official registry
+
+  // Claim verification level — set at claim time
+  verificationLevel         String?  // CICC_EMAIL_AND_PHONE | CICC_EMAIL | CICC_PHONE | PENDING_REVIEW
+
+  // Practice details
+  specializations           String?  // JSON array of specialization keys e.g. ["fswp","cec","pnp_bc"]
+  offersInPerson            Boolean  @default(false)
+  officeAddress             String?  // Required if offersInPerson = true
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  consultationTypes  ConsultationType[]
+  weeklyAvailability WeeklyAvailability[]
+  bookingSettings    BookingSettings?
+  bookings           Booking[]
+  savedBy            SavedProfile[]
+  reviews              Review[]
+  notifications        Notification[]
+  dailySummaries       ConsultantDailySummary[]
+
+  // Business Enrichment
+  companyEnrichments   ConsultantCompanyEnrichment[]
+  enrichmentJobs       CompanyEnrichmentJob[]
+}
+
+model ConsultationType {
+  id                  String   @id @default(cuid())
+  consultantProfileId String
+  title               String
+  description         String?
+  durationMinutes     Int
+  priceCents          Int
+  communicationType   String   // VIDEO, PHONE, IN_PERSON
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  profile ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+}
+
+model WeeklyAvailability {
+  id                  String  @id @default(cuid())
+  consultantProfileId String
+  dayOfWeek           Int     // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  startTime           String  // e.g. "09:00"
+  endTime             String  // e.g. "17:00"
+  isActive            Boolean @default(true)
+
+  profile ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+}
+
+model BookingSettings {
+  id                  String  @id @default(cuid())
+  consultantProfileId String  @unique
+  bufferMinutes       Int     @default(15)
+  minimumNoticeHours  Int     @default(24)
+  maxBookingsPerDay   Int?
+  bookingWindowDays   Int?    @default(60)
+  autoConfirm         Boolean @default(false)
+
+  // Phase 22: Meeting Delivery
+  defaultMeetingMethod       String? @default("VIDEO")
+  defaultMeetingProvider     String? @default("MANUAL")
+  defaultMeetingLink         String?
+  defaultMeetingInstructions String?
+
+  profile ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+}
+
+model Booking {
+  id                           String   @id @default(cuid())
+  consultantProfileId          String
+  consultationTypeId           String
+  status                       String   @default("PENDING") // PENDING, CONFIRMED, DECLINED, CANCELLED, COMPLETED, NO_SHOW
+  scheduledStart               DateTime
+  scheduledEnd                 DateTime
+  
+  // Client Details
+  userFirstName                String
+  userLastName                 String
+  userEmail                    String
+  userPhone                    String?
+  country                      String?
+  preferredLanguage            String?
+  serviceNeeded                String?
+  urgency                      String?
+  preferredCommunicationMethod String?
+  caseDescription              String?
+  
+  // Fulfillment
+  meetingMethod                String?
+  meetingProvider              String? @default("MANUAL")
+  meetingLink                  String?
+  meetingInstructions          String?
+  consultantNotes              String?
+  providerMetadata             String?
+  
+  // Financials
+  paymentStatus                String?  @default("PENDING") // PENDING, REQUIRES_CAPTURE, CAPTURED, CANCELED
+  stripePaymentIntentId        String?  @unique
+  platformFeeCents             Int      @default(0)
+  grossAmountCents             Int      @default(0)
+  netAmountCents               Int      @default(0)
+  
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  profile ConsultantProfile @relation(fields: [consultantProfileId], references: [id])
+  type    ConsultationType  @relation(fields: [consultationTypeId], references: [id])
+  events  BookingEventLog[]
+  review  Review?
+
+  // Performance indexes — these fields drive the most frequent queries
+  @@index([userEmail])                          // used in 6+ action queries
+  @@index([consultantProfileId, status])        // used in slot calculation & dashboard
+  @@index([stripePaymentIntentId])              // used in Stripe webhook lookup
+}
+
+model BookingEventLog {
+  id        String   @id @default(cuid())
+  bookingId String
+  action    String
+  actorType String   // USER, CONSULTANT, SYSTEM
+  notes     String?
+  createdAt DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id                  String   @id @default(cuid())
+  userId              String?
+  guestName           String?
+  guestEmail          String?
+  metadata            Json?
+  consultantProfileId String
+  bookingId           String?  @unique
+  rating              Int
+  comment             String?
+  replyText           String?  @db.Text
+  repliedAt           DateTime?
+  status              String   @default("PUBLISHED") // PUBLISHED, PENDING_MODERATION
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user    User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+  booking Booking?          @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+}
+
+model SavedProfile {
+  id                  String   @id @default(cuid())
+  userId              String
+  consultantProfileId String
+  createdAt           DateTime @default(now())
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, consultantProfileId])
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model ClientProfile {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  nationality         String?
+  languages           String?  // e.g., "English, Persian"
+  currentCountry      String?
+  immigrationGoals    String?  // e.g., "Express Entry, Study Permit"
+  educationLevel      String?
+  maritalStatus       String?
+  age                 Int?
+  shareWithConsultant Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SystemLog {
+  id        String   @id @default(cuid())
+  userId    String? 
+  role      String?  // ADMIN, CONSULTANT, CLIENT, SYSTEM
+  action    String   // e.g., USER_LOGIN, BOOKING_CREATED
+  details   String?  // JSON serialized string for extra data
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Ticket {
+  id          String   @id @default(cuid())
+  userId      String
+  subject     String
+  category    String   // e.g., "General", "Dispute", "Technical", "Billing"
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  priority    String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    TicketMessage[]
+}
+
+model TicketMessage {
+  id          String   @id @default(cuid())
+  ticketId    String
+  senderId    String
+  content     String
+  isInternal  Boolean  @default(false) // If true, only visible to admins
+  createdAt   DateTime @default(now())
+
+  ticket      Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender      User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id              String   @id @default(cuid())
+  userId          String?
+  consultantId    String?
+  type            String   // e.g., "NEW_BOOKING", "BOOKING_CANCELLED", "BOOKING_CONFIRMED"
+  title           String
+  message         String
+  relatedEntityId String?  // e.g., bookingId
+  isRead          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  user            User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  consultant      ConsultantProfile? @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  // Index for per-user dashboard notification queries (userId + isRead filtered together)
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+}
+
+model PlatformSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BlogPost {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  summary     String
+  content     String
+  category    String   // IMMIGRATION_GUIDES, CONSULTANT_INSIGHTS, CASE_BASED_CONTENT, UPDATES_POLICY
+  coverImage  String?
+  isPublished Boolean  @default(false)
+  publishedAt DateTime?
+  seoTitle    String?
+  seoDesc     String?
+  
+  // Phase 26: AI Factory Metadata
+  imagePrompt String?
+  socialHooks String?   // JSON object with variants
+  
+  authorId    String?
+  author      User?    @relation(fields: [authorId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  socialJobs  SocialJob[]
+}
+
+// ==========================================
+// PHASE 28: Autonomous News Aggregator Engine
+// ==========================================
+
+model ContentSource {
+  id              String       @id @default(cuid())
+  name            String
+  url             String
+  type            String       // RSS, SITEMAP, HTML
+  enabled         Boolean      @default(true)
+  lastCheckedAt   DateTime?
+  trustScore      Int          @default(100)
+  createdAt       DateTime     @default(now())
+  
+  rawArticles     RawArticle[]
+}
+
+model RawArticle {
+  id              String       @id @default(cuid())
+  sourceId        String
+  source          ContentSource @relation(fields: [sourceId], references: [id])
+  sourceUrl       String       @unique
+  title           String?
+  publishedAt     DateTime?
+  rawHtml         String?
+  extractedText   String?
+  status          String       @default("PENDING") // PENDING, DUPLICATE, PARSED, PROCESSED, FAILED
+  checksum        String?
+  createdAt       DateTime     @default(now())
+
+  contentJob      ContentJob?
+}
+
+model ContentJob {
+  id              String       @id @default(cuid())
+  rawArticleId    String       @unique
+  rawArticle      RawArticle   @relation(fields: [rawArticleId], references: [id])
+  status          String       @default("QUEUED") // QUEUED, GENERATING, REVIEW, COMPLETED
+  createdAt       DateTime     @default(now())
+  finalArticleId  String?      // Reference back to BlogPost after generation
+}
+
+model SocialJob {
+  id              String       @id @default(cuid())
+  blogPostId      String       @unique
+  blogPost        BlogPost     @relation(fields: [blogPostId], references: [id])
+  linkedinCopy    String?
+  twitterCopy     String?
+  telegramCopy    String?
+  facebookCopy    String?
+  hooks           String?      // JSON of 5 Hooks
+  ctas            String?      // JSON of 3 CTAs
+  status          String       @default("PENDING") // PENDING, GENERATING, REVIEW, APPROVED, POSTING, POSTED, FAILED
+
+  // Per-platform publish status
+  linkedinStatus  String?      @default("PENDING") // PENDING | POSTED | FAILED | SKIPPED
+  twitterStatus   String?      @default("PENDING")
+  telegramStatus  String?      @default("PENDING")
+  facebookStatus  String?      @default("PENDING")
+
+  // Platform result IDs (returned after successful publish)
+  linkedinPostId  String?
+  twitterPostId   String?
+  telegramMsgId   String?
+  facebookPostId  String?
+
+  // Timestamps & errors
+  publishedAt     DateTime?
+  publishError    String?      // last error
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  to        String
+  subject   String?
+  type      String   // e.g., "NEW_BOOKING", "REMINDER"
+  status    String   // e.g., "SENT", "FAILED"
+  error     String?
+  sentAt    DateTime @default(now())
+}
+
+// ==========================================
+// ANALYTICS SYSTEM
+// ==========================================
+
+model AnalyticsEvent {
+  id              String   @id @default(cuid())
+  eventName       String   // e.g., 'page_view', 'booking_started', 'search_performed'
+  sessionId       String?  // Unique identifier for the visitor's session
+  userId          String?  // nullable — anonymous users allowed
+  consultantId    String?  // consultantProfileId when relevant
+  articleId       String?  // blogPostId when relevant
+
+  // Traffic Attribution
+  source          String?  // organic, linkedin, telegram, direct, google_ads
+  utmSource       String?  // utm_source param
+  utmMedium       String?  // utm_medium param
+  utmCampaign     String?  // utm_campaign param
+  utmContent      String?  // utm_content param
+  utmTerm         String?  // utm_term param
+  referrer        String?  // raw referrer URL
+
+  // Context
+  device          String?  // mobile, desktop, tablet
+  city            String?
+  province        String?
+  country         String?
+
+  // Specialization context (for competitor insight by expertise)
+  specialization  String?  // e.g. "Express Entry", "Study Permit"
+
+  // Flexible extra data
+  metadata        String?  // JSON string
+
+  createdAt       DateTime @default(now())
+
+  @@index([consultantId, createdAt])
+  @@index([eventName, createdAt])
+  @@index([articleId, createdAt])
+}
+
+model ConsultantDailySummary {
+  id                  String   @id @default(cuid())
+  consultantProfileId String
+  date                DateTime // date only — stored as start of day UTC
+
+  // Core metrics
+  profileViews         Int      @default(0)
+  profileClicks        Int      @default(0)
+  bookingStarts        Int      @default(0)
+  bookingsCompleted    Int      @default(0)
+  revenueCents         Int      @default(0)
+  reviewsReceived      Int      @default(0)
+
+  // Computed
+  visibilityScore      Int      @default(0)
+  searchImpressions    Int      @default(0)
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  profile ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([consultantProfileId, date])
+  @@index([consultantProfileId, date])
+}
+
+// ==========================================
+// SAAS PLAN & FEATURE SYSTEM
+// ==========================================
+
+model Feature {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g. "review_response", "advanced_analytics"
+  name        String
+  description String?
+  category    String   // visibility | booking | trust | analytics | financial | premium
+  type        String   @default("boolean") // "boolean" | "limit"
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  planFeatures PlanFeature[]
+}
+
+model Plan {
+  id              String   @id @default(cuid())
+  name            String   // Free, Starter, Growth, Pro
+  slug            String   @unique // free, starter, growth, pro
+  description     String?
+  priceCents      Int      @default(0)  // monthly price in cents
+  yearlyPriceCents Int?                 // yearly price in cents (if null, yearly = monthly × 12)
+  commission      Int      @default(21) // platform fee percent
+  isActive        Boolean  @default(true)
+  isRecommended   Boolean  @default(false)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  planFeatures  PlanFeature[]
+  subscriptions Subscription[]
+}
+
+model PlanFeature {
+  id        String  @id @default(cuid())
+  planId    String
+  featureId String
+  enabled   Boolean @default(true)
+  value     String? // "3", "unlimited", "basic", "advanced" etc.
+
+  plan    Plan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, featureId])
+}
+
+model Subscription {
+  id         String    @id @default(cuid())
+  userId     String    @unique  // one active subscription per user
+  planId     String
+
+  status     String    @default("active") // active | cancelled | expired
+  startDate  DateTime  @default(now())
+  endDate    DateTime?
+  notes      String?   // admin notes
+  assignedBy String?   // admin userId who assigned it
+  
+  stripeCustomerId     String?
+  stripeSubscriptionId String?   @unique
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id])
+  discountUsages DiscountCodeUsage[]
+}
+
+// ============================================================================
+// ENRICHMENT SYSTEM
+// ============================================================================
+
+model ConsultantCompanyEnrichment {
+  id                 String   @id @default(cuid())
+  consultantProfileId String
+  rawCompanyName     String
+  normalizedName     String
+
+  matchStatus        String   // pending, matched, ambiguous, not_found, error
+  confidenceScore    Float?
+
+  matchedLegalName   String?
+  registrySource     String?  // federal_api, mras, ontario_registry, etc.
+  jurisdiction       String?  // federal, ontario, british_columbia, ...
+  registryNumber     String?
+  businessNumber     String?
+  incorporationDate  DateTime?
+  registeredAddress  String?
+  status             String?  // active, dissolved, etc.
+  sourceUrl          String?
+
+  rawPayload         Json?
+  lastCheckedAt      DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  consultantProfile  ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+
+  @@index([consultantProfileId])
+  @@index([matchStatus])
+  @@index([jurisdiction])
+}
+
+model CompanyEnrichmentJob {
+  id                 String   @id @default(cuid())
+  consultantProfileId String
+  rawCompanyName     String
+  status             String   // queued, processing, done, failed, ambiguous
+  attempts           Int      @default(0)
+  errorMessage       String?
+  runAfter           DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  consultantProfile  ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// Admin Broadcast Campaigns
+// ==========================================
+model CampaignLog {
+  id              String              @id @default(cuid())
+  type            String              @default("EMAIL")
+  subject         String
+  cohort          String
+  sentCount       Int                 @default(0)
+  successfulCount Int                 @default(0)
+  failedCount     Int                 @default(0)
+  sentByAdminId   String
+  contentHtml     String?             @db.Text
+  createdAt       DateTime            @default(now())
+  recipients      CampaignRecipient[]
+}
+
+// Tracks every individual email sent in a campaign
+model CampaignRecipient {
+  id            String      @id @default(cuid())
+  campaignLogId String
+  campaignLog   CampaignLog @relation(fields: [campaignLogId], references: [id], onDelete: Cascade)
+  email         String
+  name          String?
+  status        String      @default("SENT") // SENT | FAILED | DELIVERED | BOUNCED | COMPLAINED
+  resendId      String?     // Resend message ID — used for webhook matching
+  errorMessage  String?
+  createdAt     DateTime    @default(now())
+
+  @@index([campaignLogId])
+  @@index([email])
+  @@index([resendId])
+}
+
+// Opt-out list — always filtered from future campaigns
+model EmailUnsubscribe {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  reason    String?  // "user_request" | "bounced" | "complained"
+  createdAt DateTime @default(now())
+}
+
+// OTP tokens used during the consultant profile claim flow
+model ClaimOTP {
+  id            String   @id @default(cuid())
+  licenseNumber String                         // Which profile is being claimed
+  channel       String                         // "email" | "phone"
+  target        String                         // The email or phone number the OTP was sent to
+  codeHash      String                         // bcrypt hash of the 6-digit code
+  isMatched     Boolean  @default(false)       // true = target matched CICC registry data
+  verified      Boolean  @default(false)       // true = user entered correct code
+  attempts      Int      @default(0)           // max 5 attempts
+  expiresAt     DateTime                       // 1 hour from creation
+  createdAt     DateTime @default(now())
+
+  // Issue 15a: DB-based rate limiting fields (multi-instance safe)
+  otpSentCount     Int       @default(0)    // how many OTPs sent in current window
+  lastOtpRequestAt DateTime?               // when the last OTP was sent
+
+  @@index([licenseNumber])
+}
+
+// ============================================================================
+// SPECIALIZATIONS SYSTEM (Immigration Pathways)
+// ============================================================================
+
+model SpecializationCategory {
+  id        String   @id @default(cuid())
+  name      String                          // e.g. "Express Entry"
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items SpecializationItem[]
+}
+
+model SpecializationItem {
+  id          String   @id @default(cuid())
+  key         String   @unique              // e.g. "fswp", "cec"
+  label       String                        // Display name
+  categoryId  String
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category SpecializationCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+}
+
+// ============================================================================
+// PASSWORD RESET TOKENS
+// ============================================================================
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  email     String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+// ============================================================================
+// DISCOUNT / COUPON CODE SYSTEM
+// ============================================================================
+
+model DiscountCode {
+  id              String    @id @default(cuid())
+  code            String    @unique // e.g. "LAUNCH50", "EARLYBIRD"
+  description     String?   // Admin-facing note
+  type            String    // PERCENT | FIXED_CENTS
+  value           Int       // 50 = 50% discount, or 5000 = $50 off
+  applicableTo    String    @default("SUBSCRIPTION") // SUBSCRIPTION | ALL
+  allowedPlanIds  String?   // JSON array of planId strings; null = all plans
+  maxUses         Int?      // null = unlimited
+  usedCount       Int       @default(0)
+  durationMonths  Int?      // null = one-time; 3 = discount applies for 3 renewals
+  startsAt        DateTime? // null = active immediately
+  expiresAt       DateTime? // null = never expires
+  isActive        Boolean   @default(true)
+  createdBy       String    // admin userId
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  usages DiscountCodeUsage[]
+}
+
+model DiscountCodeUsage {
+  id              String    @id @default(cuid())
+  codeId          String
+  userId          String
+  subscriptionId  String?
+  discountCents   Int       // exact discount amount applied
+  createdAt       DateTime  @default(now())
+
+  code         DiscountCode  @relation(fields: [codeId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@unique([codeId, userId]) // one use per user per code
+  @@index([codeId])
+  @@index([userId])
+}
+

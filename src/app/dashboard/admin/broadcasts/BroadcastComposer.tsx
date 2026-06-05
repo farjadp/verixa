@@ -93,8 +93,8 @@ export default function BroadcastComposer({ dailyUsed = 0, dailyLimit = 100 }: B
       setError("Please enter a subject line.");
       return;
     }
-    if (!body || body.length < 10) {
-      setError("Please write a meaningful message body.");
+    if (!body) {
+      setError("Please write a message body.");
       return;
     }
     if (!audienceCount || audienceCount === 0) {
@@ -381,7 +381,7 @@ export default function BroadcastComposer({ dailyUsed = 0, dailyLimit = 100 }: B
         <div className="pt-4 border-t border-gray-800/50 flex items-center justify-between gap-4">
           <p className="text-xs text-gray-500">
             {audienceCount !== null && audienceCount > 0 ? (
-              <span>Sending to <span className="text-white font-bold">{audienceCount.toLocaleString()}</span> addresses via Resend BCC chunks of 50</span>
+              <span>Sending to <span className="text-white font-bold">{audienceCount.toLocaleString()}</span> addresses individually</span>
             ) : (
               <span className="text-amber-500">No targets match current filters</span>
             )}

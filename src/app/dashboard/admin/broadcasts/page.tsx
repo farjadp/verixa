@@ -36,7 +36,7 @@ export default async function AdminBroadcastsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         <div className="lg:col-span-2 space-y-6">
-          <BroadcastComposer dailyUsed={dailyUsed} dailyLimit={100} />
+          <BroadcastComposer dailyUsed={dailyUsed} dailyLimit={process.env.RESEND_DAILY_LIMIT ? parseInt(process.env.RESEND_DAILY_LIMIT) : 50000} />
         </div>
         <div className="sticky top-8">
           <BroadcastHistory campaigns={campaigns} />

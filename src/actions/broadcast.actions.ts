@@ -10,7 +10,7 @@ import { buildUnsubscribeUrl } from "@/lib/unsubscribe";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
 const SENDER_EMAIL = "info@farjadp.info";
-const DAILY_LIMIT = 100;
+const DAILY_LIMIT = process.env.RESEND_DAILY_LIMIT ? parseInt(process.env.RESEND_DAILY_LIMIT) : 50000;
 
 // ─── DAILY USAGE ───────────────────────────────────────────────────────────
 export async function getDailyEmailUsage(): Promise<number> {
@@ -153,12 +153,9 @@ export async function sendBroadcast(
   const adminProfile = await verifyAdmin();
   const domainType = options?.domainType ?? "ALL";
   const activeOnly = options?.activeOnly ?? false;
-  const limit = options?.limit ?? 100;
+  const limit = options?.limit ?? 0;
 
-  const dailyUsed = await getDailyEmailUsage();
-  const remaining = DAILY_LIMIT - dailyUsed;
-  if (remaining <= 0) throw new Error(`Daily email limit reached (${DAILY_LIMIT}/day on free plan). Resets at midnight.`);
-  const effectiveLimit = Math.min(limit || DAILY_LIMIT, remaining);
+  const effectiveLimit = limit === 0 ? undefined : limit;
 
   let targets: { email: string; name: string | null }[] = [];
   const pgCohorts = ["ALL_USERS","CLIENTS","CONSULTANTS","VERIFIED_CONSULTANTS","UNVERIFIED_CONSULTANTS"];
@@ -228,13 +225,10 @@ export async function sendBroadcast(
 // ─── DIRECT BROADCAST (Extractor) ─────────────────────────────────────────
 export async function sendDirectBroadcast(emails: string[], subject: string, htmlContent: string) {
   const adminProfile = await verifyAdmin();
-  const dailyUsed = await getDailyEmailUsage();
-  const remaining = DAILY_LIMIT - dailyUsed;
-  if (remaining <= 0) throw new Error(`Daily email limit reached (${DAILY_LIMIT}/day). Resets at midnight.`);
 
   const unsubs = await (prisma as any).emailUnsubscribe.findMany({ select: { email: true } });
   const unsubSet = new Set(unsubs.map((u: any) => u.email.toLowerCase()));
-  const validEmails = emails.filter((e) => e && !unsubSet.has(e.toLowerCase())).slice(0, remaining);
+  const validEmails = emails.filter((e) => e && !unsubSet.has(e.toLowerCase()));
   if (validEmails.length === 0) throw new Error("No valid email addresses (all may be unsubscribed).");
 
   const campaignLog = await (prisma as any).campaignLog.create({

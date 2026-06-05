@@ -195,22 +195,40 @@ export async function sendBroadcast(
   let successCount = 0;
   let failCount = 0;
 
-  for (const target of targets) {
-    const unsubUrl = buildUnsubscribeUrl(target.email);
-    const html = buildPremiumEmailTemplate(subject, htmlContent, unsubUrl);
+  const CHUNK_SIZE = 100;
+  for (let i = 0; i < targets.length; i += CHUNK_SIZE) {
+    const chunk = targets.slice(i, i + CHUNK_SIZE);
+    
+    const payloads = chunk.map(target => ({
+      from: `Verixa Network <${SENDER_EMAIL}>`,
+      to: [target.email],
+      subject,
+      html: buildPremiumEmailTemplate(subject, htmlContent, buildUnsubscribeUrl(target.email))
+    }));
+
     try {
-      const result = await resend.emails.send({ from: `Verixa Network <${SENDER_EMAIL}>`, to: [target.email], subject, html });
-      await (prisma as any).campaignRecipient.create({
-        data: { campaignLogId: campaignLog.id, email: target.email, name: target.name, status: "SENT", resendId: (result.data as any)?.id ?? null },
-      });
-      successCount++;
+      const result = await resend.batch.send(payloads);
+      
+      const dbRecords = chunk.map((target) => ({
+        campaignLogId: campaignLog.id,
+        email: target.email,
+        name: target.name,
+        status: "SENT",
+      }));
+      
+      await (prisma as any).campaignRecipient.createMany({ data: dbRecords });
+      successCount += chunk.length;
     } catch (err: any) {
-      await (prisma as any).campaignRecipient.create({
-        data: { campaignLogId: campaignLog.id, email: target.email, name: target.name, status: "FAILED", errorMessage: err.message?.slice(0, 200) },
-      });
-      failCount++;
+      const dbRecords = chunk.map(target => ({
+        campaignLogId: campaignLog.id,
+        email: target.email,
+        name: target.name,
+        status: "FAILED",
+        errorMessage: err.message?.slice(0, 200),
+      }));
+      await (prisma as any).campaignRecipient.createMany({ data: dbRecords });
+      failCount += chunk.length;
     }
-    await new Promise((r) => setTimeout(r, 120));
   }
 
   await (prisma as any).campaignLog.update({
@@ -220,6 +238,23 @@ export async function sendBroadcast(
 
   revalidatePath("/dashboard/admin/broadcasts");
   return { success: true, count: successCount, failed: failCount, campaignId: campaignLog.id };
+}
+
+// ─── TEST EMAIL ────────────────────────────────────────────────────────────
+export async function sendTestEmail(email: string, subject: string, htmlContent: string) {
+  await verifyAdmin();
+  const unsubUrl = buildUnsubscribeUrl(email);
+  const html = buildPremiumEmailTemplate(subject, htmlContent, unsubUrl);
+  
+  const result = await resend.emails.send({
+    from: `Verixa Network <${SENDER_EMAIL}>`,
+    to: [email],
+    subject: `[TEST] ${subject}`,
+    html,
+  });
+
+  if (result.error) throw new Error(result.error.message);
+  return { success: true };
 }
 
 // ─── DIRECT BROADCAST (Extractor) ─────────────────────────────────────────
@@ -244,21 +279,38 @@ export async function sendDirectBroadcast(emails: string[], subject: string, htm
   let successCount = 0;
   let failCount = 0;
 
-  for (const email of validEmails) {
-    const html = buildPremiumEmailTemplate(subject, htmlContent, buildUnsubscribeUrl(email));
+  const CHUNK_SIZE = 100;
+  for (let i = 0; i < validEmails.length; i += CHUNK_SIZE) {
+    const chunk = validEmails.slice(i, i + CHUNK_SIZE);
+    
+    const payloads = chunk.map(email => ({
+      from: `Verixa Network <${SENDER_EMAIL}>`,
+      to: [email],
+      subject,
+      html: buildPremiumEmailTemplate(subject, htmlContent, buildUnsubscribeUrl(email))
+    }));
+
     try {
-      const result = await resend.emails.send({ from: `Verixa Network <${SENDER_EMAIL}>`, to: [email], subject, html });
-      await (prisma as any).campaignRecipient.create({
-        data: { campaignLogId: campaignLog.id, email, status: "SENT", resendId: (result.data as any)?.id ?? null },
-      });
-      successCount++;
+      await resend.batch.send(payloads);
+      
+      const dbRecords = chunk.map(email => ({
+        campaignLogId: campaignLog.id,
+        email,
+        status: "SENT",
+      }));
+      
+      await (prisma as any).campaignRecipient.createMany({ data: dbRecords });
+      successCount += chunk.length;
     } catch (err: any) {
-      await (prisma as any).campaignRecipient.create({
-        data: { campaignLogId: campaignLog.id, email, status: "FAILED", errorMessage: err.message?.slice(0, 200) },
-      });
-      failCount++;
+      const dbRecords = chunk.map(email => ({
+        campaignLogId: campaignLog.id,
+        email,
+        status: "FAILED",
+        errorMessage: err.message?.slice(0, 200),
+      }));
+      await (prisma as any).campaignRecipient.createMany({ data: dbRecords });
+      failCount += chunk.length;
     }
-    await new Promise((r) => setTimeout(r, 120));
   }
 
   await (prisma as any).campaignLog.update({

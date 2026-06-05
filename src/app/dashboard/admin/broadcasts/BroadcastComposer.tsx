@@ -381,22 +381,48 @@ export default function BroadcastComposer({ dailyUsed = 0, dailyLimit = 100 }: B
         <div className="pt-4 border-t border-gray-800/50 flex items-center justify-between gap-4">
           <p className="text-xs text-gray-500">
             {audienceCount !== null && audienceCount > 0 ? (
-              <span>Sending to <span className="text-white font-bold">{audienceCount.toLocaleString()}</span> addresses individually</span>
+              <span>Sending to <span className="text-white font-bold">{audienceCount.toLocaleString()}</span> addresses using batching</span>
             ) : (
               <span className="text-amber-500">No targets match current filters</span>
             )}
           </p>
-          <button
-            type="submit"
-            disabled={loading || !audienceCount || audienceCount === 0}
-            className="flex items-center gap-2 bg-[#2FA4A9] text-white px-8 py-4 rounded-2xl font-black uppercase tracking-wider shadow-lg hover:shadow-[#2FA4A9]/40 hover:-translate-y-0.5 transition-all disabled:opacity-40 disabled:hover:translate-y-0 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <><Activity className="w-5 h-5 animate-spin" /> Transmitting...</>
-            ) : (
-              <><Send className="w-5 h-5" /> Deploy Broadcast</>
-            )}
-          </button>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={async () => {
+                if (transmissionType !== "EMAIL") { alert("Tests are only for Email."); return; }
+                if (!subject.trim()) { setError("Subject required for test."); return; }
+                if (!body) { setError("Body required for test."); return; }
+                const testEmail = window.prompt("Enter test email address:");
+                if (!testEmail) return;
+                try {
+                  setLoading(true);
+                  const { sendTestEmail } = await import("@/actions/broadcast.actions");
+                  await sendTestEmail(testEmail, subject, body);
+                  alert("Test email sent successfully to " + testEmail);
+                } catch (e: any) {
+                  alert("Test email failed: " + e.message);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
+              className="flex items-center gap-2 bg-gray-800 text-white px-6 py-4 rounded-2xl font-bold uppercase tracking-wider shadow-lg hover:bg-gray-700 hover:-translate-y-0.5 transition-all disabled:opacity-40"
+            >
+              Send Test
+            </button>
+            <button
+              type="submit"
+              disabled={loading || !audienceCount || audienceCount === 0}
+              className="flex items-center gap-2 bg-[#2FA4A9] text-white px-8 py-4 rounded-2xl font-black uppercase tracking-wider shadow-lg hover:shadow-[#2FA4A9]/40 hover:-translate-y-0.5 transition-all disabled:opacity-40 disabled:hover:translate-y-0 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <><Activity className="w-5 h-5 animate-spin" /> Transmitting...</>
+              ) : (
+                <><Send className="w-5 h-5" /> Deploy Broadcast</>
+              )}
+            </button>
+          </div>
         </div>
       </form>
     </div>

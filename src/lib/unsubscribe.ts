@@ -11,7 +11,7 @@ export function signUnsubscribeToken(email: string): string {
 }
 
 export function buildUnsubscribeUrl(email: string): string {
-  const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://getverixa.ca";
+  const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.getverixa.com";
   const token = signUnsubscribeToken(email);
   return `${BASE_URL}/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`;
 }

@@ -17,7 +17,11 @@ import {
   publishToLinkedIn, publishToTwitter, publishToTelegram, publishToFacebook, publishAll,
   getLinkedInAuthUrl, checkLinkedInStatus, disconnectLinkedIn,
   getFacebookAuthUrl, checkFacebookStatus, disconnectFacebook,
+<<<<<<< Updated upstream
   checkTwitterStatus, saveManualTokens
+=======
+  saveTwitterKeys, checkTwitterStatus, disconnectTwitter,
+>>>>>>> Stashed changes
 } from "@/actions/publish.actions";
 import { logClientError } from "@/actions/log.actions";
 import {
@@ -86,6 +90,7 @@ export default function SocialHubClient({
   const [facebookConnected, setFacebookConnected] = useState<boolean | null>(null);
   const [facebookName, setFacebookName] = useState("");
   const [twitterConnected, setTwitterConnected] = useState<boolean | null>(null);
+<<<<<<< Updated upstream
   const [showManualConnect, setShowManualConnect] = useState<"linkedin" | "facebook" | "twitter" | null>(null);
   
   const [manualState, setManualState] = useState({
@@ -93,6 +98,10 @@ export default function SocialHubClient({
     facebook_page_token: "", facebook_page_id: "", facebook_page_name: "",
     twitter_api_key: "", twitter_api_secret: "", twitter_access_token: "", twitter_access_secret: ""
   });
+=======
+  const [twitterForm, setTwitterForm] = useState({ apiKey: "", apiSecret: "", accessToken: "", accessSecret: "" });
+  const [twitterSaving, setTwitterSaving] = useState(false);
+>>>>>>> Stashed changes
 
   const [editForms, setEditForms] = useState({ linkedin: "", facebook: "", x: "", telegram: "" });
 
@@ -127,6 +136,7 @@ export default function SocialHubClient({
       setFacebookConnected(r.connected);
       if (r.name) setFacebookName(r.name);
     });
+    checkTwitterStatus().then((r) => setTwitterConnected(r.connected));
   }, []);
 
   // Update effect to check Twitter accurately
@@ -151,6 +161,21 @@ export default function SocialHubClient({
       telegram: job?.telegramCopy || "",
     });
     setError(""); setSuccess("");
+  };
+
+  const handleSaveTwitterKeys = async () => {
+    setTwitterSaving(true); setError(""); setSuccess("");
+    try {
+      const result = await saveTwitterKeys(twitterForm);
+      if (!result.ok) { setError(result.error || "Failed to save Twitter keys."); return; }
+      setSuccess("✅ Twitter keys saved successfully!");
+      setTwitterConnected(true);
+      setTwitterForm({ apiKey: "", apiSecret: "", accessToken: "", accessSecret: "" });
+    } catch (e: any) {
+      setError(e.message || "Failed to save Twitter keys.");
+    } finally {
+      setTwitterSaving(false);
+    }
   };
 
   const handleIgniteEngine = async (postId: string) => {
@@ -242,11 +267,11 @@ export default function SocialHubClient({
   const handleSaveManualTokens = async (platform: "linkedin" | "facebook" | "twitter") => {
     setLoading(true); setError(""); setSuccess("");
     try {
-      if (platform === "linkedin" && !manualState.linkedin_access_token) {
-        throw new Error("Access Token is required.");
+      if (platform === "linkedin" && (!manualState.linkedin_access_token || !manualState.linkedin_org_id)) {
+        throw new Error("Both Access Token and Org ID (URN) are required.");
       }
-      if (platform === "facebook" && !manualState.facebook_page_token) {
-        throw new Error("Page Access Token is required.");
+      if (platform === "facebook" && (!manualState.facebook_page_token || !manualState.facebook_page_id)) {
+        throw new Error("Both Page Token and Page ID are required.");
       }
       if (platform === "twitter" && (!manualState.twitter_api_key || !manualState.twitter_access_token)) {
         throw new Error("Minimum API Key and Access Token required.");
@@ -325,6 +350,68 @@ export default function SocialHubClient({
           ) : <><Wifi className="w-4 h-4" /> Checking LinkedIn...</>}
         </div>
 
+        <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold ${
+          twitterConnected === true ? "bg-gray-900 text-white border-gray-700"
+          : twitterConnected === false ? "bg-orange-50 text-orange-700 border-orange-100"
+          : "bg-gray-50 text-gray-500 border-gray-100"
+        }`}>
+          {twitterConnected === true ? (
+            <div className="flex items-center justify-between w-full">
+              <span className="flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> X (Twitter) Connected</span>
+              <button
+                onClick={async () => {
+                  await disconnectTwitter();
+                  setTwitterConnected(false);
+                  setSuccess("Twitter disconnected.");
+                }}
+                className="text-xs text-gray-300 hover:text-red-400 underline ml-2 font-normal"
+              >Disconnect</button>
+            </div>
+          ) : twitterConnected === false ? (
+            <div className="flex flex-col gap-3 w-full">
+              <div className="flex items-center gap-2">
+                <ShieldX className="w-4 h-4" />
+                <span>X (Twitter) not connected — paste OAuth 1.0a keys from X Developer Portal</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text" placeholder="API Key (Consumer Key)"
+                  value={twitterForm.apiKey}
+                  onChange={(e) => setTwitterForm({ ...twitterForm, apiKey: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-orange-200 bg-white text-gray-800 text-xs focus:outline-none focus:ring-1 focus:ring-orange-300"
+                />
+                <input
+                  type="text" placeholder="API Key Secret (Consumer Secret)"
+                  value={twitterForm.apiSecret}
+                  onChange={(e) => setTwitterForm({ ...twitterForm, apiSecret: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-orange-200 bg-white text-gray-800 text-xs focus:outline-none focus:ring-1 focus:ring-orange-300"
+                />
+                <input
+                  type="text" placeholder="Access Token"
+                  value={twitterForm.accessToken}
+                  onChange={(e) => setTwitterForm({ ...twitterForm, accessToken: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-orange-200 bg-white text-gray-800 text-xs focus:outline-none focus:ring-1 focus:ring-orange-300"
+                />
+                <input
+                  type="text" placeholder="Access Token Secret"
+                  value={twitterForm.accessSecret}
+                  onChange={(e) => setTwitterForm({ ...twitterForm, accessSecret: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-orange-200 bg-white text-gray-800 text-xs focus:outline-none focus:ring-1 focus:ring-orange-300"
+                />
+                <button
+                  onClick={handleSaveTwitterKeys}
+                  disabled={twitterSaving || !twitterForm.apiKey || !twitterForm.apiSecret || !twitterForm.accessToken || !twitterForm.accessSecret}
+                  className="self-start bg-gray-900 hover:bg-black text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {twitterSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Twitter className="w-3 h-3" />}
+                  Save Twitter Keys
+                </button>
+              </div>
+            </div>
+          ) : <><Wifi className="w-4 h-4" /> Checking Twitter...</>}
+        </div>
+
+        {/* Facebook connection banner */}
         <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold ${
           facebookConnected === true ? "bg-blue-50 text-blue-700 border-blue-100"
           : facebookConnected === false ? "bg-orange-50 text-orange-700 border-orange-100"

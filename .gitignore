@@ -45,3 +45,6 @@ dev.db
 *.sqlite
 *.sqlite3
 # cicc_data.db is intentionally committed (read-only registry, not user data)
+
+# backups
+/backups/

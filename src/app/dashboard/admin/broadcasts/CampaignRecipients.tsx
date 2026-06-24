@@ -24,6 +24,17 @@ export default function CampaignRecipients({ campaignId, onClose }: Props) {
     getCampaignRecipients(campaignId, page, 50).then(setData);
   }, [campaignId, page]);
 
+  useEffect(() => {
+    if (!data) return;
+    if ((data.total ?? 0) >= (data.expectedTotal ?? 0)) return;
+
+    const intervalId = window.setInterval(() => {
+      getCampaignRecipients(campaignId, page, 50).then(setData).catch(() => {});
+    }, 5000);
+
+    return () => window.clearInterval(intervalId);
+  }, [campaignId, data, page]);
+
   const filtered = data?.recipients?.filter((r: any) =>
     !search || r.email.toLowerCase().includes(search.toLowerCase()) || (r.name || "").toLowerCase().includes(search.toLowerCase())
   ) ?? [];

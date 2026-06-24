@@ -215,12 +215,10 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
   }
 
   // Get access token — first try DB (set via OAuth flow), then env
-  const dbToken = (await prisma.platformSetting.findUnique({ where: { key: "linkedin_access_token" } }))?.value;
-  const dbOrgId = (await prisma.platformSetting.findUnique({ where: { key: "linkedin_org_id" } }))?.value;
-
-  const useDb = !!(dbToken && dbOrgId);
-  const accessToken = useDb ? dbToken : (process.env.LINKEDIN_ACCESS_TOKEN || dbToken);
-  const orgId = useDb ? dbOrgId : (process.env.LINKEDIN_ORGANIZATION_ID || dbOrgId);
+  const dbToken = await prisma.platformSetting.findUnique({ where: { key: "linkedin_access_token" } });
+  const accessToken = dbToken?.value || process.env.LINKEDIN_ACCESS_TOKEN;
+  const orgId = (await prisma.platformSetting.findUnique({ where: { key: "linkedin_org_id" } }))?.value
+    || process.env.LINKEDIN_ORGANIZATION_ID;
 
   if (!accessToken) {
     const errorMsg = "LinkedIn not connected. Go to Admin → Social → Connect LinkedIn.";
@@ -373,19 +371,20 @@ export async function publishToLinkedIn(jobId: string): Promise<PublishResult> {
 
 // ─── TWITTER / X ──────────────────────────────────────────────────────────────
 // Uses Twitter API v2 POST /2/tweets with OAuth 1.0a User Context.
-// Requires: TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET
+// Keys are read from DB first (saved via Admin UI), then fall back to env vars.
 
 function buildOAuthHeader(
   method: string,
   url: string,
-  params: Record<string, string>
+  params: Record<string, string>,
+  keys: { apiKey: string; apiSecret: string; accessToken: string; accessSecret: string }
 ): string {
   const oauthParams: Record<string, string> = {
-    oauth_consumer_key: process.env.TWITTER_API_KEY!,
+    oauth_consumer_key: keys.apiKey,
     oauth_nonce: crypto.randomBytes(16).toString("hex"),
     oauth_signature_method: "HMAC-SHA1",
     oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-    oauth_token: process.env.TWITTER_ACCESS_TOKEN!,
+    oauth_token: keys.accessToken,
     oauth_version: "1.0",
   };
 
@@ -402,8 +401,8 @@ function buildOAuthHeader(
   ].join("&");
 
   const signingKey = [
-    encodeURIComponent(process.env.TWITTER_API_SECRET!),
-    encodeURIComponent(process.env.TWITTER_ACCESS_SECRET!),
+    encodeURIComponent(keys.apiSecret),
+    encodeURIComponent(keys.accessSecret),
   ].join("&");
 
   const signature = crypto
@@ -433,35 +432,56 @@ export async function publishToTwitter(jobId: string): Promise<PublishResult> {
     return { ok: false, platform: "twitter", error: errorMsg };
   }
 
-  const dbApiKey = (await prisma.platformSetting.findUnique({ where: { key: "twitter_api_key" } }))?.value;
-  const dbApiSecret = (await prisma.platformSetting.findUnique({ where: { key: "twitter_api_secret" } }))?.value;
-  const dbAccessToken = (await prisma.platformSetting.findUnique({ where: { key: "twitter_access_token" } }))?.value;
-  const dbAccessSecret = (await prisma.platformSetting.findUnique({ where: { key: "twitter_access_secret" } }))?.value;
-
-  const useDb = !!(dbApiKey && dbApiSecret && dbAccessToken && dbAccessSecret);
-
-  const apiKey = useDb ? dbApiKey : (process.env.TWITTER_API_KEY || dbApiKey);
-  const apiSecret = useDb ? dbApiSecret : (process.env.TWITTER_API_SECRET || dbApiSecret);
-  const accessToken = useDb ? dbAccessToken : (process.env.TWITTER_ACCESS_TOKEN || dbAccessToken);
-  const accessSecret = useDb ? dbAccessSecret : (process.env.TWITTER_ACCESS_SECRET || dbAccessSecret);
+<<<<<<< Updated upstream
+  const apiKey = (await prisma.platformSetting.findUnique({ where: { key: "twitter_api_key" } }))?.value || process.env.TWITTER_API_KEY;
+  const apiSecret = (await prisma.platformSetting.findUnique({ where: { key: "twitter_api_secret" } }))?.value || process.env.TWITTER_API_SECRET;
+  const accessToken = (await prisma.platformSetting.findUnique({ where: { key: "twitter_access_token" } }))?.value || process.env.TWITTER_ACCESS_TOKEN;
+  const accessSecret = (await prisma.platformSetting.findUnique({ where: { key: "twitter_access_secret" } }))?.value || process.env.TWITTER_ACCESS_SECRET;
 
   if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
     const errorMsg = "Twitter OAuth 1.0a keys missing. Add them via Developer Fallback in the Admin hub.";
+=======
+  // Read from DB first (saved via Admin UI), fall back to env vars
+  const [dbApiKey, dbApiSecret, dbAccessToken, dbAccessSecret] = await Promise.all([
+    prisma.platformSetting.findUnique({ where: { key: "twitter_api_key" } }),
+    prisma.platformSetting.findUnique({ where: { key: "twitter_api_secret" } }),
+    prisma.platformSetting.findUnique({ where: { key: "twitter_access_token" } }),
+    prisma.platformSetting.findUnique({ where: { key: "twitter_access_secret" } }),
+  ]);
+
+  const apiKey     = dbApiKey?.value     || process.env.TWITTER_API_KEY;
+  const apiSecret  = dbApiSecret?.value  || process.env.TWITTER_API_SECRET;
+  const accessToken  = dbAccessToken?.value  || process.env.TWITTER_ACCESS_TOKEN;
+  const accessSecret = dbAccessSecret?.value || process.env.TWITTER_ACCESS_SECRET;
+
+  if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
+    const errorMsg = "Twitter not connected. Go to Admin → Social → Save Twitter Keys.";
+>>>>>>> Stashed changes
     await logSystemEvent("PUBLISH_TWITTER_FAILED", { jobId, error: "Missing Keys" });
     await prisma.socialJob.update({ where: { id: jobId }, data: { twitterStatus: "FAILED", publishError: errorMsg } as any });
-    return {
-      ok: false,
-      platform: "twitter",
-      error: errorMsg,
-    };
+    return { ok: false, platform: "twitter", error: errorMsg };
   }
 
   try {
+<<<<<<< Updated upstream
     const client = new TwitterApi({
       appKey: apiKey as string,
       appSecret: apiSecret as string,
       accessToken: accessToken as string,
       accessSecret: accessSecret as string,
+=======
+    const tweetUrl = "https://api.twitter.com/2/tweets";
+    const body = { text: job.twitterCopy };
+    const oauthHeader = buildOAuthHeader("POST", tweetUrl, {}, { apiKey, apiSecret, accessToken, accessSecret });
+
+    const res = await fetch(tweetUrl, {
+      method: "POST",
+      headers: {
+        Authorization: oauthHeader,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+>>>>>>> Stashed changes
     });
     
     const rwClient = client.readWrite;
@@ -501,29 +521,25 @@ export async function publishToFacebook(jobId: string): Promise<PublishResult> {
     return { ok: false, platform: "facebook", error: errorMsg };
   }
 
-  const dbToken = (await prisma.platformSetting.findUnique({ where: { key: "facebook_page_token" } }))?.value;
-  const dbPageId = (await prisma.platformSetting.findUnique({ where: { key: "facebook_page_id" } }))?.value;
-
-  const useDb = !!(dbToken && dbPageId);
-  const pageToken = useDb ? dbToken : (process.env.FACEBOOK_PAGE_TOKEN || dbToken);
-  const pageId = useDb ? dbPageId : (process.env.FACEBOOK_PAGE_ID || dbPageId);
+  const dbToken = await prisma.platformSetting.findUnique({ where: { key: "facebook_page_token" } });
+  const dbPageId = await prisma.platformSetting.findUnique({ where: { key: "facebook_page_id" } });
   
-  if (!pageToken || !pageId) {
+  if (!dbToken?.value || !dbPageId?.value) {
     const errorMsg = "Facebook Page not connected. Go to Admin → Social → Connect Facebook.";
-    await logSystemEvent("PUBLISH_FACEBOOK_FAILED", { jobId, error: "Missing Tokens" });
+    await logSystemEvent("PUBLISH_FACEBOOK_FAILED", { jobId, error: "Missing DB Tokens" });
     await prisma.socialJob.update({ where: { id: jobId }, data: { facebookStatus: "FAILED", publishError: errorMsg } as any });
     return { ok: false, platform: "facebook", error: errorMsg };
   }
 
-  await logSystemEvent("PUBLISH_FACEBOOK_START", { jobId, pageId });
+  await logSystemEvent("PUBLISH_FACEBOOK_START", { jobId, pageId: dbPageId.value });
 
   try {
     const imageUrl = job.blogPost.coverImage;
-    const fbUrl = `https://graph.facebook.com/v19.0/${pageId}/photos`;
+    const fbUrl = `https://graph.facebook.com/v19.0/${dbPageId.value}/photos`;
     
     // Facebook allows publishing photos with a message acting as the post body
     const body = new URLSearchParams();
-    body.append("access_token", pageToken);
+    body.append("access_token", dbToken.value);
     body.append("message", job.facebookCopy);
     if (imageUrl && imageUrl.startsWith("http")) {
       body.append("url", imageUrl);
@@ -532,7 +548,7 @@ export async function publishToFacebook(jobId: string): Promise<PublishResult> {
     // If there is no image, we should post to /feed instead
     const postEndpoint = (imageUrl && imageUrl.startsWith("http")) 
       ? fbUrl 
-      : `https://graph.facebook.com/v19.0/${pageId}/feed`;
+      : `https://graph.facebook.com/v19.0/${dbPageId.value}/feed`;
 
     const res = await fetch(postEndpoint, {
       method: "POST",
@@ -737,11 +753,55 @@ export async function disconnectFacebook(): Promise<{ ok: boolean }> {
   return { ok: true };
 }
 
+<<<<<<< Updated upstream
 // ─── Twitter Auth Helper ──────────────────────────────────────────────────────
+=======
+// ─── Twitter Key Management ───────────────────────────────────────────────────
+
+export async function saveTwitterKeys(keys: {
+  apiKey: string;
+  apiSecret: string;
+  accessToken: string;
+  accessSecret: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  await verifyAdmin();
+
+  if (!keys.apiKey || !keys.apiSecret || !keys.accessToken || !keys.accessSecret) {
+    return { ok: false, error: "All 4 keys are required." };
+  }
+
+  await Promise.all([
+    prisma.platformSetting.upsert({
+      where: { key: "twitter_api_key" },
+      update: { value: keys.apiKey.trim() },
+      create: { key: "twitter_api_key", value: keys.apiKey.trim() },
+    }),
+    prisma.platformSetting.upsert({
+      where: { key: "twitter_api_secret" },
+      update: { value: keys.apiSecret.trim() },
+      create: { key: "twitter_api_secret", value: keys.apiSecret.trim() },
+    }),
+    prisma.platformSetting.upsert({
+      where: { key: "twitter_access_token" },
+      update: { value: keys.accessToken.trim() },
+      create: { key: "twitter_access_token", value: keys.accessToken.trim() },
+    }),
+    prisma.platformSetting.upsert({
+      where: { key: "twitter_access_secret" },
+      update: { value: keys.accessSecret.trim() },
+      create: { key: "twitter_access_secret", value: keys.accessSecret.trim() },
+    }),
+  ]);
+
+  await logSystemEvent("TWITTER_KEYS_SAVED", { success: true });
+  return { ok: true };
+}
+>>>>>>> Stashed changes
 
 export async function checkTwitterStatus(): Promise<{ connected: boolean }> {
   await verifyAdmin();
   const key = await prisma.platformSetting.findUnique({ where: { key: "twitter_api_key" } });
+<<<<<<< Updated upstream
   // If it's saved in DB or present in environment variables
   return { connected: !!(key?.value) || !!process.env.TWITTER_API_KEY };
 }
@@ -750,39 +810,6 @@ export async function checkTwitterStatus(): Promise<{ connected: boolean }> {
 
 export async function saveManualTokens(platform: "linkedin" | "facebook" | "twitter", data: Record<string, string>): Promise<{ ok: boolean }> {
   await verifyAdmin();
-  
-  let resolvedData = { ...data };
-  if (platform === "linkedin" && !resolvedData.linkedin_org_id && resolvedData.linkedin_access_token) {
-    try {
-      const userRes = await fetch("https://api.linkedin.com/v2/userinfo", {
-        headers: { Authorization: `Bearer ${resolvedData.linkedin_access_token}` },
-      });
-      if (userRes.ok) {
-        const userData = await userRes.json();
-        if (userData.sub) {
-          resolvedData.linkedin_org_id = `urn:li:person:${userData.sub}`;
-        }
-      }
-    } catch (e) {
-      console.error("[LinkedIn Manual Token] URN auto-resolution failed:", e);
-    }
-  }
-
-  if (platform === "facebook" && !resolvedData.facebook_page_id && resolvedData.facebook_page_token) {
-    try {
-      const meRes = await fetch(`https://graph.facebook.com/v19.0/me?access_token=${resolvedData.facebook_page_token}`);
-      if (meRes.ok) {
-        const meData = await meRes.json();
-        if (meData.id) {
-          resolvedData.facebook_page_id = meData.id;
-          resolvedData.facebook_page_name = meData.name || "Resolved Page";
-        }
-      }
-    } catch (e) {
-      console.error("[Facebook Manual Token] ID auto-resolution failed:", e);
-    }
-  }
-
   const keys = platform === "linkedin" 
     ? ["linkedin_access_token", "linkedin_org_id"] 
     : platform === "facebook"
@@ -790,13 +817,28 @@ export async function saveManualTokens(platform: "linkedin" | "facebook" | "twit
       : ["twitter_api_key", "twitter_api_secret", "twitter_access_token", "twitter_access_secret"];
 
   for (const key of keys) {
-    if (resolvedData[key] || typeof resolvedData[key] === "string") {
+    if (data[key] || typeof data[key] === "string") {
       await prisma.platformSetting.upsert({
         where: { key },
-        update: { value: resolvedData[key] },
-        create: { key, value: resolvedData[key] },
+        update: { value: data[key] },
+        create: { key, value: data[key] },
       });
     }
   }
   return { ok: true };
 }
+=======
+  return { connected: !!(key?.value) };
+}
+
+export async function disconnectTwitter(): Promise<{ ok: boolean }> {
+  await verifyAdmin();
+  await prisma.platformSetting.deleteMany({
+    where: {
+      key: { in: ["twitter_api_key", "twitter_api_secret", "twitter_access_token", "twitter_access_secret"] },
+    },
+  });
+  return { ok: true };
+}
+
+>>>>>>> Stashed changes

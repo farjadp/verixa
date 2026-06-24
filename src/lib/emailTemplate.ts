@@ -1,3 +1,113 @@
+import { load } from "cheerio";
+
+interface InlineEmailAttachment {
+  filename: string;
+  content: string;
+  content_type?: string;
+  content_id?: string;
+}
+
+const QUILL_CLASS_STYLES: Record<string, string> = {
+  "ql-align-center": "text-align:center;",
+  "ql-align-right": "text-align:right;",
+  "ql-align-justify": "text-align:justify;",
+  "ql-size-small": "font-size:0.75em;",
+  "ql-size-large": "font-size:1.5em;",
+  "ql-size-huge": "font-size:2.5em;",
+  "ql-font-serif": "font-family:Georgia, 'Times New Roman', serif;",
+  "ql-font-monospace": "font-family:Monaco, 'Courier New', monospace;",
+  "ql-direction-rtl": "direction:rtl;",
+  "ql-bg-black": "background-color:#000000;",
+  "ql-bg-red": "background-color:#e60000;",
+  "ql-bg-orange": "background-color:#ff9900;",
+  "ql-bg-yellow": "background-color:#ffff00;",
+  "ql-bg-green": "background-color:#008a00;",
+  "ql-bg-blue": "background-color:#0066cc;",
+  "ql-bg-purple": "background-color:#9933ff;",
+  "ql-color-white": "color:#ffffff;",
+  "ql-color-red": "color:#e60000;",
+  "ql-color-orange": "color:#ff9900;",
+  "ql-color-yellow": "color:#ffff00;",
+  "ql-color-green": "color:#008a00;",
+  "ql-color-blue": "color:#0066cc;",
+  "ql-color-purple": "color:#9933ff;",
+};
+
+function mergeStyles(currentStyle: string | undefined, extraStyles: string[]) {
+  const current = (currentStyle || "").trim();
+  return [current, ...extraStyles.map((style) => style.trim()).filter(Boolean)]
+    .filter(Boolean)
+    .join(current ? " " : "");
+}
+
+function inlineQuillStyles(rawHtml: string) {
+  const $ = load(`<div id="email-root">${rawHtml}</div>`);
+
+  $("#email-root")
+    .find("*")
+    .each((_, element) => {
+      const node = $(element);
+      const classAttr = node.attr("class") || "";
+      const classNames = classAttr.split(/\s+/).filter(Boolean);
+      const styles: string[] = [];
+
+      for (const className of classNames) {
+        const mappedStyle = QUILL_CLASS_STYLES[className];
+        if (mappedStyle) styles.push(mappedStyle);
+
+        const indentMatch = className.match(/^ql-indent-(\d+)$/);
+        if (indentMatch) {
+          const level = Number(indentMatch[1]);
+          if (!Number.isNaN(level) && level > 0) {
+            styles.push(`padding-left:${level * 3}em;`);
+          }
+        }
+      }
+
+      if (styles.length > 0) {
+        node.attr("style", mergeStyles(node.attr("style"), styles));
+      }
+
+      if (classNames.length > 0) {
+        node.removeAttr("class");
+      }
+
+      if (node.is("p")) {
+        node.attr("style", mergeStyles(node.attr("style"), ["margin:0 0 16px 0;"]));
+      }
+
+      if (node.is("h1")) {
+        node.attr("style", mergeStyles(node.attr("style"), ["margin:0 0 16px 0;", "font-size:2em;", "line-height:1.25;"]));
+      }
+
+      if (node.is("h2")) {
+        node.attr("style", mergeStyles(node.attr("style"), ["margin:0 0 16px 0;", "font-size:1.5em;", "line-height:1.3;"]));
+      }
+
+      if (node.is("h3")) {
+        node.attr("style", mergeStyles(node.attr("style"), ["margin:0 0 16px 0;", "font-size:1.17em;", "line-height:1.35;"]));
+      }
+
+      if (node.is("ul, ol")) {
+        node.attr("style", mergeStyles(node.attr("style"), ["margin:0 0 16px 0;", "padding-left:24px;"]));
+      }
+
+      if (node.is("li")) {
+        node.attr("style", mergeStyles(node.attr("style"), ["margin:0 0 8px 0;"]));
+      }
+
+      if (node.is("a")) {
+        node.attr("style", mergeStyles(node.attr("style"), ["text-decoration:underline;", "font-weight:600;"]));
+      }
+
+      if (node.is("img")) {
+        node.attr("style", mergeStyles(node.attr("style"), ["max-width:100%;", "height:auto;", "display:block;"]));
+      }
+    });
+
+  return $("#email-root").html() || rawHtml;
+}
+
 export function buildPremiumEmailTemplate(subject: string, rawContent: string, unsubscribeUrl?: string): string {
   // Check if content is already HTML (from Quill editor) or plain text (from Extractor modal)
   const isHtml = /<[a-z][\s\S]*>/i.test(rawContent);
@@ -19,8 +129,8 @@ export function buildPremiumEmailTemplate(subject: string, rawContent: string, u
 
   // The absolute URL is REQUIRED for images in emails. 
   // It falls back to your domain if the env var isn't set.
-  const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://getverixa.ca";
-  const LOGO_URL = `${BASE_URL}/brand/Vertixa3.png`;
+  const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.getverixa.com";
+  const LOGO_URL = `${BASE_URL}/Brand/Vertixa3.png`;
 
   return `
     <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -134,8 +244,8 @@ export function buildPremiumEmailTemplate(subject: string, rawContent: string, u
                         123 Tech Quarter, Executive Suite<br/>
                         Toronto, ON M5V 3J2, Canada
                         <br/><br/>
-                        <a href="https://getverixa.ca" style="color: #94A3B8; text-decoration: underline !important;">Preferences</a> &nbsp;&bull;&nbsp; 
-                        <a href="${unsubscribeUrl || 'https://getverixa.ca/unsubscribe'}" style="color: #94A3B8; text-decoration: underline !important;">Unsubscribe safely</a>
+                        <a href="${BASE_URL}" style="color: #94A3B8; text-decoration: underline !important;">Preferences</a> &nbsp;&bull;&nbsp;
+                        <a href="${unsubscribeUrl || `${BASE_URL}/unsubscribe`}" style="color: #94A3B8; text-decoration: underline !important;">Unsubscribe safely</a>
                       </td>
                     </tr>
                   </table>
@@ -161,4 +271,74 @@ export function buildPremiumEmailTemplate(subject: string, rawContent: string, u
     </body>
     </html>
   `;
+}
+
+export function buildPlainTextEmail(rawContent: string, unsubscribeUrl?: string): string {
+  const textContent = rawContent
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<li>/gi, "- ")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\r/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+
+  const footer = unsubscribeUrl ? `\n\nUnsubscribe: ${unsubscribeUrl}` : "";
+  return `${textContent}${footer}`.trim();
+}
+
+export async function prepareEmailHtmlContent(rawContent: string): Promise<string> {
+  return rawContent;
+}
+
+export async function buildExactEmailPayload(rawContent: string): Promise<{
+  html: string;
+  attachments: InlineEmailAttachment[];
+}> {
+  const preparedHtmlContent = await prepareEmailHtmlContent(rawContent);
+  const isHtml = /<[a-z][\s\S]*>/i.test(preparedHtmlContent);
+
+  let html = preparedHtmlContent;
+  if (!isHtml) {
+    html = preparedHtmlContent
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map((line) => `<p>${line}</p>`)
+      .join("");
+  }
+
+  html = inlineQuillStyles(html);
+
+  const attachments: InlineEmailAttachment[] = [];
+  let imageIndex = 0;
+
+  html = html.replace(
+    /<img([^>]*?)src=(["'])(data:(image\/[a-zA-Z0-9.+-]+);base64,([^"']+))\2([^>]*?)>/gi,
+    (_match, beforeSrc, quote, _fullDataUri, mimeType, base64Content, afterSrc) => {
+      imageIndex += 1;
+      const extension = mimeType.split("/")[1]?.split("+")[0] || "png";
+      const contentId = `broadcast-image-${imageIndex}@getverixa.com`;
+
+      attachments.push({
+        filename: `broadcast-image-${imageIndex}.${extension}`,
+        content: base64Content,
+        content_type: mimeType,
+        content_id: contentId,
+      });
+
+      return `<img${beforeSrc}src=${quote}cid:${contentId}${quote}${afterSrc}>`;
+    }
+  );
+
+  return { html, attachments };
 }

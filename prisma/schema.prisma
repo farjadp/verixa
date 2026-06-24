@@ -645,6 +645,7 @@ model CompanyEnrichmentJob {
 model CampaignLog {
   id              String              @id @default(cuid())
   type            String              @default("EMAIL")
+  status          String              @default("QUEUED") // QUEUED | PROCESSING | COMPLETED | PARTIAL | FAILED | CANCELLED
   subject         String
   cohort          String
   sentCount       Int                 @default(0)
@@ -786,4 +787,3 @@ model DiscountCodeUsage {
   @@index([codeId])
   @@index([userId])
 }
-

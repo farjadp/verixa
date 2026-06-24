@@ -5,12 +5,52 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { Resend } from "resend";
 import { revalidatePath } from "next/cache";
-import { buildPremiumEmailTemplate } from "@/lib/emailTemplate";
+import { buildExactEmailPayload, buildPlainTextEmail } from "@/lib/emailTemplate";
 import { buildUnsubscribeUrl } from "@/lib/unsubscribe";
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
-const SENDER_EMAIL = "info@farjadp.info";
+const resend = new Resend(process.env.RESEND_API_KEY || "re_missing_api_key");
+const SENDER_EMAIL =
+  process.env.RESEND_BROADCAST_FROM_EMAIL ||
+  process.env.RESEND_FROM_EMAIL ||
+  "notifications@getverixa.com";
 const DAILY_LIMIT = process.env.RESEND_DAILY_LIMIT ? parseInt(process.env.RESEND_DAILY_LIMIT) : 50000;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function buildBroadcastHeaders(unsubscribeUrl: string) {
+  return {
+    "List-Unsubscribe": `<${unsubscribeUrl}>`,
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  };
+}
+
+async function sendSingleBroadcastEmail({
+  to,
+  subject,
+  html,
+  attachments,
+}: {
+  to: string;
+  subject: string;
+  html: string;
+  attachments: Awaited<ReturnType<typeof buildExactEmailPayload>>["attachments"];
+}) {
+  const unsubscribeUrl = buildUnsubscribeUrl(to);
+  const result = await resend.emails.send({
+    from: `Verixa Network <${SENDER_EMAIL}>`,
+    to: [to],
+    subject,
+    html,
+    text: buildPlainTextEmail(html, unsubscribeUrl),
+    headers: buildBroadcastHeaders(unsubscribeUrl),
+    attachments,
+  });
+
+  if (result.error) {
+    throw new Error(result.error.message || "Resend rejected the email.");
+  }
+
+  return result.data;
+}
 
 // ─── DAILY USAGE ───────────────────────────────────────────────────────────
 export async function getDailyEmailUsage(): Promise<number> {
@@ -74,7 +114,7 @@ export async function getCampaignRecipients(campaignId: string, page = 1, limit 
   const skip = (page - 1) * limit;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const p = prisma as any;
-  const [recipients, total] = await Promise.all([
+  const [recipients, total, campaign] = await Promise.all([
     p.campaignRecipient.findMany({
       where: { campaignLogId: campaignId },
       orderBy: { createdAt: "asc" },
@@ -82,8 +122,20 @@ export async function getCampaignRecipients(campaignId: string, page = 1, limit 
       take: limit,
     }),
     p.campaignRecipient.count({ where: { campaignLogId: campaignId } }),
+    p.campaignLog.findUnique({
+      where: { id: campaignId },
+      select: { sentCount: true, successfulCount: true, failedCount: true },
+    }),
   ]);
-  return { recipients, total, page, totalPages: Math.ceil(total / limit) };
+  return {
+    recipients,
+    total,
+    page,
+    totalPages: Math.ceil(total / limit),
+    expectedTotal: campaign?.sentCount ?? total,
+    successfulCount: campaign?.successfulCount ?? 0,
+    failedCount: campaign?.failedCount ?? 0,
+  };
 }
 
 // ─── AUDIENCE COUNT ────────────────────────────────────────────────────────
@@ -151,6 +203,7 @@ export async function sendBroadcast(
   options?: { domainType?: "ALL" | "CORPORATE" | "PUBLIC"; activeOnly?: boolean; limit?: number }
 ) {
   const adminProfile = await verifyAdmin();
+  const emailPayload = await buildExactEmailPayload(htmlContent);
   const domainType = options?.domainType ?? "ALL";
   const activeOnly = options?.activeOnly ?? false;
   const limit = options?.limit ?? 0;
@@ -174,7 +227,7 @@ export async function sendBroadcast(
       .filter((u) => u.email && !unsubSet.has(u.email.toLowerCase()))
       .map((u) => ({ email: u.email!, name: u.name ?? null }));
   } else if (ciccCohorts.includes(cohort)) {
-    targets = await getCICCTargets(cohort, domainType, activeOnly, effectiveLimit);
+    targets = await getCICCTargets(cohort, domainType, activeOnly, limit);
   } else {
     throw new Error("Invalid cohort.");
   }
@@ -195,40 +248,48 @@ export async function sendBroadcast(
   let successCount = 0;
   let failCount = 0;
 
-  const CHUNK_SIZE = 100;
+  const CHUNK_SIZE = 20;
   for (let i = 0; i < targets.length; i += CHUNK_SIZE) {
     const chunk = targets.slice(i, i + CHUNK_SIZE);
-    
-    const payloads = chunk.map(target => ({
-      from: `Verixa Network <${SENDER_EMAIL}>`,
-      to: [target.email],
-      subject,
-      html: buildPremiumEmailTemplate(subject, htmlContent, buildUnsubscribeUrl(target.email))
-    }));
+    const results = await Promise.all(
+      chunk.map(async (target) => {
+        try {
+          await sendSingleBroadcastEmail({
+            to: target.email,
+            subject,
+            html: emailPayload.html,
+            attachments: emailPayload.attachments,
+          });
 
-    try {
-      const result = await resend.batch.send(payloads);
-      
-      const dbRecords = chunk.map((target) => ({
+          return {
+            email: target.email,
+            name: target.name,
+            status: "SENT" as const,
+            errorMessage: null,
+          };
+        } catch (err: any) {
+          return {
+            email: target.email,
+            name: target.name,
+            status: "FAILED" as const,
+            errorMessage: err.message?.slice(0, 200) || "Email send failed.",
+          };
+        }
+      })
+    );
+
+    await (prisma as any).campaignRecipient.createMany({
+      data: results.map((result) => ({
         campaignLogId: campaignLog.id,
-        email: target.email,
-        name: target.name,
-        status: "SENT",
-      }));
-      
-      await (prisma as any).campaignRecipient.createMany({ data: dbRecords });
-      successCount += chunk.length;
-    } catch (err: any) {
-      const dbRecords = chunk.map(target => ({
-        campaignLogId: campaignLog.id,
-        email: target.email,
-        name: target.name,
-        status: "FAILED",
-        errorMessage: err.message?.slice(0, 200),
-      }));
-      await (prisma as any).campaignRecipient.createMany({ data: dbRecords });
-      failCount += chunk.length;
-    }
+        email: result.email,
+        name: result.name,
+        status: result.status,
+        errorMessage: result.errorMessage,
+      })),
+    });
+
+    successCount += results.filter((result) => result.status === "SENT").length;
+    failCount += results.filter((result) => result.status === "FAILED").length;
   }
 
   await (prisma as any).campaignLog.update({
@@ -242,24 +303,52 @@ export async function sendBroadcast(
 
 // ─── TEST EMAIL ────────────────────────────────────────────────────────────
 export async function sendTestEmail(email: string, subject: string, htmlContent: string) {
-  await verifyAdmin();
-  const unsubUrl = buildUnsubscribeUrl(email);
-  const html = buildPremiumEmailTemplate(subject, htmlContent, unsubUrl);
-  
-  const result = await resend.emails.send({
-    from: `Verixa Network <${SENDER_EMAIL}>`,
-    to: [email],
-    subject: `[TEST] ${subject}`,
-    html,
-  });
+  try {
+    await verifyAdmin();
 
-  if (result.error) throw new Error(result.error.message);
-  return { success: true };
+    const targetEmail = email.trim().toLowerCase();
+    if (!EMAIL_PATTERN.test(targetEmail)) {
+      return { success: false, error: "Please enter a valid test email address." };
+    }
+    if (!subject.trim()) {
+      return { success: false, error: "Subject is required." };
+    }
+    if (!htmlContent.trim()) {
+      return { success: false, error: "Email body is required." };
+    }
+    if (!process.env.RESEND_API_KEY) {
+      return { success: false, error: "RESEND_API_KEY is not configured on the server." };
+    }
+
+    const unsubUrl = buildUnsubscribeUrl(targetEmail);
+    const emailPayload = await buildExactEmailPayload(htmlContent);
+
+    const result = await resend.emails.send({
+      from: `Verixa Network <${SENDER_EMAIL}>`,
+      to: [targetEmail],
+      subject: `[TEST] ${subject}`,
+      html: emailPayload.html,
+      text: buildPlainTextEmail(emailPayload.html, unsubUrl),
+      headers: buildBroadcastHeaders(unsubUrl),
+      attachments: emailPayload.attachments,
+    });
+
+    if (result.error) {
+      console.error("[Broadcast Test Email] Resend API error:", result.error);
+      return { success: false, error: result.error.message };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("[Broadcast Test Email] Failed:", error);
+    return { success: false, error: error?.message || "Test email failed on the server." };
+  }
 }
 
 // ─── DIRECT BROADCAST (Extractor) ─────────────────────────────────────────
 export async function sendDirectBroadcast(emails: string[], subject: string, htmlContent: string) {
   const adminProfile = await verifyAdmin();
+  const emailPayload = await buildExactEmailPayload(htmlContent);
 
   const unsubs = await (prisma as any).emailUnsubscribe.findMany({ select: { email: true } });
   const unsubSet = new Set(unsubs.map((u: any) => u.email.toLowerCase()));
@@ -279,38 +368,46 @@ export async function sendDirectBroadcast(emails: string[], subject: string, htm
   let successCount = 0;
   let failCount = 0;
 
-  const CHUNK_SIZE = 100;
+  const CHUNK_SIZE = 20;
   for (let i = 0; i < validEmails.length; i += CHUNK_SIZE) {
     const chunk = validEmails.slice(i, i + CHUNK_SIZE);
-    
-    const payloads = chunk.map(email => ({
-      from: `Verixa Network <${SENDER_EMAIL}>`,
-      to: [email],
-      subject,
-      html: buildPremiumEmailTemplate(subject, htmlContent, buildUnsubscribeUrl(email))
-    }));
 
-    try {
-      await resend.batch.send(payloads);
-      
-      const dbRecords = chunk.map(email => ({
+    const results = await Promise.all(
+      chunk.map(async (email) => {
+        try {
+          await sendSingleBroadcastEmail({
+            to: email,
+            subject,
+            html: emailPayload.html,
+            attachments: emailPayload.attachments,
+          });
+
+          return {
+            email,
+            status: "SENT" as const,
+            errorMessage: null,
+          };
+        } catch (err: any) {
+          return {
+            email,
+            status: "FAILED" as const,
+            errorMessage: err.message?.slice(0, 200) || "Email send failed.",
+          };
+        }
+      })
+    );
+
+    await (prisma as any).campaignRecipient.createMany({
+      data: results.map((result) => ({
         campaignLogId: campaignLog.id,
-        email,
-        status: "SENT",
-      }));
-      
-      await (prisma as any).campaignRecipient.createMany({ data: dbRecords });
-      successCount += chunk.length;
-    } catch (err: any) {
-      const dbRecords = chunk.map(email => ({
-        campaignLogId: campaignLog.id,
-        email,
-        status: "FAILED",
-        errorMessage: err.message?.slice(0, 200),
-      }));
-      await (prisma as any).campaignRecipient.createMany({ data: dbRecords });
-      failCount += chunk.length;
-    }
+        email: result.email,
+        status: result.status,
+        errorMessage: result.errorMessage,
+      })),
+    });
+
+    successCount += results.filter((result) => result.status === "SENT").length;
+    failCount += results.filter((result) => result.status === "FAILED").length;
   }
 
   await (prisma as any).campaignLog.update({

@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Send, Users, Activity, Tag, Sparkles, CheckCircle,
   ShieldAlert, Mail, MessageSquare, Filter, Database,
-  Building2, Globe, Zap, ChevronDown
+  Building2, Globe, Zap, ChevronDown, Ban
 } from "lucide-react";
-import { getAudienceCount, sendBroadcast } from "@/actions/broadcast.actions";
+import { getAudienceCount } from "@/actions/broadcast.actions";
 import { sendSmsBroadcast } from "@/actions/sms.actions";
 import { RichEditor } from "@/components/ui/RichEditor";
 
@@ -55,8 +55,11 @@ interface BroadcastComposerProps {
 
 export default function BroadcastComposer({ dailyUsed = 0, dailyLimit = 100 }: BroadcastComposerProps) {
   const [loading, setLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("Transmission deployed successfully!");
   const [error, setError] = useState("");
+  const [activeCampaigns, setActiveCampaigns] = useState<any[]>([]);
   const [audienceCount, setAudienceCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
   const [transmissionType, setTransmissionType] = useState<TransmissionType>("EMAIL");
@@ -87,6 +90,23 @@ export default function BroadcastComposer({ dailyUsed = 0, dailyLimit = 100 }: B
 
   useEffect(() => { refreshCount(); }, [refreshCount]);
 
+  const refreshActiveCampaigns = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/broadcasts/active", { cache: "no-store" });
+      const raw = await response.text();
+      const result = raw ? JSON.parse(raw) : null;
+      if (response.ok && result?.success) {
+        setActiveCampaigns(result.campaigns || []);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    refreshActiveCampaigns();
+    const intervalId = window.setInterval(refreshActiveCampaigns, 5000);
+    return () => window.clearInterval(intervalId);
+  }, [refreshActiveCampaigns]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (transmissionType === "EMAIL" && !subject.trim()) {
@@ -107,6 +127,13 @@ export default function BroadcastComposer({ dailyUsed = 0, dailyLimit = 100 }: B
     );
     if (!confirmed) return;
 
+    if (transmissionType === "EMAIL" && activeCampaigns.length > 0) {
+      const shouldReplace = confirm(
+        `There are currently ${activeCampaigns.length} queued or processing email campaign(s).\n\nIf you continue, they will be cancelled and only this new request will remain active.\n\nContinue?`
+      );
+      if (!shouldReplace) return;
+    }
+
     setLoading(true);
     setError("");
     setSuccess(false);
@@ -115,19 +142,78 @@ export default function BroadcastComposer({ dailyUsed = 0, dailyLimit = 100 }: B
       if (transmissionType === "SMS") {
         await sendSmsBroadcast(cohort, body);
       } else {
-        await sendBroadcast(cohort, subject, body, {
-          domainType: isCICC ? domainType : "ALL",
-          activeOnly: isCICC ? activeOnly : false,
-          limit,
+        const response = await fetch("/api/admin/broadcasts/send", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            cohort,
+            subject,
+            htmlContent: body,
+            options: {
+              domainType: isCICC ? domainType : "ALL",
+              activeOnly: isCICC ? activeOnly : false,
+              limit,
+            },
+          }),
         });
+        const raw = await response.text();
+        const result = raw ? JSON.parse(raw) : null;
+        if (!response.ok && !result) {
+          throw new Error(`Broadcast request failed with status ${response.status}.`);
+        }
+        if (!result) {
+          throw new Error("Broadcast request returned an empty response.");
+        }
+        if (!result.success) {
+          throw new Error(result.error || "Broadcast engine failed.");
+        }
+        refreshActiveCampaigns();
+        setSuccessMessage(
+          result.queued
+            ? "Broadcast queued. Delivery is now processing in the background."
+            : "Broadcast sent successfully."
+        );
       }
       setSuccess(true);
+      if (transmissionType === "SMS") {
+        setSuccessMessage("Transmission deployed successfully!");
+      }
       setSubject("");
       setBody("");
     } catch (err: any) {
       setError(err.message || "Broadcast engine failed.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const cancelQueuedCampaigns = async () => {
+    const confirmed = confirm("Cancel all queued and processing email campaigns?");
+    if (!confirmed) return;
+
+    setCancelLoading(true);
+    setError("");
+    setSuccess(false);
+
+    try {
+      const response = await fetch("/api/admin/broadcasts/cancel", {
+        method: "POST",
+      });
+      const raw = await response.text();
+      const result = raw ? JSON.parse(raw) : null;
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Failed to cancel queued campaigns.");
+      }
+
+      setSuccess(true);
+      setSuccessMessage(`${result.cancelled} queued/processing campaign(s) cancelled.`);
+      setActiveCampaigns([]);
+    } catch (err: any) {
+      setError(err.message || "Failed to cancel queued campaigns.");
+    } finally {
+      setCancelLoading(false);
     }
   };
 
@@ -168,12 +254,27 @@ export default function BroadcastComposer({ dailyUsed = 0, dailyLimit = 100 }: B
       {/* Status messages */}
       {success && (
         <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 text-green-400 font-bold rounded-2xl flex items-center justify-center gap-2">
-          <CheckCircle className="w-5 h-5" /> Transmission deployed successfully!
+          <CheckCircle className="w-5 h-5" /> {successMessage}
         </div>
       )}
       {error && (
         <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-500 font-bold rounded-2xl flex items-center justify-center gap-2">
           <ShieldAlert className="w-5 h-5" /> {error}
+        </div>
+      )}
+      {activeCampaigns.length > 0 && (
+        <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-2xl flex items-center justify-between gap-4">
+          <div className="text-sm font-semibold">
+            {activeCampaigns.length} email campaign(s) are currently queued or processing. Starting a new one will cancel them.
+          </div>
+          <button
+            type="button"
+            onClick={cancelQueuedCampaigns}
+            disabled={cancelLoading || loading}
+            className="flex items-center gap-2 bg-amber-400/20 border border-amber-400/30 text-amber-200 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-amber-400/25 transition disabled:opacity-50"
+          >
+            <Ban className="w-4 h-4" /> {cancelLoading ? "Cancelling..." : "Cancel Queued Campaigns"}
+          </button>
         </div>
       )}
 
@@ -363,7 +464,7 @@ export default function BroadcastComposer({ dailyUsed = 0, dailyLimit = 100 }: B
             <RichEditor
               value={body}
               onChange={val => setBody(val)}
-              placeholder="Type your message. We inject a premium HTML wrapper automatically."
+              placeholder="Type your message. The sent email will use this exact HTML."
             />
           ) : (
             <textarea
@@ -397,9 +498,22 @@ export default function BroadcastComposer({ dailyUsed = 0, dailyLimit = 100 }: B
                 if (!testEmail) return;
                 try {
                   setLoading(true);
-                  const { sendTestEmail } = await import("@/actions/broadcast.actions");
-                  await sendTestEmail(testEmail, subject, body);
-                  alert("Test email sent successfully to " + testEmail);
+                  const response = await fetch("/api/admin/broadcasts/test", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      email: testEmail,
+                      subject,
+                      htmlContent: body,
+                    }),
+                  });
+                  const result = await response.json();
+                  if (!result.success) {
+                    throw new Error(result.error || "Test email failed.");
+                  }
+                  alert("Test email sent successfully to " + testEmail.trim());
                 } catch (e: any) {
                   alert("Test email failed: " + e.message);
                 } finally {

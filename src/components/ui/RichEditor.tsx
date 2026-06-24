@@ -1,10 +1,10 @@
 "use client";
 
 import dynamic from 'next/dynamic';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import 'react-quill-new/dist/quill.snow.css';
 import { generateAiEmail } from '@/actions/ai.actions';
-import { Sparkles, Loader2, Wand2 } from 'lucide-react';
+import { Sparkles, Loader2, Wand2, Code2, PenSquare } from 'lucide-react';
 
 const QuillWrapper = dynamic(() => import('./QuillWrapper'), { 
   ssr: false,
@@ -24,6 +24,14 @@ export function RichEditor({ value, onChange, placeholder, className = "" }: Ric
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiError, setAiError] = useState("");
   const [showAi, setShowAi] = useState(false);
+  const [isHtmlMode, setIsHtmlMode] = useState(false);
+  const [htmlDraft, setHtmlDraft] = useState(value);
+
+  useEffect(() => {
+    if (!isHtmlMode) {
+      setHtmlDraft(value);
+    }
+  }, [value, isHtmlMode]);
 
   const modules = useMemo(() => ({
     toolbar: [
@@ -61,6 +69,21 @@ export function RichEditor({ value, onChange, placeholder, className = "" }: Ric
     }
   };
 
+  const handleModeToggle = () => {
+    if (isHtmlMode) {
+      setIsHtmlMode(false);
+      return;
+    }
+
+    setHtmlDraft(value);
+    setIsHtmlMode(true);
+  };
+
+  const handleHtmlChange = (nextValue: string) => {
+    setHtmlDraft(nextValue);
+    onChange(nextValue);
+  };
+
   return (
     <div className={`flex flex-col gap-2 ${className}`}>
       {/* AI Assistant Toggle Button */}
@@ -68,17 +91,31 @@ export function RichEditor({ value, onChange, placeholder, className = "" }: Ric
         <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">
             {showAi ? "Verixa AI Assistant" : ""}
         </label>
-        <button 
-          type="button"
-          onClick={() => setShowAi(!showAi)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-            showAi 
-              ? "bg-[#2FA4A9] text-white shadow-[0_0_15px_rgba(47,164,169,0.4)]" 
-              : "bg-white/5 text-[#2FA4A9] hover:bg-[#2FA4A9]/20 border border-[#2FA4A9]/30"
-          }`}
-        >
-           <Sparkles className="w-3.5 h-3.5" /> {showAi ? "Close AI Tab" : "Use AI Drafter"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleModeToggle}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+              isHtmlMode
+                ? "bg-amber-500/15 text-amber-300 border-amber-400/40"
+                : "bg-white/5 text-gray-200 hover:bg-white/10 border-white/10"
+            }`}
+          >
+            {isHtmlMode ? <PenSquare className="w-3.5 h-3.5" /> : <Code2 className="w-3.5 h-3.5" />}
+            {isHtmlMode ? "Back To Visual" : "HTML"}
+          </button>
+          <button 
+            type="button"
+            onClick={() => setShowAi(!showAi)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              showAi 
+                ? "bg-[#2FA4A9] text-white shadow-[0_0_15px_rgba(47,164,169,0.4)]" 
+                : "bg-white/5 text-[#2FA4A9] hover:bg-[#2FA4A9]/20 border border-[#2FA4A9]/30"
+            }`}
+          >
+             <Sparkles className="w-3.5 h-3.5" /> {showAi ? "Close AI Tab" : "Use AI Drafter"}
+          </button>
+        </div>
       </div>
 
       {/* AI Prompt Input Bar */}
@@ -129,13 +166,29 @@ export function RichEditor({ value, onChange, placeholder, className = "" }: Ric
 
       {/* Main Rich Text Editor Wrapper */}
       <div className="rich-editor-wrapper bg-black/30 border border-gray-700 rounded-lg overflow-hidden transition-all focus-within:border-[#2FA4A9] focus-within:shadow-[0_0_15px_rgba(47,164,169,0.1)]">
-        <QuillWrapper 
-          theme="snow" 
-          value={value} 
-          onChange={onChange} 
-          modules={modules}
-          placeholder={placeholder}
-        />
+        {isHtmlMode ? (
+          <div className="border-t border-white/10">
+            <div className="flex items-center justify-between px-4 py-3 bg-black/20 border-b border-white/10">
+              <span className="text-xs font-bold tracking-widest uppercase text-amber-300">HTML Source</span>
+              <span className="text-[11px] text-gray-400">Raw HTML is sent exactly from this field.</span>
+            </div>
+            <textarea
+              value={htmlDraft}
+              onChange={(e) => handleHtmlChange(e.target.value)}
+              placeholder={placeholder}
+              spellCheck={false}
+              className="w-full min-h-[420px] bg-[#08111b] text-gray-100 p-5 font-mono text-[13px] leading-6 border-0 outline-none resize-y"
+            />
+          </div>
+        ) : (
+          <QuillWrapper 
+            theme="snow" 
+            value={value} 
+            onChange={onChange} 
+            modules={modules}
+            placeholder={placeholder}
+          />
+        )}
         
         {/* Scope styles specifically to match your dark dashboard layout */}
         <style jsx global>{`

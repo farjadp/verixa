@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const cancel = vi.fn();
-const setFlag = vi.fn(async () => {});
+const setFlag = vi.fn(async (..._a: unknown[]) => {});
 const settings = { enabled: false, dryRun: true, channels: { LINKEDIN: false, X: false, EMAIL: false } };
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn(async () => ({ user: { role: "ADMIN" } })) }));

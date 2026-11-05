@@ -13,12 +13,13 @@
 // ============================================================================
 import { NextResponse } from "next/server";
 import { generateBackup } from "@/actions/backup.actions";
+import { isAuthorizedCronRequest } from "@/lib/content-pipeline/cron-auth";
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   
   // Vercel Cron sends a Bearer token matching CRON_SECRET automatically
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(authHeader, process.env.CRON_SECRET ?? "")) {
     return new NextResponse("Unauthorized Scheduled Trigger", { status: 401 });
   }
 

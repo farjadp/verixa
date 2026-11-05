@@ -168,11 +168,14 @@ describe("buildSocialTasks + applyReport", () => {
 
   it("never re-hands a live QUEUED touch while dry-run is on", async () => {
     const lead = xLead();
-    const { deps, touches } = setup([lead], {});
+    const fresh = { ...xLead(), id: "X2", consultantProfileId: "P2", externalHandle: "bob_rcic", score: 10 };
+    const { deps, touches } = setup([lead, fresh], {});
     deps.settings = async () => ({ enabled: true, dryRun: true, channels: { LINKEDIN: true, X: true, EMAIL: false } });
     touches.set("X1:1", { id: "live-old", leadId: "X1", step: 1, status: "QUEUED", body: "old", channel: "X" });
     const tasks = await buildSocialTasks(deps, "X");
     expect(tasks.some((t) => t.touchId === "live-old")).toBe(false);
+    expect(tasks.length).toBeGreaterThan(0);
+    expect(tasks.some((t) => t.leadId === "X2")).toBe(true);
     expect(tasks.every((t) => t.dryRun)).toBe(true);
     expect(touches.get("X1:1")!.status).toBe("QUEUED");
   });

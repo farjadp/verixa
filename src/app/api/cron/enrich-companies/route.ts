@@ -14,12 +14,13 @@
 import { NextResponse } from "next/server";
 import { CompanyEnrichmentService } from "@/services/enrichment/enrichment.service";
 import { prisma } from "@/lib/prisma";
+import { isAuthorizedCronRequest } from "@/lib/content-pipeline/cron-auth";
 
 export async function GET(request: Request) {
   // Protect route with chronological Vercel Cron header
   const authHeader = request.headers.get('authorization');
   
-  if (process.env.NODE_ENV === "production" && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (process.env.NODE_ENV === "production" && !isAuthorizedCronRequest(authHeader, process.env.CRON_SECRET ?? "")) {
       return new NextResponse('Unauthorized', { status: 401 });
   }
 

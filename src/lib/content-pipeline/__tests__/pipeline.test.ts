@@ -4,14 +4,16 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Prisma, type PrismaClient } from "@prisma/client";
-import { RUN_LOCK_MS, retryJob, runContentPipeline } from "@/lib/content-pipeline/orchestrator";
+import { RUN_LOCK_MS, refreshCover, regenerateJob, retryJob, runContentPipeline, runSingleSource } from "@/lib/content-pipeline/orchestrator";
 import { ConfigUpdateSchema, parseConfig } from "@/lib/content-pipeline/config";
-import { computeReviewScore, runDeterministicChecks } from "@/lib/content-pipeline/review-rules";
-import { assembleArticle, ensureDisclaimer, hasDisclaimer } from "@/lib/content-pipeline/markdown";
+import { computeReviewScore, minWordsFor, runDeterministicChecks } from "@/lib/content-pipeline/review-rules";
+import { assembleArticle, ensureDisclaimer, hasDisclaimer, removeSentences } from "@/lib/content-pipeline/markdown";
 import { isAuthorizedCronRequest } from "@/lib/content-pipeline/cron-auth";
-import { sanitizeDraft, type Draft } from "@/lib/content-pipeline/agents/writer";
-import { buildSocialCopy } from "@/lib/content-pipeline/agents/publisher";
-import { extractListingLinks } from "@/lib/content-pipeline/agents/discovery";
+import { buildWriterPrompt, sanitizeDraft, targetLength, type Draft } from "@/lib/content-pipeline/agents/writer";
+import { buildSocialCopy, categoryFor } from "@/lib/content-pipeline/agents/publisher";
+import { pickRelatedPosts } from "@/lib/content-pipeline/agents/seo-agent";
+import { buildImagePrompt } from "@/lib/content-pipeline/agents/image";
+import { extractListingLinks, extractOfficialLinks } from "@/lib/content-pipeline/agents/discovery";
 import { FAQ_HEADINGS, LANGUAGE_PROFILES, parseLanguageSetting } from "@/lib/content-pipeline/language";
 import { dedupKeyFor } from "@/lib/content-pipeline/dedup";
 import type { FeedItem, Llm, PipelineDeps } from "@/lib/content-pipeline/types";
@@ -145,6 +147,7 @@ const PARA =
 function fakeDraft(topic: string, sourceUrl: string, title = topic): Draft {
   return {
     title,
+    metaTitle: title.slice(0, 50),
     slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
     summary: `IRCC announced an update: ${title}. Here is what changed and who it affects.`,
     targetKeyword: title.split(" ").slice(0, 3).join(" "),
@@ -158,6 +161,7 @@ function fakeDraft(topic: string, sourceUrl: string, title = topic): Draft {
       { title: "Made-up blog", url: "https://hallucinated.example/post" },
     ],
     immigrationPaths: ["not_a_real_path"],
+    articleType: "news",
     keyFacts: ["IRCC announced the update."],
     imagePrompt: "Applicants waiting at an immigration office",
     imageAlt: "People waiting at a Canadian immigration office",
@@ -167,6 +171,8 @@ function fakeDraft(topic: string, sourceUrl: string, title = topic): Draft {
 
 interface FakeLlmOptions {
   verdict?: "supported" | "unsupported";
+  speculative?: string[]; // sentences the fake reviewer asks to remove
+  prompts?: { name: string; system: string; user: string }[];
   failOnceFor?: string[]; // topics whose first draft call throws
   titleFor?: (topic: string) => string;
 }
@@ -180,8 +186,9 @@ function createFakeLlm(opts: FakeLlmOptions = {}): Llm & { calls: string[]; setV
     setVerdict: (v) => {
       verdict = v;
     },
-    async json<T>(_schema: unknown, name: string, _system: string, user: string): Promise<T> {
+    async json<T>(_schema: unknown, name: string, system: string, user: string): Promise<T> {
       calls.push(name);
+      opts.prompts?.push({ name, system, user });
       if (name === "article_draft") {
         const topic = /TOPIC: (.*)/.exec(user)?.[1] ?? "Topic";
         const url = /SOURCE URL: (.*)/.exec(user)?.[1] ?? "";
@@ -191,6 +198,7 @@ function createFakeLlm(opts: FakeLlmOptions = {}): Llm & { calls: string[]; setV
       return {
         overallScore: 88,
         claims: [{ claim: "IRCC announced the update.", verdict, note: "Stated in the release." }],
+        speculativeSentences: opts.speculative ?? [],
         givesLegalAdvice: false,
         summary: "Accurate and clear.",
       } as unknown as T;
@@ -350,9 +358,10 @@ describe("runContentPipeline — end to end (mocked)", () => {
     expect(content).toContain(`## ${fa.faq}`);
     expect(content).toContain(`## ${fa.sources}`);
     expect(content).toContain(`## ${fa.related}`);
-    expect(content).toContain("تیم تحریریه وریکسا");
+    expect(content).toContain("را وریکسا بر اساس اطلاعات رسمی");
     expect(content).not.toContain("Find a licensed consultant");
-    expect(content).not.toContain("Prepared by the Verixa editorial team");
+    expect(content).not.toContain("Prepared by Verixa");
+    expect(content).not.toContain("تیم تحریریه");
     expect(str(tables.socialJob[0].linkedinCopy)).toContain(fa.readMore);
     expect(str(tables.socialJob[0].linkedinCopy)).toContain(`#${fa.hashtag}`);
     expect(JSON.parse(str(post.jsonLd)).inLanguage).toBe("fa");
@@ -619,5 +628,207 @@ describe("cron auth", () => {
     expect(isAuthorizedCronRequest("s3cret", "s3cret")).toBe(false);
     expect(isAuthorizedCronRequest(null, "s3cret")).toBe(false);
     expect(isAuthorizedCronRequest("Bearer ", "")).toBe(false);
+  });
+});
+
+
+// ─── Accuracy fixes (asylum-reforms test article, 2026-11-05) ────────────────
+
+describe("thin official sources", () => {
+  const UPDATE = "https://www.canada.ca/en/immigration-refugees-citizenship/corporate/updates/asylum.html";
+  const LINKED = (n: number) => `https://www.canada.ca/en/immigration-refugees-citizenship/corporate/refugee/page-${n}.html`;
+  const thinUpdate = `<html><body><main><h1>Program delivery update</h1>
+    <p>Instructions were updated on November 3, 2026.</p>
+    <ul>${[1, 2, 3, 4, 5].map((n) => `<li><a href="${LINKED(n).replace("https://www.canada.ca", "")}">Processing in-Canada claims: part ${n}</a></li>`).join("")}
+    <li><a href="https://other.example/x">An off-site page that should not be followed</a></li>
+    <li><a href="/en/services/benefits.html">A page from another department section</a></li></ul>
+    <section id="wb-dtmd"><a href="/en/report-problem.html">Report a problem or mistake</a></section></main></body></html>`;
+
+  it("extractOfficialLinks keeps same-section official links only (max 4, no off-site/other sections/page details)", () => {
+    const links = extractOfficialLinks(thinUpdate, UPDATE);
+    expect(links.map((l) => l.url)).toEqual([1, 2, 3, 4].map(LINKED));
+    expect(links[0].title).toBe("Processing in-Canada claims: part 1");
+  });
+
+  it("enriches a thin source with linked pages and lets the writer cite them", async () => {
+    const { db, tables } = createFakeDb();
+    const prompts: { name: string; system: string; user: string }[] = [];
+    const deps = createDeps(db, createFakeLlm({ prompts }));
+    deps.fetchHtml = async (url) =>
+      url === UPDATE ? thinUpdate : `<html><body><main><p>Linked page ${url}. ${PARA} ${PARA}</p></main></body></html>`;
+    const r = await runSingleSource(deps, { url: UPDATE, title: "Asylum instructions updated", sourceName: "IRCC", publishedAt: NOW });
+    expect(r.produced).toBe(1);
+    const writer = prompts.find((p) => p.name === "article_draft")!;
+    expect(writer.user).toContain(`RELATED OFFICIAL PAGE: Processing in-Canada claims: part 1\nURL: ${LINKED(1)}`);
+    expect(writer.system).toContain("never pad a thin source");
+    const job = tables.contentPipelineJob[0];
+    expect(JSON.parse(str(job.reviewNotes)).relatedSources).toHaveLength(4);
+  });
+
+  it("length targets follow the source; the gate's minimum drops for thin sources", () => {
+    expect(targetLength(250)).toEqual({ min: 200, max: 275 });
+    expect(targetLength(3000)).toEqual({ min: 600, max: 1100 });
+    expect(minWordsFor(150)).toBe(200);
+    expect(minWordsFor(2000)).toBe(350);
+    const goodChecks = { disclaimerPresent: true, wordCount: 260, citationCount: 1, headingIssues: [], bannedPhrases: [], offSourceLinks: [] };
+    expect(computeReviewScore({ llmScore: 90, claims: [], checks: goodChecks, strictness: "standard", minScore: 70, minWords: 200 }).flags).toEqual([]);
+    expect(computeReviewScore({ llmScore: 90, claims: [], checks: goodChecks, strictness: "standard", minScore: 70 }).flags[0]).toMatch(/Too short/);
+  });
+
+  it("sanitizeDraft allows citations to the given related pages, source first, nothing else", () => {
+    const candidate = { title: "Update", sourceUrl: UPDATE, sourceName: "IRCC", sourceTrust: 100, publishedAt: NOW, snippet: "", paths: ["refugee"] };
+    const draft = { ...fakeDraft("Update", UPDATE), citations: [{ title: "Part 2", url: LINKED(2) + "?x=1" }, { title: "Blog", url: "https://random.example/a" }, { title: "Update", url: UPDATE }] };
+    const d = sanitizeDraft(draft, candidate, [{ title: "Part 2", url: LINKED(2) }]);
+    expect(d.citations.map((c) => c.url)).toEqual([UPDATE, LINKED(2)]);
+  });
+
+  it("the writer prompt forbids invented purposes and staff-guidance framing errors", () => {
+    const { system } = buildWriterPrompt({
+      candidate: { title: "t", sourceUrl: UPDATE, sourceName: "IRCC", sourceTrust: 100, publishedAt: NOW, snippet: "", paths: [] },
+      sourceText: "word ".repeat(250),
+      language: parseLanguageSetting("en"),
+    });
+    expect(system).toContain("aims to streamline");
+    expect(system).toContain("guidance written for IRCC or CBSA staff");
+    expect(system).toContain("200-275 words");
+  });
+});
+
+describe("editor removes speculation", () => {
+  const md = [
+    "<!-- verixa:disclaimer -->",
+    "> General information only — not legal advice.",
+    "",
+    "## What changed",
+    "",
+    "IRCC updated its intake instructions on November 3, 2026. These changes aim to streamline the process and ensure efficiency.",
+    "",
+    "## Why it matters",
+    "",
+    "The reforms are designed to enhance oversight of decisions.",
+    "",
+    "## Sources",
+    "",
+    "- [IRCC](https://www.canada.ca/x)",
+    "",
+    "## Frequently Asked Questions",
+    "",
+    "### Why were the rules changed?",
+    "To provide more flexibility for claimants.",
+    "",
+    "<end-of-faq>",
+    "",
+    "---",
+    "",
+    "*Prepared by Verixa from official information published by IRCC (2026-11-05).*",
+    "",
+  ].join("\n");
+
+  it("drops quoted sentences, then headings and FAQ blocks left empty, and keeps facts", () => {
+    const { markdown, removed } = removeSentences(
+      md,
+      ["These changes aim to streamline the process and ensure efficiency", "The reforms are designed to enhance oversight of decisions.", "To provide more flexibility for claimants."],
+      FAQ_HEADINGS
+    );
+    expect(removed).toBe(3);
+    expect(markdown).toContain("IRCC updated its intake instructions on November 3, 2026.");
+    expect(markdown).not.toContain("streamline");
+    expect(markdown).not.toContain("## Why it matters");
+    expect(markdown).not.toContain("Frequently Asked Questions");
+    expect(markdown).not.toContain("<end-of-faq>");
+    expect(markdown).toContain("## Sources");
+    expect(markdown).toContain("*Prepared by Verixa");
+    expect(markdown.startsWith("<!-- verixa:disclaimer -->\n> General information only")).toBe(true);
+  });
+
+  it("never touches headings, the disclaimer, links or the footer, and ignores fragments", () => {
+    expect(removeSentences(md, ["What changed", "IRCC", "Prepared by Verixa from official information published by IRCC (2026-11-05)."]).removed).toBe(0);
+  });
+
+  it("runs inside the reviewer: the stored draft has the speculative sentence removed", async () => {
+    const { db, tables } = createFakeDb({ settings: { content_pieces_per_day: "1" } });
+    const sentence = "The department says processing depends on a complete application, so people may want to check each document against the published checklist and keep copies of everything they send to the department.";
+    await runContentPipeline(createDeps(db, createFakeLlm({ speculative: [sentence] })), { trigger: "CRON" });
+    const post = pipelinePosts(tables)[0];
+    expect(str(post.content)).not.toContain("keep copies of everything they send");
+    expect(str(post.content)).toContain("Applicants should read the official IRCC guidance");
+  });
+});
+
+describe("related links, category, image prompt", () => {
+  it("does not link unrelated posts that only share generic words", () => {
+    const posts = [
+      { title: "Canada Announces Overhaul of Express Entry System: What Immigrants Need to Know", slug: "ee", immigrationPaths: '["express_entry"]' },
+      { title: "New AAIP Fee: Understanding the Impact on Alberta's Worker EOI System", slug: "aaip", immigrationPaths: '["pnp"]' },
+      { title: "Refugee claim withdrawals before IRB referral explained", slug: "ref", immigrationPaths: '["refugee"]' },
+    ];
+    expect(pickRelatedPosts({ title: "Canada Updates In-Canada Asylum System Procedures", immigrationPaths: ["refugee"] }, posts)).toEqual([{ title: posts[2].title, slug: "ref" }]);
+    expect(pickRelatedPosts({ title: "Canada Updates In-Canada Asylum System Procedures", immigrationPaths: ["general"] }, posts.slice(0, 2))).toEqual([]);
+  });
+
+  it("news goes to UPDATES_POLICY, guides to IMMIGRATION_GUIDES", () => {
+    expect(categoryFor(["refugee"], "news")).toBe("UPDATES_POLICY");
+    expect(categoryFor(["refugee"], "guide")).toBe("IMMIGRATION_GUIDES");
+  });
+
+  it("cover image prompt bans flags, uniforms and officials", () => {
+    const p = buildImagePrompt("An immigration officer reviewing files");
+    expect(p).toContain("NO flags");
+    expect(p).toContain("NO uniforms");
+    expect(p).toContain("officers or officials");
+  });
+});
+
+describe("regenerate a draft in place", () => {
+  it("rewrites the same unpublished post (same id and slug) and refreshes a QUEUED social job", async () => {
+    const { db, tables } = createFakeDb({ settings: { content_pieces_per_day: "1" } });
+    const llm = createFakeLlm();
+    await runContentPipeline(createDeps(db, llm), { trigger: "CRON" });
+    const job = tables.contentPipelineJob.find((j) => j.stage === "READY")!;
+    const post = tables.blogPost.find((p) => p.id === job.blogPostId)!;
+    const before = { id: post.id, slug: post.slug, count: pipelinePosts(tables).length };
+    post.content = "old";
+
+    post.coverImage = "https://www.getverixa.com/api/content-image/keep-me";
+    const noImage = { ...createDeps(db, llm), generateImage: async () => null };
+    const r = await regenerateJob(noImage, str(job.id));
+    expect(r).toEqual({ ok: true, outcome: "produced" });
+    expect(tables.blogPost.find((p) => p.id === before.id)!.coverImage).toBe("https://www.getverixa.com/api/content-image/keep-me");
+    const after = tables.blogPost.find((p) => p.id === before.id)!;
+    expect(after.slug).toBe(before.slug);
+    expect(str(after.content)).not.toBe("old");
+    expect(pipelinePosts(tables)).toHaveLength(before.count);
+    expect(tables.contentPipelineJob.find((j) => j.id === job.id)!.stage).toBe("READY");
+  });
+
+  it("refuses a published post", async () => {
+    const { db, tables } = createFakeDb({ settings: { content_pieces_per_day: "1", content_autopublish_enabled: "true" } });
+    await runContentPipeline(createDeps(db, createFakeLlm()), { trigger: "CRON" });
+    const job = tables.contentPipelineJob.find((j) => j.blogPostId)!;
+    job.stage = "READY";
+    const r = await regenerateJob(createDeps(db, createFakeLlm()), str(job.id));
+    expect(r.ok).toBe(false);
+  });
+});
+
+describe("refresh cover", () => {
+  it("replaces only the cover of an unpublished draft", async () => {
+    const { db, tables } = createFakeDb({ settings: { content_pieces_per_day: "1", content_images_enabled: "false" } });
+    await runContentPipeline(createDeps(db, createFakeLlm()), { trigger: "CRON" });
+    const job = tables.contentPipelineJob.find((j) => j.stage === "READY")!;
+    const post = tables.blogPost.find((p) => p.id === job.blogPostId)!;
+    const content = post.content;
+    expect(post.coverImage).toBeNull();
+    const r = await refreshCover(createDeps(db, createFakeLlm()), str(job.id));
+    expect(r.ok).toBe(true);
+    expect(str(post.coverImage)).toMatch(/\/api\/content-image\//);
+    expect(post.content).toBe(content);
+  });
+
+  it("refuses a published post", async () => {
+    const { db, tables } = createFakeDb({ settings: { content_pieces_per_day: "1", content_autopublish_enabled: "true" } });
+    await runContentPipeline(createDeps(db, createFakeLlm()), { trigger: "CRON" });
+    const job = tables.contentPipelineJob.find((j) => j.blogPostId)!;
+    expect((await refreshCover(createDeps(db, createFakeLlm()), str(job.id))).ok).toBe(false);
   });
 });

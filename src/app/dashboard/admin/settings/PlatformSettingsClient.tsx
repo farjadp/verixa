@@ -450,6 +450,7 @@ export default function PlatformSettingsClient({
                     { id: "FAL_FLUX_PRO", label: "FLUX Pro", badge: null },
                     { id: "FAL_FLUX_DEV", label: "FLUX Dev", badge: null },
                     { id: "FAL_FLUX_SCHNELL", label: "FLUX Schnell", badge: null },
+                    { id: "GPT_IMAGE_2", label: "OpenAI GPT Image 2", badge: "NEW" },
                   ].map(({ id, label, badge }) => (
                     <button
                       key={id}
@@ -467,7 +468,7 @@ export default function PlatformSettingsClient({
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-gray-400">FAL.ai image generation model for AI-generated blog visuals.</p>
+                <p className="text-xs text-gray-400">Image model for AI-generated blog visuals. If a FAL model fails, the content pipeline falls back to OpenAI GPT Image 2.</p>
               </div>
             </div>
           </div>

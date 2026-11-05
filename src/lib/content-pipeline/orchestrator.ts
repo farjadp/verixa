@@ -16,19 +16,25 @@ import { Prisma } from "@prisma/client";
 import type { PipelineDeps } from "./types";
 import { loadConfig, type PipelineConfig } from "./config";
 import { checkDuplicate, dedupKeyFor, type Candidate } from "./dedup";
-import { normalizePathKeys } from "./paths";
-import { discoverCandidates, extractMainText } from "./agents/discovery";
+import { normalizePathKeys, tagImmigrationPaths } from "./paths";
+import { discoverCandidates, extractMainText, extractOfficialLinks } from "./agents/discovery";
 import { EXISTING_POSTS_WINDOW, MAX_JOB_ATTEMPTS, selectTopics } from "./agents/selection";
-import { writeDraft } from "./agents/writer";
+import { writeDraft, type RelatedSource } from "./agents/writer";
 import { optimizeSeo } from "./agents/seo-agent";
 import { reviewDraft } from "./agents/reviewer";
 import { createCoverImage } from "./agents/image";
 import { publishPiece } from "./agents/publisher";
+import { minWordsFor } from "./review-rules";
 
 export const RUN_LOCK_MS = 15 * 60 * 1000;
 export const DEFAULT_TIME_BUDGET_MS = 240_000; // under Vercel's 300 s maxDuration
 export const EST_MS_PER_PIECE = 75_000;
 export const MIN_SOURCE_CHARS = 300;
+/** A source shorter than this pulls in the official pages it links to. */
+export const ENRICH_BELOW_WORDS = 600;
+export const MAX_RELATED_PAGES = 4;
+const RELATED_PAGE_CHARS = 3500;
+const SOURCE_TEXT_CAP = 15000;
 export const PRODUCED_STAGES = ["READY", "PUBLISHED"];
 export const RETRYABLE_STAGES = ["FAILED", "REJECTED"];
 const LOCK_HELD = "RUNNING";
@@ -127,8 +133,64 @@ async function claimJob(deps: PipelineDeps, c: Candidate, config: PipelineConfig
   return job?.id ?? null;
 }
 
+function wordsIn(text: string): number {
+  return text.split(/\s+/).filter(Boolean).length;
+}
+
+/**
+ * Fetch the source; when it is thin (an official update that mostly lists the
+ * instruction pages it changed), append the text of up to MAX_RELATED_PAGES of
+ * those same-section official pages so the writer reports facts, not filler.
+ */
+async function gatherSource(deps: PipelineDeps, c: Candidate): Promise<{ text: string; related: RelatedSource[] }> {
+  if (!c.sourceUrl) return { text: "", related: [] };
+  let html = "";
+  try {
+    html = await deps.fetchHtml(c.sourceUrl);
+  } catch (e) {
+    deps.log(`Source fetch failed for ${c.sourceUrl}: ${errMsg(e)}`);
+    return { text: "", related: [] };
+  }
+  const main = extractMainText(html);
+  if (wordsIn(main) >= ENRICH_BELOW_WORDS) return { text: main, related: [] };
+
+  const links = extractOfficialLinks(html, c.sourceUrl, MAX_RELATED_PAGES);
+  const pages = await Promise.all(
+    links.map(async (l) => {
+      try {
+        const t = extractMainText(await deps.fetchHtml(l.url), RELATED_PAGE_CHARS);
+        return t.length >= 200 ? { ...l, text: t } : null;
+      } catch (e) {
+        deps.log(`Related page skipped (${l.url}): ${errMsg(e)}`);
+        return null;
+      }
+    })
+  );
+  const related = pages.filter((p): p is RelatedSource & { text: string } => !!p);
+  let text = main;
+  for (const p of related) {
+    const block = `\n\nRELATED OFFICIAL PAGE: ${p.title}\nURL: ${p.url}\n${p.text}`;
+    if (text.length + block.length > SOURCE_TEXT_CAP) break;
+    text += block;
+  }
+  const used = related.filter((p) => text.includes(`URL: ${p.url}`)).map(({ title, url }) => ({ title, url }));
+  if (used.length) deps.log(`Source enriched with ${used.length} linked official page(s).`);
+  return { text, related: used };
+}
+
+export interface ReplacePost {
+  id: string;
+  slug: string;
+}
+
 /** Run every stage for one claimed job, recording progress on its ContentPipelineJob. */
-async function runStages(deps: PipelineDeps, jobId: string, c: Candidate, config: PipelineConfig): Promise<Outcome> {
+async function runStages(
+  deps: PipelineDeps,
+  jobId: string,
+  c: Candidate,
+  config: PipelineConfig,
+  opts: { replacePost?: ReplacePost } = {}
+): Promise<Outcome> {
   const { db } = deps;
   const stage = (s: string, data: Prisma.ContentPipelineJobUpdateInput = {}) =>
     db.contentPipelineJob.update({ where: { id: jobId }, data: { stage: s, ...data } });
@@ -136,21 +198,15 @@ async function runStages(deps: PipelineDeps, jobId: string, c: Candidate, config
   try {
     // Source text for the writer and reviewer. Falls back to the feed snippet.
     await stage("WRITING");
-    let sourceText = "";
-    if (c.sourceUrl) {
-      try {
-        sourceText = extractMainText(await deps.fetchHtml(c.sourceUrl));
-      } catch (e) {
-        deps.log(`Source fetch failed for ${c.sourceUrl}: ${errMsg(e)}`);
-      }
-    }
+    const gathered = await gatherSource(deps, c);
+    let sourceText = gathered.text;
     if (sourceText.length < MIN_SOURCE_CHARS) sourceText = [c.title, c.snippet, sourceText].filter(Boolean).join("\n\n");
     if (sourceText.length < 200) {
       await stage("FAILED", { status: "ERROR", rejectionReason: "Source text unavailable or too short to write from." });
       return "failed";
     }
 
-    const draft = await writeDraft(deps, { candidate: c, sourceText, language: config.language });
+    const draft = await writeDraft(deps, { candidate: c, sourceText, language: config.language, related: gathered.related });
 
     // Second dedup pass on what was actually written: different sources describe
     // the same event in different words, and the draft's title/keyword are normalized.
@@ -159,7 +215,8 @@ async function runStages(deps: PipelineDeps, jobId: string, c: Candidate, config
       orderBy: { createdAt: "desc" },
       take: EXISTING_POSTS_WINDOW,
     });
-    const dup = checkDuplicate({ title: draft.title, keyword: draft.targetKeyword }, existing);
+    const others = opts.replacePost ? existing.filter((p) => p.slug !== opts.replacePost!.slug) : existing;
+    const dup = checkDuplicate({ title: draft.title, keyword: draft.targetKeyword }, others);
     if (dup.duplicate) {
       await stage("SKIPPED_DUPLICATE", {
         status: "DONE",
@@ -176,7 +233,13 @@ async function runStages(deps: PipelineDeps, jobId: string, c: Candidate, config
       immigrationPaths: JSON.stringify(draft.immigrationPaths),
     });
 
-    const seo = await optimizeSeo(deps, { draft, sourceName: c.sourceName, sourceUrl: c.sourceUrl, language: config.language });
+    const seo = await optimizeSeo(deps, {
+      draft,
+      sourceName: c.sourceName,
+      sourceUrl: c.sourceUrl,
+      language: config.language,
+      ownSlug: opts.replacePost?.slug,
+    });
     await stage("REVIEW", {
       draftMarkdown: seo.markdown,
       slug: seo.slug,
@@ -196,6 +259,7 @@ async function runStages(deps: PipelineDeps, jobId: string, c: Candidate, config
       language: config.language,
       strictness: config.strictness,
       minScore: config.minQualityScore,
+      minWords: minWordsFor(wordsIn(sourceText)),
     });
     const reviewNotes = JSON.stringify({
       passed: review.passed,
@@ -203,6 +267,9 @@ async function runStages(deps: PipelineDeps, jobId: string, c: Candidate, config
       claims: review.claims,
       checks: review.checks,
       editorNote: review.editorNote,
+      removedSentences: review.removedSentences,
+      relatedSources: gathered.related.map((r) => r.url),
+      articleType: draft.articleType,
       // Kept so an admin override can publish without calling the LLM again.
       title: draft.title,
       keywords: seo.keywords,
@@ -255,6 +322,8 @@ async function runStages(deps: PipelineDeps, jobId: string, c: Candidate, config
       sourceTitle: c.title,
       publishLive: config.autopublish,
       channels: config.channels,
+      articleType: draft.articleType,
+      replacePostId: opts.replacePost?.id,
     });
 
     await stage(published.isPublished ? "PUBLISHED" : "READY", {
@@ -409,6 +478,96 @@ export async function runContentPipeline(
   return summary;
 }
 
+export interface SingleSourceInput {
+  url: string;
+  title: string;
+  sourceName: string;
+  publishedAt: Date | null;
+  sourceTrust?: number;
+}
+
+/**
+ * Run every stage for one source URL an admin picked, bypassing discovery and
+ * the daily quota. Uses the same run lock, job claim (so a URL is never written
+ * twice) and gates as the scheduled run; autopublish/channels come from config.
+ */
+export async function runSingleSource(deps: PipelineDeps, input: SingleSourceInput): Promise<RunSummary> {
+  const { db } = deps;
+  const log: string[] = [];
+  const say = (m: string) => {
+    log.push(m);
+    deps.log(m);
+  };
+  const config = await loadConfig(db);
+  const now = deps.now();
+  const base: RunSummary = {
+    status: "COMPLETED", produced: 0, rejected: 0, failed: 0, discovered: 1, selected: 0, autopublish: config.autopublish, log,
+  };
+
+  await recoverStale(deps, now);
+  let runId: string;
+  try {
+    const run = await db.pipelineRun.create({
+      data: { trigger: "MANUAL", lockKey: LOCK_HELD, language: config.language.raw, targetCount: 1, autoPublished: config.autopublish },
+      select: { id: true },
+    });
+    runId = run.id;
+  } catch (e) {
+    if (isUniqueViolation(e)) return { ...base, status: "SKIPPED", reason: "Another pipeline run is in progress." };
+    throw e;
+  }
+  const summary: RunSummary = { ...base, runId };
+
+  try {
+    const candidate: Candidate = {
+      title: input.title,
+      sourceUrl: input.url,
+      sourceName: input.sourceName,
+      sourceTrust: input.sourceTrust ?? 100,
+      publishedAt: input.publishedAt,
+      snippet: "",
+      paths: tagImmigrationPaths(input.title),
+    };
+    say(`Run ${runId}: single source "${input.title}" (${input.url}), autopublish ${config.autopublish ? "ON" : "OFF"}.`);
+    const jobId = await claimJob(deps, candidate, config, runId);
+    if (!jobId) {
+      summary.status = "SKIPPED";
+      summary.reason = "This source was already processed (or is being processed).";
+      say(summary.reason);
+    } else {
+      summary.selected = 1;
+      const outcome = await runStages(deps, jobId, candidate, config);
+      if (outcome === "produced") summary.produced++;
+      else if (outcome === "rejected") summary.rejected++;
+      else if (outcome === "failed") summary.failed++;
+      say(`Done: ${outcome} (job ${jobId}).`);
+    }
+  } catch (e) {
+    summary.status = "FAILED";
+    summary.reason = errMsg(e);
+    say(`Run failed: ${summary.reason}`);
+  } finally {
+    await db.pipelineRun
+      .update({
+        where: { id: runId },
+        data: {
+          status: summary.status,
+          lockKey: null,
+          discovered: summary.discovered,
+          selected: summary.selected,
+          published: summary.produced,
+          skipped: summary.rejected,
+          failed: summary.failed,
+          error: summary.reason ?? null,
+          log: JSON.stringify(log.slice(-100)),
+          finishedAt: deps.now(),
+        },
+      })
+      .catch((e) => deps.log(`Could not finalize run ${runId}: ${errMsg(e)}`));
+  }
+  return summary;
+}
+
 /**
  * Admin retry of one FAILED or reviewer-REJECTED job (no post yet). Ignores the
  * auto-retry cap and the daily quota. The claim is atomic, so a job a cron run
@@ -444,4 +603,66 @@ export async function retryJob(deps: PipelineDeps, jobId: string): Promise<{ ok:
   };
   deps.log(`Admin retry of job ${jobId} ("${job.topic}").`);
   return { ok: true, outcome: await runStages(deps, jobId, candidate, config) };
+}
+
+/**
+ * Rewrite an existing pipeline draft in place (same post id, same slug when it
+ * still fits) after the pipeline itself was improved. Only for a READY job whose
+ * post is still unpublished; the claim is atomic like retryJob's.
+ */
+export async function regenerateJob(deps: PipelineDeps, jobId: string): Promise<{ ok: true; outcome: Outcome } | { ok: false; error: string }> {
+  const { db } = deps;
+  const config = await loadConfig(db);
+  const job = await db.contentPipelineJob.findUnique({ where: { id: jobId } });
+  if (!job || job.stage !== "READY" || !job.blogPostId) return { ok: false, error: "Only a READY job with a draft post can be regenerated." };
+  const post = await db.blogPost.findUnique({ where: { id: job.blogPostId }, select: { id: true, slug: true, isPublished: true } });
+  if (!post || post.isPublished) return { ok: false, error: "The post is already published; regenerate only works on unpublished drafts." };
+
+  const { blogPostId: _keep, ...reset } = RESET_OUTPUTS;
+  void _keep;
+  const claimed = await db.contentPipelineJob.updateMany({
+    where: { id: jobId, stage: "READY", blogPostId: post.id },
+    data: { ...reset, stage: "SELECTED", status: "ACTIVE", language: config.language.raw, attempts: { increment: 1 } },
+  });
+  if (claimed.count !== 1) return { ok: false, error: "The job changed while it was being claimed; try again." };
+
+  let paths: unknown = [];
+  try {
+    paths = job.immigrationPaths ? JSON.parse(job.immigrationPaths) : [];
+  } catch {
+    /* keep [] */
+  }
+  const candidate: Candidate = {
+    title: job.topic,
+    sourceId: job.sourceId ?? undefined,
+    sourceUrl: job.sourceUrl,
+    sourceName: job.sourceName || "Source",
+    sourceTrust: 100,
+    publishedAt: job.sourcePublishedAt,
+    snippet: job.snippet || "",
+    paths: normalizePathKeys(paths),
+  };
+  deps.log(`Regenerating draft /blog/${post.slug} (job ${jobId}).`);
+  return { ok: true, outcome: await runStages(deps, jobId, candidate, config, { replacePost: { id: post.id, slug: post.slug } }) };
+}
+
+/**
+ * Generate a new cover for an unpublished pipeline draft (e.g. after the image
+ * engine failed) without rewriting the article. Uses the draft's stored image prompt.
+ */
+export async function refreshCover(deps: PipelineDeps, jobId: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const { db } = deps;
+  const job = await db.contentPipelineJob.findUnique({ where: { id: jobId } });
+  if (!job?.blogPostId) return { ok: false, error: "This job has no draft post." };
+  const post = await db.blogPost.findUnique({
+    where: { id: job.blogPostId },
+    select: { id: true, isPublished: true, imagePrompt: true, imageAlt: true, title: true },
+  });
+  if (!post || post.isPublished) return { ok: false, error: "Covers can only be refreshed on unpublished drafts." };
+  const image = await createCoverImage(deps, { subject: post.imagePrompt || post.title, alt: post.imageAlt || post.title });
+  if (!image.url) return { ok: false, error: image.error || "No image produced." };
+  await db.blogPost.update({ where: { id: post.id }, data: { coverImage: image.url, imageAlt: image.alt } });
+  await db.contentPipelineJob.update({ where: { id: jobId }, data: { coverImage: image.url } });
+  deps.log(`Cover refreshed for job ${jobId}.`);
+  return { ok: true, url: image.url };
 }

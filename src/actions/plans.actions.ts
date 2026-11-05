@@ -144,8 +144,10 @@ export async function updatePlanFeature(
 // ─── SUBSCRIPTION MANAGEMENT ─────────────────────────────────────────────────
 
 export async function getSubscriptions() {
+  await requireAdmin();
   return prisma.subscription.findMany({
     orderBy: { createdAt: "desc" },
+    take: 500,
     include: {
       user: {
         select: {
@@ -160,10 +162,12 @@ export async function getSubscriptions() {
 }
 
 export async function getUnsubscribedConsultants() {
+  await requireAdmin();
   // Consultants with no active subscription (they're implicitly on free)
   const consultantsWithSub = await prisma.subscription.findMany({
     where: { status: "active", user: { role: "CONSULTANT" } },
     select: { userId: true },
+    take: 5000,
   });
   const subscribedIds = consultantsWithSub.map((s) => s.userId);
 

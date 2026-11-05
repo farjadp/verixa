@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/permissions";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 
@@ -51,7 +52,10 @@ export async function deleteBlogPost(id: string) {
 }
 
 export async function getBlogPosts(publishedOnly = true) {
+  // Drafts are admin-only; this is a callable server action, so check here.
+  if (!publishedOnly) await requireAdmin();
   return prisma.blogPost.findMany({
+    take: 500,
     where: publishedOnly ? { isPublished: true } : undefined,
     orderBy: { createdAt: "desc" },
     include: { author: { select: { name: true, image: true } } }

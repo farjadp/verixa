@@ -285,6 +285,8 @@ export async function getLastSyncLog() {
 }
 
 export async function saveLastSyncLog(result: SyncResult) {
+  const session = await getServerSession(authOptions);
+  if ((session?.user as any)?.role !== "ADMIN") throw new Error("Unauthorized");
   await prisma.platformSetting.upsert({
     where: { key: "lastSyncResult" },
     update: { value: JSON.stringify({ ...result, syncedAt: new Date().toISOString() }) },

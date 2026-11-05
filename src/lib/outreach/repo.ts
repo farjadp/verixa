@@ -247,11 +247,27 @@ export const prismaRepo: OutreachRepo = {
   },
 
   async negativeStats(since) {
-    const [touches, negatives, optOuts] = await Promise.all([
-      prisma.outreachTouch.count({ where: { status: { in: ["SENT", "SCHEDULED"] }, createdAt: { gte: since } } }),
-      prisma.outreachReply.count({ where: { label: "negative", receivedAt: { gte: since } } }),
-      prisma.outreachSuppression.count({ where: { reason: { in: ["unsubscribe", "complained"] }, createdAt: { gte: since } } }),
-    ]);
-    return { touches, negatives: negatives + optOuts };
+    const touches = await prisma.outreachTouch.count({ where: { status: { in: ["SENT", "SCHEDULED"] }, createdAt: { gte: since } } });
+    // Distinct people who replied negatively, used the unsubscribe link (EmailUnsubscribe user_request;
+    // other reasons are written by suppress() for bounces/negative replies and would double count), or complained.
+    const rows = await prisma.$queryRaw<{ n: bigint }[]>`
+      SELECT COUNT(DISTINCT pid)::bigint AS n FROM (
+        SELECT l."consultantProfileId" AS pid
+          FROM "OutreachReply" r JOIN "OutreachLead" l ON l.id = r."leadId"
+          WHERE r.label = 'negative' AND r."receivedAt" >= ${since}
+        UNION
+        SELECT p.id AS pid
+          FROM "EmailUnsubscribe" u
+          JOIN "ConsultantProfile" p ON lower(p."rawEmail") = lower(u.email)
+          WHERE u."createdAt" >= ${since} AND u.reason = 'user_request'
+            AND EXISTS (
+              SELECT 1 FROM "OutreachLead" l JOIN "OutreachTouch" t ON t."leadId" = l.id
+              WHERE l."consultantProfileId" = p.id AND t.status IN ('SENT', 'SCHEDULED'))
+        UNION
+        SELECT s."consultantProfileId" AS pid
+          FROM "OutreachSuppression" s
+          WHERE s.reason = 'complained' AND s."createdAt" >= ${since}
+      ) x`;
+    return { touches, negatives: Number(rows[0]?.n ?? 0) };
   },
 };

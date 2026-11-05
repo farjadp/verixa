@@ -68,8 +68,8 @@ export default async function ClaimLandingPage({ searchParams }: { searchParams:
             <p id="licence-error" role="alert" className="mt-3 text-sm text-error">{notFoundMessage}</p>
           )}
           <p className="mt-4 text-xs text-gray-500">
-            Don&apos;t know your number? <Link href="/search" className="font-semibold text-teal hover:underline">Search by name</Link> and use
-            &ldquo;Claim profile&rdquo; on your page.
+            Don&apos;t know your number? <Link href="/search" className="font-semibold text-teal hover:underline">Search by name</Link>{" "}
+            and use &ldquo;Claim profile&rdquo; on your page.
           </p>
         </form>
       </main>

@@ -20,6 +20,14 @@ describe("composeMessage", () => {
     await expect(composeMessage(fakeLlm({ subject: "Hi", body: "Your profile got 340 views" }), base)).rejects.toThrow(ComposeRejectedError);
   });
 
+  it("allows '30' (as in 'last 30 days') on step 2 only, and only with a views fact", async () => {
+    const url = "https://getverixa.com/consultant/R123456";
+    const body = `Hi Sara, ${"21"} views in the last 30 days: ${url}`;
+    await expect(composeMessage(fakeLlm({ subject: "Hi", body }), { ...base, step: 2 })).resolves.toBeTruthy();
+    await expect(composeMessage(fakeLlm({ subject: "Hi", body }), base)).rejects.toThrow(ComposeRejectedError);
+    await expect(composeMessage(fakeLlm({ subject: "Hi", body: `Hi Sara, activity in the last 30 days: ${url}` }), { ...base, step: 2, profileViews30d: null })).rejects.toThrow(ComposeRejectedError);
+  });
+
   it("rejects email without a subject", async () => {
     await expect(composeMessage(fakeLlm({ subject: null, body: "Hi Sara" }), base)).rejects.toThrow(ComposeRejectedError);
   });

@@ -55,7 +55,10 @@ function money(cents: number): string[] {
 
 function allowedNumbers(input: ComposeInput): Set<string> {
   const allowed = new Set<string>();
-  if (input.profileViews30d !== null) allowed.add(String(input.profileViews30d));
+  if (input.profileViews30d !== null) {
+    allowed.add(String(input.profileViews30d));
+    if (input.step === 2) allowed.add("30"); // step 2 brief says "in the last 30 days"
+  }
   const o = input.step === 3 ? input.offer : null;
   if (o) {
     allowed.add(String(o.freeMonths));

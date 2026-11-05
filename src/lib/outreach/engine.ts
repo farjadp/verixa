@@ -30,6 +30,9 @@ export interface EngineDeps {
   appUrl: string;
 }
 
+/** Extra planned leads to try when some are skipped (failed compose, no email, full window). */
+const SKIP_HEADROOM = 13;
+
 export function profileUrls(appUrl: string, licenseNumber: string, channel: Channel) {
   const utm = `utm_source=outreach&utm_medium=${channel.toLowerCase()}&utm_campaign=claim`;
   const lic = encodeURIComponent(licenseNumber);
@@ -155,16 +158,29 @@ export async function planEmailDay(deps: EngineDeps) {
   const leads = (await deps.repo.listLeads("EMAIL")).filter((l) => !l.profileClaimed && !l.suppressed);
   const offer = await deps.getOffer();
   const sentToday = await deps.repo.countTouchesToday("EMAIL", now);
-  const tasks = planTasks({ channel: "EMAIL", leads, now, sentToday, offerAvailable: offer !== null, activeDayOnly: true });
+  const capacity = Math.max(0, OUTREACH.touchesPerChannelPerDay - sentToday);
+  const tasks = planTasks({ channel: "EMAIL", leads, now, sentToday, offerAvailable: offer !== null, activeDayOnly: true, limit: capacity + SKIP_HEADROOM });
   const nextSlot = slotAllocator(deps);
   const today = localParts(now, OUTREACH.operatorTimezone).ymd;
 
   for (const task of tasks) {
     if (task.kind !== "TOUCH") continue;
+    if (result.scheduled + result.dryRun >= capacity) break;
     const lead = leads.find((l) => l.id === task.leadId)!;
     const msg = await composeWithRetry(deps, lead, task.step, offer);
-    if (!msg?.email || !msg.subject) { result.failed++; continue; }
+    if (!msg) { result.failed++; continue; }
+    if (!msg.email?.trim()) {
+      // No address will ever appear: stop retrying this lead every day.
+      await deps.suppress(lead.consultantProfileId, "no_email");
+      await apply(deps, lead, { type: "SUPPRESSED" });
+      continue;
+    }
+    if (!msg.subject) { result.failed++; continue; }
     const cycle = lead.recontactUsed ? 1 : 0;
+
+    // The kill switch may have been flipped while the LLM was working.
+    const current = await deps.settings();
+    if (!current.enabled || !current.channels.EMAIL || (current.dryRun && !settings.dryRun)) break;
 
     if (settings.dryRun) {
       await deps.repo.createTouch({ leadId: lead.id, channel: "EMAIL", step: task.step, cycle, subject: msg.subject, body: msg.body, status: "DRY_RUN", dryRunDay: today });
@@ -176,16 +192,33 @@ export async function planEmailDay(deps: EngineDeps) {
     if (!at) continue; // window already full for this timezone today
     const touch = await deps.repo.createTouch({ leadId: lead.id, channel: "EMAIL", step: task.step, cycle, subject: msg.subject, body: msg.body, status: "QUEUED" });
     if (!touch.created) continue; // already handled; never send twice
+
+    let id: string;
     try {
       const built = deps.email.build({ to: msg.email, subject: msg.subject, body: msg.body });
-      const { id } = await deps.email.send(built, at);
-      await deps.repo.updateTouch(touch.id, { status: "SCHEDULED", externalMessageId: id, scheduledFor: at });
-      await apply(deps, lead, { type: "TOUCH_SENT", step: task.step });
-      result.scheduled++;
+      ({ id } = await deps.email.send(built, at));
     } catch (e) {
       await deps.repo.updateTouch(touch.id, { status: "FAILED", error: (e as Error).message.slice(0, 500) });
       result.failed++;
+      continue;
     }
+
+    // The email now exists at Resend. Never downgrade it to FAILED; the kill switch must be able to find it.
+    let persisted = false;
+    for (let attempt = 0; attempt < 2 && !persisted; attempt++) {
+      try {
+        await deps.repo.updateTouch(touch.id, { status: "SCHEDULED", externalMessageId: id, scheduledFor: at });
+        persisted = true;
+      } catch (e) {
+        console.error(`[outreach] CRITICAL: email ${id} is scheduled at Resend but touch ${touch.id} could not be saved (attempt ${attempt + 1}): ${(e as Error).message}`);
+      }
+    }
+    try {
+      await apply(deps, lead, { type: "TOUCH_SENT", step: task.step });
+    } catch (e) {
+      console.error(`[outreach] state update failed after send for lead ${lead.id}: ${(e as Error).message}`);
+    }
+    result.scheduled++;
   }
   return result;
 }
@@ -226,21 +259,28 @@ export async function buildSocialTasks(deps: EngineDeps, channel: "LINKEDIN" | "
   const leads = (await deps.repo.listLeads(channel)).filter((l) => !l.profileClaimed && !l.suppressed && l.externalHandle);
   const offer = await deps.getOffer();
   const sentToday = await deps.repo.countTouchesToday(channel, now);
-  const tasks = planTasks({ channel, leads, now, sentToday, offerAvailable: offer !== null });
+  const capacity = Math.max(0, OUTREACH.touchesPerChannelPerDay - sentToday);
+  const tasks = planTasks({ channel, leads, now, sentToday, offerAvailable: offer !== null, limit: capacity + SKIP_HEADROOM });
   const today = localParts(now, OUTREACH.operatorTimezone).ymd;
   const out: WorkerTask[] = [];
+  let newlyCreated = 0;
 
   for (const t of tasks) {
     if (t.kind !== "TOUCH" && t.kind !== "INVITE") continue;
+    // Touches that already exist as QUEUED are counted in sentToday; only new ones consume today's remaining capacity.
+    if (newlyCreated >= capacity) break;
     const lead = leads.find((l) => l.id === t.leadId)!;
     const msg = await composeWithRetry(deps, lead, t.step, offer);
     if (!msg) continue;
+    const current = await deps.settings();
+    if (!current.enabled || !current.channels[channel]) break;
     const touch = await deps.repo.createTouch({
       leadId: lead.id, channel, step: t.step, cycle: lead.recontactUsed ? 1 : 0, subject: null, body: msg.body,
       status: settings.dryRun ? "DRY_RUN" : "QUEUED", dryRunDay: today,
     });
     if (touch.status !== "QUEUED" && touch.status !== "DRY_RUN") continue; // already sent or failed
-    out.push({ touchId: touch.id, leadId: lead.id, kind: t.kind, step: t.step, handle: lead.externalHandle!, body: touch.body, dryRun: settings.dryRun });
+    if (touch.created) newlyCreated++;
+    out.push({ touchId: touch.id, leadId: lead.id, kind: t.kind, step: t.step, handle: lead.externalHandle!, body: touch.body, dryRun: touch.status === "DRY_RUN" });
   }
   return out;
 }
@@ -254,12 +294,22 @@ const signalsSchema = z.object({
 export const workerReportSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("TOUCH_RESULT"), touchId: z.string(), status: z.enum(["SENT", "FAILED"]), externalMessageId: z.string().optional(), error: z.string().max(500).optional() }),
   z.object({ type: z.literal("INVITE_ACCEPTED"), leadId: z.string() }),
-  z.object({ type: z.literal("REPLY"), channel: channelEnum, handle: z.string().optional(), email: z.string().email().optional(), body: z.string().max(8000) }),
+  z.object({ type: z.literal("REPLY"), channel: channelEnum, handle: z.string().optional(), email: z.string().email().optional(), body: z.string().max(8000) })
+    .refine((r) => Boolean(r.email || r.handle), { message: "email or handle required" }),
   z.object({ type: z.literal("LEAD_MATCHED"), consultantProfileId: z.string(), channel: z.enum(["LINKEDIN", "X"]), handle: z.string().min(1), matchConfidence: z.number().min(0).max(1), timezone: z.string(), signals: signalsSchema }),
   z.object({ type: z.literal("DMS_CLOSED"), leadId: z.string() }),
   z.object({ type: z.literal("CHANNEL_HALT"), channel: z.enum(["LINKEDIN", "X", "EMAIL"]), reason: z.enum(["CHECKPOINT", "ADAPTER_BROKEN"]), detail: z.string().max(1000) }),
 ]);
 export type WorkerReport = z.infer<typeof workerReportSchema>;
+
+function isValidTimeZone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function applyReport(
   deps: EngineDeps,
@@ -270,8 +320,10 @@ export async function applyReport(
     case "TOUCH_RESULT": {
       const touch = await deps.repo.getTouch(r.touchId);
       if (!touch) return { ok: false, detail: "unknown touch" };
+      if (touch.channel !== "LINKEDIN" && touch.channel !== "X") return { ok: false, detail: "not a social touch" };
       if (touch.status === "SENT") return { ok: true, detail: "already recorded" };
       if (touch.status === "DRY_RUN") return { ok: true, detail: "dry run" };
+      if (touch.status !== "QUEUED") return { ok: false, detail: `touch is ${touch.status}, not QUEUED` };
       if (r.status === "FAILED") {
         await deps.repo.updateTouch(touch.id, { status: "FAILED", error: r.error });
         return { ok: true };
@@ -289,12 +341,13 @@ export async function applyReport(
     }
 
     case "REPLY": {
-      const lead = await deps.repo.findLeadByContact(r.email ? { email: r.email } : { handle: r.handle });
+      const lead = await deps.repo.findLeadByContact({ ...(r.email ? { email: r.email } : { handle: r.handle }), channel: r.channel });
       if (!lead) return { ok: false, detail: "no lead for contact" };
       const { label, confidence } = await classifyReply(deps.llm, r.body);
       await deps.repo.recordReply({ leadId: lead.id, body: r.body, label, confidence });
       if (label === "negative") {
-        await deps.suppress(lead.consultantProfileId, "negative_reply", r.email ? { email: r.email } : r.channel === "X" ? { xHandle: r.handle } : { linkedinUrl: r.handle });
+        const contact = r.channel === "EMAIL" ? { email: r.email } : r.channel === "X" ? { xHandle: r.handle } : { linkedinUrl: r.handle };
+        await deps.suppress(lead.consultantProfileId, "negative_reply", contact);
       }
       return { ok: await apply(deps, lead, { type: "REPLY", label }) };
     }
@@ -302,7 +355,13 @@ export async function applyReport(
     case "LEAD_MATCHED": {
       if (r.matchConfidence < OUTREACH.minMatchConfidence) return { ok: true, detail: "below confidence threshold" };
       if ((await deps.repo.countLeadsCreatedToday(r.channel, deps.now())) >= OUTREACH.newLeadsPerChannelPerDay) return { ok: true, detail: "daily cap reached" };
-      const score = scoreLead({ ciccActive: true, ...r.signals });
+      if (!isValidTimeZone(r.timezone)) return { ok: true, detail: "invalid timezone" };
+      const elig = await deps.repo.getProfileEligibility(r.consultantProfileId);
+      if (!elig.exists) return { ok: true, detail: "profile not found" };
+      if (elig.claimed) return { ok: true, detail: "profile already claimed" };
+      if (!elig.ciccActive) return { ok: true, detail: "licence not active" };
+      if (elig.suppressed) return { ok: true, detail: "profile suppressed" };
+      const score = scoreLead({ ciccActive: elig.ciccActive, ...r.signals });
       const created = await deps.repo.createLead({
         consultantProfileId: r.consultantProfileId, score, externalHandle: r.handle, matchConfidence: r.matchConfidence,
         snapshot: newBacklogLead(r.channel, r.timezone, deps.now()),

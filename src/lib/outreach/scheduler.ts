@@ -20,11 +20,13 @@ export interface ScheduleInput {
   offerAvailable: boolean;
   /** Email plans the day before the window opens: require only an active day. */
   activeDayOnly?: boolean;
+  /** Replaces the computed capacity for sends (callers that may skip leads over-ask, then stop at the real cap). */
+  limit?: number;
 }
 
 const due = (l: SchedulableLead, now: Date) => l.nextActionAt !== null && l.nextActionAt <= now;
 
-export function planTasks({ channel, leads, now, sentToday, offerAvailable, activeDayOnly }: ScheduleInput): Task[] {
+export function planTasks({ channel, leads, now, sentToday, offerAvailable, activeDayOnly, limit }: ScheduleInput): Task[] {
   const mine = leads.filter((l) => l.channel === channel);
   const maintenance: Task[] = [];
   const followUps: SchedulableLead[] = [];
@@ -52,7 +54,7 @@ export function planTasks({ channel, leads, now, sentToday, offerAvailable, acti
   followUps.sort((a, b) => a.nextActionAt!.getTime() - b.nextActionAt!.getTime() || a.id.localeCompare(b.id));
   backlog.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
 
-  const capacity = Math.max(0, OUTREACH.touchesPerChannelPerDay - sentToday);
+  const capacity = limit ?? Math.max(0, OUTREACH.touchesPerChannelPerDay - sentToday);
   const sends: Task[] = [];
   for (const l of [...followUps, ...backlog]) {
     if (sends.length >= capacity) break;

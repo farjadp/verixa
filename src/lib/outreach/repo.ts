@@ -21,7 +21,8 @@ export interface TouchInput { leadId: string; channel: Channel; step: Step; cycl
 export interface OutreachRepo {
   listLeads(channel?: Channel): Promise<LeadRow[]>;
   getLead(id: string): Promise<LeadRow | null>;
-  findLeadByContact(q: { email?: string; handle?: string }): Promise<LeadRow | null>;
+  findLeadByContact(q: { email?: string; handle?: string; channel: Channel }): Promise<LeadRow | null>;
+  getProfileEligibility(consultantProfileId: string): Promise<{ exists: boolean; claimed: boolean; ciccActive: boolean; suppressed: boolean }>;
   saveLead(id: string, s: LeadSnapshot): Promise<void>;
   createLead(input: { consultantProfileId: string; snapshot: LeadSnapshot; score: number; externalHandle: string | null; matchConfidence: number | null }): Promise<boolean>;
   countLeadsCreatedToday(channel: Channel, now: Date): Promise<number>;
@@ -30,7 +31,7 @@ export interface OutreachRepo {
   getComposeContext(leadId: string): Promise<ComposeContext | null>;
   createTouch(t: TouchInput): Promise<{ id: string; created: boolean; status: string; body: string }>;
   updateTouch(id: string, patch: { status: string; externalMessageId?: string; error?: string; sentAt?: Date; scheduledFor?: Date }): Promise<void>;
-  getTouch(id: string): Promise<{ id: string; leadId: string; step: Step; status: string } | null>;
+  getTouch(id: string): Promise<{ id: string; leadId: string; channel: Channel; step: Step; status: string } | null>;
   findTouchByExternalId(externalMessageId: string): Promise<{ id: string; leadId: string; step: Step } | null>;
   listFutureScheduledEmailTouches(now: Date): Promise<{ id: string; leadId: string; step: Step; externalMessageId: string }[]>;
   recordReply(r: { leadId: string; body: string; label: string; confidence: number }): Promise<void>;
@@ -68,12 +69,24 @@ export const prismaRepo: OutreachRepo = {
     return l ? toRow(l) : null;
   },
 
-  async findLeadByContact({ email, handle }) {
+  async findLeadByContact({ email, handle, channel }) {
+    if (!email && !handle) return null;
     const l = await prisma.outreachLead.findFirst({
-      where: email ? { consultantProfile: { rawEmail: { equals: email, mode: "insensitive" } } } : { externalHandle: { equals: handle ?? "", mode: "insensitive" } },
+      where: {
+        channel,
+        state: { notIn: [...TERMINAL_STATES] },
+        ...(email ? { consultantProfile: { rawEmail: { equals: email, mode: "insensitive" } } } : { externalHandle: { equals: handle ?? "", mode: "insensitive" } }),
+      },
+      orderBy: { updatedAt: "desc" },
       include,
     });
     return l ? toRow(l) : null;
+  },
+
+  async getProfileEligibility(consultantProfileId) {
+    const p = await prisma.consultantProfile.findUnique({ where: { id: consultantProfileId }, select: { id: true, userId: true, status: true, rawEmail: true } });
+    if (!p) return { exists: false, claimed: false, ciccActive: false, suppressed: false };
+    return { exists: true, claimed: p.userId !== null, ciccActive: isCiccActive(p.status), suppressed: await isSuppressed({ id: p.id, rawEmail: p.rawEmail }) };
   },
 
   async saveLead(id, s) {
@@ -100,8 +113,17 @@ export const prismaRepo: OutreachRepo = {
   },
 
   async countTouchesToday(channel, now) {
+    const dayStart = startOfOperatorDay(now);
+    // Sends count on the day they go out; handed-out-but-unreported touches always count against the cap.
     return prisma.outreachTouch.count({
-      where: { channel, status: { in: ["QUEUED", "SCHEDULED", "SENT"] }, createdAt: { gte: startOfOperatorDay(now) } },
+      where: {
+        channel,
+        OR: [
+          { status: "SENT", sentAt: { gte: dayStart } },
+          { status: "SCHEDULED", scheduledFor: { gte: dayStart } },
+          { status: "QUEUED" },
+        ],
+      },
     });
   },
 
@@ -112,7 +134,7 @@ export const prismaRepo: OutreachRepo = {
       LEFT JOIN "OutreachLead" l ON l."consultantProfileId" = p.id
       LEFT JOIN "OutreachSuppression" s ON s."consultantProfileId" = p.id
       WHERE p."userId" IS NULL AND p."rawEmail" IS NOT NULL AND p."rawEmail" <> ''
-        AND lower(p.status) IN ('yes', 'active')
+        AND lower(trim(p.status)) IN ('yes', 'active')
         AND l.id IS NULL AND s.id IS NULL
         AND NOT EXISTS (SELECT 1 FROM "EmailUnsubscribe" u WHERE u.email = lower(p."rawEmail"))
       ORDER BY random() LIMIT ${limit}`;
@@ -160,7 +182,15 @@ export const prismaRepo: OutreachRepo = {
   async createTouch(t) {
     const idempotencyKey = `${t.leadId}:${t.step}:${t.cycle}${t.status === "DRY_RUN" ? `:dry:${t.dryRunDay}` : ""}`;
     const existing = await prisma.outreachTouch.findUnique({ where: { idempotencyKey } });
-    if (existing) return { id: existing.id, created: false, status: existing.status, body: existing.body };
+    if (existing) {
+      const dead = existing.status === "CANCELLED" || (existing.status === "FAILED" && existing.externalMessageId === null);
+      if (!dead) return { id: existing.id, created: false, status: existing.status, body: existing.body };
+      const row = await prisma.outreachTouch.update({
+        where: { id: existing.id },
+        data: { status: t.status, subject: t.subject, body: t.body, error: null, externalMessageId: null, scheduledFor: null, sentAt: null },
+      });
+      return { id: row.id, created: true, status: row.status, body: row.body };
+    }
     try {
       const row = await prisma.outreachTouch.create({
         data: { leadId: t.leadId, channel: t.channel, step: t.step, subject: t.subject, body: t.body, status: t.status, idempotencyKey },
@@ -180,8 +210,8 @@ export const prismaRepo: OutreachRepo = {
   },
 
   async getTouch(id) {
-    const t = await prisma.outreachTouch.findUnique({ where: { id }, select: { id: true, leadId: true, step: true, status: true } });
-    return t ? { ...t, step: t.step as Step } : null;
+    const t = await prisma.outreachTouch.findUnique({ where: { id }, select: { id: true, leadId: true, channel: true, step: true, status: true } });
+    return t ? { ...t, channel: t.channel as Channel, step: t.step as Step } : null;
   },
 
   async findTouchByExternalId(externalMessageId) {
@@ -191,7 +221,7 @@ export const prismaRepo: OutreachRepo = {
 
   async listFutureScheduledEmailTouches(now) {
     const rows = await prisma.outreachTouch.findMany({
-      where: { channel: "EMAIL", status: "SCHEDULED", scheduledFor: { gt: now }, externalMessageId: { not: null } },
+      where: { channel: "EMAIL", status: { notIn: ["CANCELLED", "SENT"] }, scheduledFor: { gt: now }, externalMessageId: { not: null } },
       select: { id: true, leadId: true, step: true, externalMessageId: true },
     });
     return rows.map((r) => ({ id: r.id, leadId: r.leadId, step: r.step as Step, externalMessageId: r.externalMessageId! }));

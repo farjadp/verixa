@@ -1,4 +1,5 @@
-import { addMinutes, isAfter, isBefore, parse, startOfDay, addHours } from "date-fns";
+import { addMinutes, addHours } from "date-fns";
+import { addDaysToDateString, dateStringInTimeZone, zonedTimeToUtc } from "@/lib/timezone";
 
 export type TimeSlot = {
   start: Date;
@@ -6,80 +7,71 @@ export type TimeSlot = {
   available: boolean;
 };
 
-export function generateAvailableSlots({
-  dateObj,
-  durationMinutes,
-  bufferMinutes,
-  minimumNoticeHours,
-  dayAvailability,
-  existingBookings,
-}: {
-  dateObj: Date; // e.g. 2026-03-24T00:00:00.000Z representing the start of that day
+export type SlotInput = {
+  /** Calendar date in the consultant's timezone, YYYY-MM-DD. */
+  dateStr: string;
+  /** Consultant's IANA timezone; availability times are wall-clock in this zone. */
+  timeZone: string;
   durationMinutes: number;
   bufferMinutes: number;
   minimumNoticeHours: number;
   dayAvailability: { startTime: string; endTime: string } | null;
   existingBookings: { scheduledStart: Date; scheduledEnd: Date }[];
-}): TimeSlot[] {
+  /** null/undefined = unlimited. */
+  maxBookingsPerDay?: number | null;
+  /** Active bookings already on this day; defaults to existingBookings.length. */
+  bookingsOnDay?: number;
+  /** null/undefined = unlimited. Dates beyond today + N days get no slots. */
+  bookingWindowDays?: number | null;
+  now?: Date;
+};
+
+export function generateAvailableSlots(input: SlotInput): TimeSlot[] {
+  const {
+    dateStr,
+    timeZone,
+    durationMinutes,
+    bufferMinutes,
+    minimumNoticeHours,
+    dayAvailability,
+    existingBookings,
+    maxBookingsPerDay,
+    bookingWindowDays,
+  } = input;
+  const bookingsOnDay = input.bookingsOnDay ?? existingBookings.length;
+  const now = input.now ?? new Date();
+
   if (!dayAvailability) return []; // Not working this day
+  if (durationMinutes <= 0) return [];
 
-  // 1. Minimum notice check
-  const now = new Date();
-  const noticeDeadline = addHours(now, minimumNoticeHours);
-  
-  // Parse working hours for that specific date
-  const workStart = parse(dayAvailability.startTime, "HH:mm", dateObj);
-  const workEnd = parse(dayAvailability.endTime, "HH:mm", dateObj);
+  if (maxBookingsPerDay != null && maxBookingsPerDay > 0 && bookingsOnDay >= maxBookingsPerDay) {
+    return [];
+  }
 
-  const slots: TimeSlot[] = [];
-  let currentSlotStart = workStart;
+  if (bookingWindowDays != null && bookingWindowDays > 0) {
+    const lastBookableDate = addDaysToDateString(dateStringInTimeZone(now, timeZone), bookingWindowDays);
+    if (dateStr > lastBookableDate) return [];
+  }
 
-  // We loop to find valid slots
-  // For simplicity, we step by `durationMinutes` or maybe 30 mins to align slots nicely.
-  // Standard UX: step by 30 minutes, but check if slot fits.
+  const noticeDeadline = addHours(now, Math.max(0, minimumNoticeHours));
+  const workStart = zonedTimeToUtc(dateStr, dayAvailability.startTime, timeZone);
+  const workEnd = zonedTimeToUtc(dateStr, dayAvailability.endTime, timeZone);
+
+  // Step by 30 minutes for long sessions so start times stay on the half hour.
   const stepMinutes = durationMinutes >= 60 ? 30 : durationMinutes;
+  const slots: TimeSlot[] = [];
 
-  while (isBefore(currentSlotStart, workEnd)) {
-    const currentSlotEnd = addMinutes(currentSlotStart, durationMinutes);
+  for (let start = workStart; start < workEnd; start = addMinutes(start, stepMinutes)) {
+    const end = addMinutes(start, durationMinutes);
+    if (end > workEnd) break;
+    if (start < noticeDeadline) continue;
 
-    // If this slot extends past the working day, stop
-    if (isAfter(currentSlotEnd, workEnd)) {
-      break;
-    }
-
-    // Check minimum notice
-    if (isBefore(currentSlotStart, noticeDeadline)) {
-      currentSlotStart = addMinutes(currentSlotStart, stepMinutes);
-      continue;
-    }
-
-    // Check overlaps with existing bookings, including buffer
-    let hasConflict = false;
-    for (const booking of existingBookings) {
-      // The booked time + buffer
-      const bufferedBookingStart = addMinutes(booking.scheduledStart, -bufferMinutes);
-      const bufferedBookingEnd = addMinutes(booking.scheduledEnd, bufferMinutes);
-
-      // Slot intersects if:
-      // slot starts before booking ends AND slot ends after booking starts
-      if (
-        isBefore(currentSlotStart, bufferedBookingEnd) &&
-        isAfter(currentSlotEnd, bufferedBookingStart)
-      ) {
-        hasConflict = true;
-        break;
-      }
-    }
-
-    if (!hasConflict) {
-      slots.push({
-        start: currentSlotStart,
-        end: currentSlotEnd,
-        available: true,
-      });
-    }
-
-    currentSlotStart = addMinutes(currentSlotStart, stepMinutes);
+    const conflict = existingBookings.some((b) => {
+      const bufferedStart = addMinutes(b.scheduledStart, -bufferMinutes);
+      const bufferedEnd = addMinutes(b.scheduledEnd, bufferMinutes);
+      return start < bufferedEnd && end > bufferedStart;
+    });
+    if (!conflict) slots.push({ start, end, available: true });
   }
 
   return slots;

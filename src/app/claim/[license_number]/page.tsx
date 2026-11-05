@@ -10,6 +10,7 @@
 // Critical Path: Identity ownership flow; links public registry identity to account ownership state.
 // Risk Notes: Handle hinting/verification data carefully to avoid account takeover vectors.
 // ============================================================================
+import { noindexMetadata } from "@/lib/seo/metadata";
 import { getConsultantByLicense } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { ShieldCheck, User, AlertCircle } from "lucide-react";
@@ -26,9 +27,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { license_number } = await params;
   const data = await getConsultantByLicense(license_number);
-  return {
-    title: data ? `Claim Profile — ${data.Full_Name} | Verixa` : "Claim Profile | Verixa",
-  };
+  // Utility page, one per register entry: keep it out of the index (the profile is the canonical page).
+  return noindexMetadata(data ? `Claim Profile: ${data.Full_Name}` : "Claim Profile");
 }
 
 export default async function ClaimProfilePage({

@@ -31,6 +31,9 @@ import TrackPageView from "@/components/TrackPageView";
 import GuestReviewButton from "@/components/GuestReviewButton";
 import { ALL_SPECIALIZATION_ITEMS } from "@/lib/immigration-paths";
 import { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/metadata";
+import { buildBreadcrumbJsonLd, buildConsultantJsonLd, isEntitledToPractise } from "@/lib/seo/structured-data";
+import { serializeJsonLd } from "@/lib/content-pipeline/seo";
 
 export async function generateMetadata({
   params
@@ -39,16 +42,21 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolvedParams = await params;
   const data = await getConsultantByLicense(resolvedParams.license_number);
-  if (!data) return { title: 'Consultant Not Found | Verixa' };
-  return {
-    title: `${data.Full_Name} - Canadian Immigration Consultant | Verixa`,
-    description: `Book a consultation with ${data.Full_Name}, an active RCIC consultant in ${data.Province || 'Canada'}.`,
-    openGraph: {
-      title: `${data.Full_Name} - Verixa Verified Consultant`,
-      description: `Book a secure consultation with ${data.Full_Name} (${data.License_Number}).`,
-      images: ['/Brand/Vertixa3.png']
-    }
-  };
+  if (!data) return { title: "Consultant Not Found", robots: { index: false, follow: true } };
+  const entitled = isEntitledToPractise(data.Status);
+  const where = data.Province || "Canada";
+  const at = data.Company ? ` at ${data.Company}` : "";
+  return pageMetadata({
+    title: `${data.Full_Name}, RCIC #${data.License_Number}`,
+    description: entitled
+      ? `${data.Full_Name} (CICC licence ${data.License_Number})${at} is listed on the CICC register as entitled to practise. Areas of practice and consultation booking in ${where}.`
+      : `The CICC public register lists ${data.Full_Name} (licence ${data.License_Number}) as not currently entitled to practise. Check the register before hiring any consultant.`,
+    path: `/consultant/${encodeURIComponent(data.License_Number)}`,
+    type: "profile",
+    // YMYL: keep profiles the register marks as not entitled out of the index so
+    // search results never present them as licensed help.
+    noindex: !entitled,
+  });
 }
 
 export default async function ConsultantProfilePage({
@@ -136,9 +144,28 @@ export default async function ConsultantProfilePage({
   ]);
   const relatedArticles = await getRelatedArticles(specializations.map(s => s.label), limitArticles);
 
+  // Structured data: Person (entitled RCICs only) + breadcrumbs.
+  const personLd = buildConsultantJsonLd({
+    licenseNumber: data.License_Number,
+    fullName: data.Full_Name,
+    status: data.Status,
+    company: data.Company,
+    province: data.Province,
+    specializations: specializations.map((s) => s.label),
+    // The page defaults to "English" when nothing is stored; only declare languages the profile set.
+    languages: dbProfile?.languages ? languages : undefined,
+  });
+  const crumbLd = buildBreadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "Find a consultant", path: "/search" },
+    { name: data.Full_Name, path: `/consultant/${encodeURIComponent(data.License_Number)}` },
+  ]);
+  const jsonLd = [personLd, crumbLd].filter(Boolean).map((ld) => serializeJsonLd(ld));
+
   return (
     <div className="min-h-screen bg-[#F4F6F9] font-sans text-[#1A1F2B] pt-[80px] lg:pt-[88px]">
       <TrackPageView eventName="profile_view" specialization="Immigration Consulting" />
+      {jsonLd.map((ld, i) => <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: ld }} />)}
       <Header />
 
       {/* ── CLAIM BANNER (unclaimed only) ───────────────────────────────── */}

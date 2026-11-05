@@ -11,6 +11,8 @@
 // Primary Dependencies: Availability, booking settings, pricing rules, payment preconditions, session context.
 // Risk Notes: Validation, timezone, and double-booking guards are business-critical here.
 // ============================================================================
+import type { Metadata } from "next";
+import { noindexMetadata } from "@/lib/seo/metadata";
 import { getConsultantBookingConfig } from "@/actions/booking.actions";
 import { ArrowLeft, Check, Clock, ShieldCheck, User, Video } from "lucide-react";
 import Link from "next/link";
@@ -19,6 +21,8 @@ import BookingFlow from "./BookingFlow";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import TrackPageView from "@/components/TrackPageView";
+
+export const metadata: Metadata = noindexMetadata("Book a Consultation");
 
 export default async function ClientBookingPage({ params }: { params: Promise<{ license_number: string }> }) {
   const session = await getServerSession(authOptions);

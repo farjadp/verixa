@@ -10,7 +10,7 @@ export class OutreachConfigError extends Error {
 
 /** Resend rejected the send; statusCode is the HTTP status when Resend reported one. */
 export class ResendSendError extends Error {
-  constructor(message: string, readonly statusCode: number | null) {
+  constructor(message: string, readonly statusCode: number | null, readonly code: string | null = null) {
     super(message);
     this.name = "ResendSendError";
   }
@@ -70,7 +70,7 @@ export async function sendOutreachEmail(msg: BuiltEmail, scheduledAt: Date | nul
     },
     idempotencyKey ? { idempotencyKey } : undefined,
   );
-  if (error || !data) throw new ResendSendError(`Resend send failed: ${error?.message ?? "no data"}`, error?.statusCode ?? null);
+  if (error || !data) throw new ResendSendError(`Resend send failed: ${error?.message ?? "no data"}`, error?.statusCode ?? null, error?.name ?? null);
   return { id: data.id };
 }
 

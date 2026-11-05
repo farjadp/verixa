@@ -126,6 +126,7 @@ export const prismaRepo: OutreachRepo = {
           { status: "QUEUED" },
           // Ambiguous sends may have gone out; they count against today's cap.
           { status: "UNCERTAIN", createdAt: { gte: dayStart } },
+          { status: "UNCERTAIN", scheduledFor: { gte: dayStart } }, // a reused older row
         ],
       },
     });

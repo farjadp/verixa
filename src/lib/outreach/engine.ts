@@ -38,6 +38,9 @@ export interface EngineDeps {
  * Timeouts, 5xx, network errors and anything unrecognised are ambiguous: the email may exist.
  */
 export function isDefiniteRejection(e: unknown): boolean {
+  if ((e as Error | null)?.name === "OutreachConfigError") return true; // nothing was sent
+  // Resend refused to reuse the key for a different payload: the email was not sent.
+  if ((e as { code?: unknown } | null)?.code === "invalid_idempotent_request") return true;
   const code = (e as { statusCode?: unknown } | null)?.statusCode;
   return typeof code === "number" && code >= 400 && code < 500 && code !== 409;
 }
@@ -229,14 +232,14 @@ export async function planEmailDay(deps: EngineDeps) {
       continue;
     }
     try {
-      ({ id } = await deps.email.send(built, at, touch.id));
+      ({ id } = await deps.email.send(built, at, `${touch.id}:${at.getTime()}`));
     } catch (e) {
       const message = (e as Error).message.slice(0, 500);
       if (isDefiniteRejection(e)) {
         await deps.repo.updateTouch(touch.id, { status: "FAILED", error: message });
       } else {
         // The email may exist at Resend. Keep the row (blocks re-send, counts toward the cap) and tell the founder.
-        await deps.repo.updateTouch(touch.id, { status: "UNCERTAIN", error: message });
+        await deps.repo.updateTouch(touch.id, { status: "UNCERTAIN", error: message, scheduledFor: at });
         await raise(deps, "Email send outcome unknown", [`Sending to ${email} failed ambiguously: ${message}`, "Check Resend for a possible send; the touch is held as UNCERTAIN and will not be retried."]);
       }
       result.failed++;

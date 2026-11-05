@@ -160,8 +160,55 @@ describe("planEmailDay", () => {
     const d = deps(repo);
     const build = vi.spyOn(d.email, "build");
     await planEmailDay(d);
-    expect(vi.mocked(d.email.send).mock.calls[0][2]).toBe("t0");
+    expect(vi.mocked(d.email.send).mock.calls[0][2]).toBe(`t0:${(vi.mocked(d.email.send).mock.calls[0][1] as Date).getTime()}`);
     expect(build.mock.calls[0][0].to).toBe("A@firm.ca");
+  });
+
+  it("a reused touch gets a different idempotency key than its first attempt", async () => {
+    const leads = [backlog("A", 20)];
+    const { repo, touches } = memoryRepo(leads);
+    const d1 = deps(repo);
+    vi.mocked(d1.email.send).mockRejectedValueOnce(Object.assign(new Error("invalid to"), { statusCode: 422 }));
+    await planEmailDay(d1);
+    expect(touches[0].status).toBe("FAILED");
+    const d2 = deps(repo, { now: () => new Date("2026-11-09T11:00:00Z") });
+    await planEmailDay(d2);
+    const k1 = vi.mocked(d1.email.send).mock.calls[0][2];
+    const k2 = vi.mocked(d2.email.send).mock.calls[0][2];
+    expect(k1).toMatch(/^t0:/);
+    expect(k2).toMatch(/^t0:/);
+    expect(k2).not.toBe(k1);
+  });
+
+  it("invalid_idempotent_request is a definite rejection; concurrent_idempotent_requests stays ambiguous", async () => {
+    const run = async (code: string) => {
+      const { repo, touches } = memoryRepo([backlog("A", 20)]);
+      const d = deps(repo);
+      vi.mocked(d.email.send).mockRejectedValueOnce(Object.assign(new Error("x"), { statusCode: 409, code }));
+      await planEmailDay(d);
+      return touches[0].status;
+    };
+    expect(await run("invalid_idempotent_request")).toBe("FAILED");
+    expect(await run("concurrent_idempotent_requests")).toBe("UNCERTAIN");
+  });
+
+  it("UNCERTAIN update carries scheduledFor", async () => {
+    const { repo, touches } = memoryRepo([backlog("A", 20)]);
+    const d = deps(repo);
+    vi.mocked(d.email.send).mockRejectedValueOnce(new Error("timeout"));
+    await planEmailDay(d);
+    expect(touches[0].status).toBe("UNCERTAIN");
+    expect(touches[0].scheduledFor).toBeInstanceOf(Date);
+  });
+
+  it("a config error is a definite failure: FAILED, no alert", async () => {
+    const { repo, touches } = memoryRepo([backlog("A", 20)]);
+    const alert = vi.fn(async () => {});
+    const d = deps(repo, { alert });
+    vi.mocked(d.email.send).mockRejectedValueOnce(Object.assign(new Error("RESEND_API_KEY is unset"), { name: "OutreachConfigError" }));
+    await planEmailDay(d);
+    expect(touches[0].status).toBe("FAILED");
+    expect(alert).not.toHaveBeenCalled();
   });
 
   it("alerts when the email was sent but the SCHEDULED write failed twice", async () => {

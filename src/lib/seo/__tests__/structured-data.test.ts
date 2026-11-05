@@ -9,6 +9,15 @@ import {
 
 const site = "https://example.test";
 
+type Ld = {
+  "@type": string;
+  url: string;
+  areaServed: { "@type": string; name: string };
+  hasCredential: { identifier: string; recognizedBy: { name: string } };
+  worksFor: { name: string };
+  knowsLanguage: string[];
+};
+
 describe("isEntitledToPractise", () => {
   it("accepts the register's Yes and legacy Active, case-insensitively", () => {
     expect(isEntitledToPractise("Yes")).toBe(true);
@@ -53,7 +62,7 @@ describe("buildBreadcrumbJsonLd", () => {
 describe("buildConsultantJsonLd", () => {
   const base = { licenseNumber: "R123456", fullName: "Jane Doe", status: "Yes", siteUrl: site };
   it("builds a Person with the CICC licence credential", () => {
-    const ld = buildConsultantJsonLd(base) as Record<string, any>;
+    const ld = buildConsultantJsonLd(base) as Ld;
     expect(ld["@type"]).toBe("Person");
     expect(ld.url).toBe(`${site}/consultant/R123456`);
     expect(ld.hasCredential.identifier).toBe("R123456");
@@ -66,7 +75,7 @@ describe("buildConsultantJsonLd", () => {
     expect(buildConsultantJsonLd({ ...base, status: "No" })).toBeNull();
   });
   it("adds employer, province and languages when known", () => {
-    const ld = buildConsultantJsonLd({ ...base, company: "Acme Immigration", province: "Ontario", languages: ["English", "Farsi"] }) as Record<string, any>;
+    const ld = buildConsultantJsonLd({ ...base, company: "Acme Immigration", province: "Ontario", languages: ["English", "Farsi"] }) as Ld;
     expect(ld.worksFor.name).toBe("Acme Immigration");
     expect(ld.areaServed.name).toBe("Ontario");
     expect(ld.knowsLanguage).toEqual(["English", "Farsi"]);

@@ -12,7 +12,8 @@ export function buildImagePrompt(subject: string): string {
     "Authentic documentary photojournalism, professional editorial news photography.",
     `Subject: ${subject.replace(/\s+/g, " ").trim().slice(0, 600)}.`,
     "Canadian setting, natural lighting, realistic textures, serious tone, clean composition.",
-    "NO text, NO letters, NO logos, NO flags with distorted designs, NO identifiable real public figures.",
+    "Show objects, documents, buildings or places; any people are anonymous, seen from behind or out of focus.",
+    "NO text, NO letters, NO logos, NO flags, NO uniforms, NO police, border or government officers or officials, NO judges, NO identifiable real people.",
   ].join(" ");
 }
 

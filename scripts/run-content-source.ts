@@ -2,6 +2,10 @@
  * Run the Content Pipeline on ONE source URL (skips discovery and the daily quota).
  *
  *   npx tsx scripts/run-content-source.ts --url <https://...> [--name "IRCC"] [--dry-run]
+ *   npx tsx scripts/run-content-source.ts --url <https://...> --regenerate
+ *
+ * --regenerate rewrites the existing UNPUBLISHED draft for that URL in place
+ * (same post, same slug) with the current pipeline.
  *
  * Uses the live pipeline: OpenAI writer + reviewer, cover image (if
  * content_images_enabled), and the publisher. With content_autopublish_enabled
@@ -12,7 +16,8 @@
 import * as cheerio from "cheerio";
 import { createDefaultDeps } from "@/lib/content-pipeline/default-deps";
 import { extractMainText } from "@/lib/content-pipeline/agents/discovery";
-import { runSingleSource } from "@/lib/content-pipeline/orchestrator";
+import { regenerateJob, runSingleSource } from "@/lib/content-pipeline/orchestrator";
+import { dedupKeyFor } from "@/lib/content-pipeline/dedup";
 import { assertPublicHttpUrl } from "@/lib/content-pipeline/net-guard";
 import { prisma } from "@/lib/prisma";
 
@@ -48,6 +53,17 @@ async function main() {
   if (!title) throw new Error("Could not read a title from the page.");
   if (dryRun) {
     console.log(`\n--- source text sent to the writer ---\n${text}`);
+    return;
+  }
+
+  if (process.argv.includes("--regenerate")) {
+    const job = await prisma.contentPipelineJob.findUnique({
+      where: { dedupKey: dedupKeyFor({ sourceUrl: url.toString(), title }) },
+      select: { id: true },
+    });
+    if (!job) throw new Error("No pipeline job exists for this URL yet; run without --regenerate first.");
+    const r = await regenerateJob(deps, job.id);
+    console.log(r.ok ? `\nRegenerated: ${r.outcome} (job ${job.id}).` : `\nNot regenerated: ${r.error}`);
     return;
   }
 

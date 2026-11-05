@@ -57,6 +57,49 @@ export function extractMainText(html: string, maxChars = 15000): string {
   return main.replace(/\s+/g, " ").trim().slice(0, maxChars);
 }
 
+/**
+ * Pure: links in the page's main content that point to other pages of the same
+ * publisher section (same host and same first two path segments, e.g.
+ * /en/immigration-refugees-citizenship/…). Used to enrich a thin official
+ * update with the instruction pages it lists. Skips the page itself, anchors,
+ * files and navigation-length labels.
+ */
+export function extractOfficialLinks(html: string, pageUrl: string, max = 4): { title: string; url: string }[] {
+  let base: URL;
+  try {
+    base = new URL(pageUrl);
+  } catch {
+    return [];
+  }
+  const prefix = base.pathname.split("/").filter(Boolean).slice(0, 2).join("/");
+  const $ = cheerio.load(html);
+  const scope = $("main").first().length ? $("main").first() : $("article").first().length ? $("article").first() : $("body");
+  scope.find("nav, footer, header, aside, form, .pagedetails, #wb-dtmd").remove();
+
+  const seen = new Set<string>([base.origin + base.pathname]);
+  const out: { title: string; url: string }[] = [];
+  scope.find("a[href]").each((_, el) => {
+    if (out.length >= max) return false;
+    const href = $(el).attr("href") || "";
+    const title = $(el).text().replace(/\s+/g, " ").trim();
+    if (!href || href.startsWith("#") || title.length < 12) return;
+    let u: URL;
+    try {
+      u = new URL(href, base);
+    } catch {
+      return;
+    }
+    if (!/^https?:$/.test(u.protocol) || u.host !== base.host) return;
+    if (/\.(pdf|docx?|xlsx?|zip|csv)$/i.test(u.pathname)) return;
+    if (prefix && !u.pathname.split("/").filter(Boolean).slice(0, 2).join("/").startsWith(prefix)) return;
+    const key = u.origin + u.pathname;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ title, url: key });
+  });
+  return out;
+}
+
 export interface DiscoveryResult {
   candidates: Candidate[];
   sourcesChecked: number;

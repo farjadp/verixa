@@ -39,7 +39,7 @@ export const LANGUAGE_PROFILES: Record<string, LanguageProfile> = {
       faq: "Frequently Asked Questions",
       consultantLink: (l) => `Find a licensed consultant for ${l}`,
       footer: (src, d) =>
-        `*Prepared by the Verixa editorial team from official information published by ${src}. Last reviewed ${d}. This article is general information, not legal advice.*`,
+        `*Prepared by Verixa from official information published by ${src} (${d}). Check the official source before you act. This article is general information, not legal advice.*`,
       readMore: "Read the full update:",
       socialNote: "General information, not legal advice.",
       hashtag: "CanadaImmigration",
@@ -59,7 +59,7 @@ export const LANGUAGE_PROFILES: Record<string, LanguageProfile> = {
       faq: "پرسش‌های متداول",
       consultantLink: (l) => `یافتن مشاور رسمی مهاجرت برای ${l}`,
       footer: (src, d) =>
-        `*این مطلب را تیم تحریریه وریکسا بر اساس اطلاعات رسمی منتشرشده توسط ${src} تهیه کرده است. آخرین بازبینی: ${d}. این مطلب صرفاً اطلاعات عمومی است و مشاوره حقوقی محسوب نمی‌شود.*`,
+        `*این مطلب را وریکسا بر اساس اطلاعات رسمی منتشرشده توسط ${src} تهیه کرده است (${d}). پیش از هر اقدامی منبع رسمی را بررسی کنید. این مطلب صرفاً اطلاعات عمومی است و مشاوره حقوقی محسوب نمی‌شود.*`,
       readMore: "متن کامل خبر:",
       socialNote: "اطلاعات عمومی؛ مشاوره حقوقی محسوب نمی‌شود.",
       hashtag: "مهاجرت_کانادا",
@@ -78,7 +78,7 @@ export const LANGUAGE_PROFILES: Record<string, LanguageProfile> = {
       faq: "Foire aux questions",
       consultantLink: (l) => `Trouver un consultant réglementé pour ${l}`,
       footer: (src, d) =>
-        `*Préparé par l'équipe éditoriale de Verixa à partir d'informations officielles publiées par ${src}. Dernière révision : ${d}. Cet article est une information générale et ne constitue pas un avis juridique.*`,
+        `*Préparé par Verixa à partir d'informations officielles publiées par ${src} (${d}). Vérifiez la source officielle avant d'agir. Cet article est une information générale et ne constitue pas un avis juridique.*`,
       readMore: "Lire la mise à jour complète :",
       socialNote: "Information générale, pas un avis juridique.",
       hashtag: "ImmigrationCanada",

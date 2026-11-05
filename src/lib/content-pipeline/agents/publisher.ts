@@ -33,6 +33,10 @@ export interface PublishInput {
   sourceTitle: string;
   publishLive: boolean;
   channels: Record<Channel, boolean>;
+  /** Writer's classification; decides the blog category. */
+  articleType?: "news" | "guide";
+  /** Regenerate an existing UNPUBLISHED post in place instead of creating one. */
+  replacePostId?: string;
 }
 
 export interface PublishResult {
@@ -42,7 +46,9 @@ export interface PublishResult {
 }
 
 /** Category used by the existing blog UI. */
-export function categoryFor(paths: string[]): string {
+export function categoryFor(paths: string[], articleType?: "news" | "guide"): string {
+  if (articleType === "news") return "UPDATES_POLICY";
+  if (articleType === "guide") return "IMMIGRATION_GUIDES";
   return paths.length === 0 || paths.every((p) => p === "general") ? "UPDATES_POLICY" : "IMMIGRATION_GUIDES";
 }
 
@@ -91,13 +97,48 @@ export async function publishPiece(deps: PipelineDeps, input: PublishInput): Pro
   const channelStatus = (c: Channel) => (input.channels[c] ? "PENDING" : "SKIPPED");
 
   const result = await deps.db.$transaction(async (tx) => {
+    if (input.replacePostId) {
+      // In-place regeneration: only ever an unpublished draft; its social job is refreshed only while QUEUED.
+      const existing = await tx.blogPost.findUnique({ where: { id: input.replacePostId }, select: { id: true, isPublished: true } });
+      if (!existing || existing.isPublished) throw new Error("Only an unpublished draft can be regenerated.");
+      await tx.blogPost.update({
+        where: { id: existing.id },
+        data: {
+          title: input.title,
+          slug: input.slug,
+          summary: input.summary,
+          content: input.markdown,
+          category: categoryFor(input.immigrationPaths, input.articleType),
+          // A failed image on regeneration keeps the draft's existing cover.
+          ...(input.coverImage ? { coverImage: input.coverImage, imageAlt: input.imageAlt } : {}),
+          seoTitle: input.metaTitle,
+          seoDesc: input.metaDesc,
+          targetKeyword: input.targetKeyword,
+          canonicalUrl: url,
+          jsonLd: serializeJsonLd(jsonLd),
+          immigrationPaths: JSON.stringify(input.immigrationPaths),
+          imagePrompt: input.imagePrompt,
+          language: input.language,
+          reviewScore: input.reviewScore,
+        },
+      });
+      const social = await tx.socialJob.findFirst({ where: { blogPostId: existing.id }, select: { id: true, status: true } });
+      if (social && social.status === "QUEUED") {
+        await tx.socialJob.update({
+          where: { id: social.id },
+          data: { linkedinCopy: copy.linkedin, twitterCopy: copy.twitter, facebookCopy: copy.facebook, telegramCopy: copy.telegram },
+        });
+      }
+      return { blogPostId: existing.id, socialJobId: social?.id ?? "" };
+    }
+
     const post = await tx.blogPost.create({
       data: {
         title: input.title,
         slug: input.slug,
         summary: input.summary,
         content: input.markdown,
-        category: categoryFor(input.immigrationPaths),
+        category: categoryFor(input.immigrationPaths, input.articleType),
         coverImage: input.coverImage,
         imageAlt: input.imageAlt,
         isPublished: input.publishLive,
@@ -151,6 +192,10 @@ export async function publishPiece(deps: PipelineDeps, input: PublishInput): Pro
     return { blogPostId: post.id, socialJobId: social.id };
   });
 
+  if (input.replacePostId) {
+    deps.log(`Publisher: regenerated draft /blog/${input.slug} in place (still unpublished).`);
+    return { ...result, isPublished: false };
+  }
   if (input.publishLive) deps.revalidate(["/", "/blog", `/blog/${input.slug}`, "/sitemap.xml"]);
   deps.log(`Publisher: ${input.publishLive ? "published" : "drafted"} /blog/${input.slug}; social job queued (${CHANNELS.filter((c) => input.channels[c]).join(", ") || "no channels enabled"}).`);
   return { ...result, isPublished: input.publishLive };

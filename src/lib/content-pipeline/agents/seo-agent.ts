@@ -35,13 +35,26 @@ export interface SeoResult {
   jsonLd: Record<string, unknown>;
 }
 
-/** Pure: rank existing posts by title overlap + shared immigration paths. */
+/** Words every immigration headline shares; they say nothing about the topic. */
+const GENERIC_TITLE_WORDS = new Set([
+  "canada", "canadian", "canadas", "immigration", "immigrants", "ircc", "update", "updates", "updated", "new",
+  "program", "programs", "system", "changes", "change", "announces", "announced", "what", "know", "need", "2025", "2026", "2027",
+]);
+export const RELATED_MIN_TITLE_OVERLAP = 0.25;
+
+/**
+ * Pure: existing posts that are actually about the same thing — they share a
+ * specific immigration path, or their titles overlap on topic words (generic
+ * words like "Canada"/"immigration"/"update" don't count). Nothing is better
+ * than an unrelated link.
+ */
 export function pickRelatedPosts(
   draft: { title: string; immigrationPaths: string[] },
   posts: { title: string; slug: string; immigrationPaths: string | null }[],
   limit = 3
 ): { title: string; slug: string }[] {
-  const tokens = tokenize(draft.title);
+  const topical = (t: string) => new Set([...tokenize(t)].filter((w) => !GENERIC_TITLE_WORDS.has(w)));
+  const tokens = topical(draft.title);
   const paths = new Set(draft.immigrationPaths.filter((p) => p !== "general"));
   return posts
     .map((p) => {
@@ -52,9 +65,10 @@ export function pickRelatedPosts(
       } catch {
         /* legacy posts have no path tags */
       }
-      return { p, s: jaccard(tokens, tokenize(p.title)) + shared * 0.25 };
+      const overlap = jaccard(tokens, topical(p.title));
+      return { p, shared, overlap, s: overlap + shared * 0.25 };
     })
-    .filter((x) => x.s > 0.05)
+    .filter((x) => x.shared > 0 || x.overlap >= RELATED_MIN_TITLE_OVERLAP)
     .sort((a, b) => b.s - a.s)
     .slice(0, limit)
     .map((x) => ({ title: x.p.title, slug: x.p.slug }));
@@ -67,7 +81,7 @@ export function provenanceFooter(lang: LanguageSetting, sourceName: string, sour
 
 export async function optimizeSeo(
   deps: PipelineDeps,
-  input: { draft: Draft; sourceName: string; sourceUrl: string | null; language: LanguageSetting }
+  input: { draft: Draft; sourceName: string; sourceUrl: string | null; language: LanguageSetting; ownSlug?: string }
 ): Promise<SeoResult> {
   const { draft, language } = input;
   const now = deps.now();
@@ -82,7 +96,8 @@ export async function optimizeSeo(
       take: 100,
     }),
   ]);
-  const slug = uniqueSlug(base, new Set(taken.map((t) => t.slug)));
+  // When regenerating a draft in place, its current slug is not "taken" by someone else.
+  const slug = input.ownSlug && input.ownSlug.startsWith(base) ? input.ownSlug : uniqueSlug(base, new Set(taken.map((t) => t.slug)));
 
   const paths = draft.immigrationPaths.map(pathByKey).filter((p): p is ContentPath => !!p);
   const internalLinks = buildInternalLinks({
@@ -104,7 +119,8 @@ export async function optimizeSeo(
     labels: language.primary.labels,
   });
 
-  const metaTitle = buildMetaTitle(draft.title);
+  // Prefer the writer's short search title; truncating the headline would end in "…".
+  const metaTitle = buildMetaTitle(draft.metaTitle?.trim() ? draft.metaTitle : draft.title);
   const metaDesc = buildMetaDescription(draft.summary);
   const keywords = [draft.targetKeyword, ...draft.secondaryKeywords].map((k) => k.trim()).filter(Boolean).slice(0, 8);
   const imageAlt = truncateAtWord(draft.imageAlt || draft.title, 125);

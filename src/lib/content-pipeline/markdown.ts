@@ -87,3 +87,87 @@ export function wordCount(md: string): number {
   const text = md.replace(/<!--[\s\S]*?-->/g, " ").replace(/[#>*_`[\]()|-]/g, " ");
   return text.split(/\s+/).filter(Boolean).length;
 }
+
+// ─── Editorial cleanup: drop sentences the reviewer marked as speculation ────
+
+/** Letters and digits only, lowercased: tolerant of punctuation/spacing drift in LLM quotes. */
+function normalizeSentence(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+function matchesAny(sentence: string, targets: string[]): boolean {
+  const n = normalizeSentence(sentence);
+  if (n.length < 12) return false;
+  return targets.some((t) => {
+    if (!t) return false;
+    if (n === t) return true;
+    // A quote that is a near-complete prefix/substring of the sentence (or vice versa).
+    const [short, long] = n.length < t.length ? [n, t] : [t, n];
+    return short.length >= 20 && long.includes(short) && short.length / long.length >= 0.8;
+  });
+}
+
+const SENTENCE_SPLIT = /(?<=[.!?؟])\s+/u;
+const PROSE_SKIP = /^\s*(#|<|>|---|\*Prepared|\*این مطلب|\*Préparé|\|)/u;
+const LINK_ONLY_ITEM = /^\s*[-*]\s*\[[^\]]*\]\([^)]*\)\s*$/;
+
+/**
+ * Pure: remove the given sentences from prose lines and list items (never from
+ * headings, the disclaimer callout, tables, link lists or the footer), then drop
+ * headings left with no content and an FAQ block left empty.
+ */
+export function removeSentences(md: string, sentences: string[], faqHeadings: string[] = []): { markdown: string; removed: number } {
+  const targets = sentences.map(normalizeSentence).filter((t) => t.length >= 12);
+  if (!targets.length) return { markdown: md, removed: 0 };
+
+  let removed = 0;
+  const lines: string[] = [];
+  for (const line of md.split("\n")) {
+    if (!line.trim() || PROSE_SKIP.test(line) || LINK_ONLY_ITEM.test(line)) {
+      lines.push(line);
+      continue;
+    }
+    const bullet = /^(\s*(?:[-*]|\d+\.)\s+)/.exec(line)?.[1] ?? "";
+    const parts = line.slice(bullet.length).split(SENTENCE_SPLIT);
+    const kept = parts.filter((p) => {
+      const drop = matchesAny(p, targets);
+      if (drop) removed++;
+      return !drop;
+    });
+    if (kept.length) lines.push(bullet + kept.join(" "));
+  }
+
+  // Drop headings that no longer have content, repeating until stable.
+  const level = (l: string) => /^(#{2,6})\s/.exec(l)?.[1].length ?? 0;
+  const isBoundary = (l: string | undefined, lvl: number) =>
+    l === undefined || /^---\s*$/.test(l) || /^<end-of-faq>/i.test(l) || (level(l) > 0 && level(l) <= lvl);
+  let out = lines;
+  for (let changed = true; changed; ) {
+    changed = false;
+    const next: string[] = [];
+    for (let i = 0; i < out.length; i++) {
+      const lvl = level(out[i]);
+      if (lvl) {
+        let j = i + 1;
+        while (j < out.length && !out[j].trim()) j++;
+        if (isBoundary(out[j], lvl)) {
+          changed = true;
+          continue;
+        }
+      }
+      next.push(out[i]);
+    }
+    out = next;
+  }
+
+  // An FAQ marker with no FAQ heading left above it is orphaned.
+  const faqSet = new Set(faqHeadings.map((h) => h.toLowerCase()));
+  const hasFaqHeading = out.some((l) => /^##\s/.test(l) && faqSet.has(l.replace(/^##\s+/, "").trim().toLowerCase()));
+  if (!hasFaqHeading) out = out.filter((l) => !/^<end-of-faq>/i.test(l));
+
+  return { markdown: out.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n", removed };
+}

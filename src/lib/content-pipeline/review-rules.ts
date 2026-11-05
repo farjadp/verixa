@@ -30,6 +30,13 @@ export const BANNED_PHRASES = [
 ];
 
 export const MIN_WORDS = 350;
+/** Floor for thin official sources: a short accurate brief beats a padded one. */
+export const MIN_WORDS_FLOOR = 200;
+
+/** Pure: minimum length the gate requires, scaled to how much the source says. */
+export function minWordsFor(sourceWords: number): number {
+  return Math.min(MIN_WORDS, Math.max(MIN_WORDS_FLOOR, Math.round(sourceWords * 0.8)));
+}
 
 export interface DeterministicChecks {
   disclaimerPresent: boolean;
@@ -71,8 +78,10 @@ export function computeReviewScore(input: {
   checks: DeterministicChecks;
   strictness: Strictness;
   minScore: number;
+  minWords?: number;
 }): ReviewOutcome {
   const { claims, checks, strictness } = input;
+  const minWords = input.minWords ?? MIN_WORDS;
   const flags: string[] = [];
   let score = Math.min(Math.max(Math.round(input.llmScore), 0), 100);
 
@@ -92,9 +101,9 @@ export function computeReviewScore(input: {
     score -= 25;
     flags.push("No citation to an official source.");
   }
-  if (checks.wordCount < MIN_WORDS) {
+  if (checks.wordCount < minWords) {
     score -= 20;
-    flags.push(`Too short (${checks.wordCount} words; minimum ${MIN_WORDS}).`);
+    flags.push(`Too short (${checks.wordCount} words; minimum ${minWords}).`);
   }
   if (checks.headingIssues.length) {
     score -= Math.min(15, checks.headingIssues.length * 5);

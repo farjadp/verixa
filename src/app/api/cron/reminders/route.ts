@@ -1,98 +1,95 @@
 // ============================================================================
-// Hardware Source: src/app/api/cron/reminders/route.ts
 // Route: /api/cron/reminders
-// Version: 1.0.0 — 2026-04-08
-// Why: Scheduled reminder job for user follow-up and notification automation.
-// Domain: Scheduled Jobs
-// Env / Identity: Next.js Route Handler
-// Owner: Verixa Web
-// Notes: Cron endpoints must stay idempotent and reject unauthorized requests outside trusted scheduler headers.
-// Critical Path: Background maintenance and automation.
-// Primary Dependencies: Scheduler secret/header validation, queued jobs, mailer/backup services.
-// Risk Notes: Cron behavior should be idempotent and safe to rerun.
+// Why: Sends a 24-hour reminder for each confirmed consultation.
+// Security: Requires `Authorization: Bearer ${CRON_SECRET}`, compared in
+//      constant time. No fallback secret: unset CRON_SECRET → 500.
+// Idempotent: each booking gets one REMINDER_24H_SENT event; reruns and any
+//      schedule frequency (hourly or daily) are safe.
+// Not scheduled yet: add an entry to vercel.json (hourly needs a Pro plan).
 // ============================================================================
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { sendEmail } from '@/lib/mailer';
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { sendEmail, escapeHtml } from "@/lib/mailer";
+import { isAuthorizedCronRequest } from "@/lib/content-pipeline/cron-auth";
+import { formatInTimeZone, safeTimeZone } from "@/lib/timezone";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-// Verify via Cron Secret (standard Vercel Cron setup)
+const REMINDER_EVENT = "REMINDER_24H_SENT";
+const LOOKAHEAD_MS = 25 * 60 * 60 * 1000;
+
 export async function GET(req: Request) {
-  const authHeader = req.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET || 'dev_cron_secret'}`) {
-    return new NextResponse('Unauthorized', { status: 401 });
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    console.error("[cron/reminders] CRON_SECRET is not configured; refusing to run.");
+    return NextResponse.json({ error: "Cron is not configured." }, { status: 500 });
   }
+  if (!isAuthorizedCronRequest(req.headers.get("authorization"), secret)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
   try {
     const now = new Date();
-    
-    // 1. Target: Bookings that start exactly 24 to 25 hours from now
-    // Since cron runs hourly, this ensures we only catch bookings once
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const tomorrowPlus1Hour = new Date(now.getTime() + 25 * 60 * 60 * 1000);
-
     const upcomingBookings = await prisma.booking.findMany({
       where: {
         status: "CONFIRMED",
-        scheduledStart: {
-          gte: tomorrow,
-          lt: tomorrowPlus1Hour
-        }
+        scheduledStart: { gt: now, lte: new Date(now.getTime() + LOOKAHEAD_MS) },
+        events: { none: { action: REMINDER_EVENT } },
       },
-      include: {
-        profile: {
-          include: { user: true }
-        }
-      }
+      include: { profile: { include: { user: { select: { email: true } } } } },
+      take: 200,
     });
 
     let emailsSent = 0;
-
     for (const booking of upcomingBookings) {
-      // Send to Client
-      const clientHtml = `
-        <div style="font-family: -apple-system, sans-serif; color: #0F2A44; line-height: 1.6;">
-          <h2>Reminder: Upcoming Consultation</h2>
-          <p>Hi ${booking.userFirstName},</p>
-          <p>Just a quick reminder that your consultation with <strong>${booking.profile.user?.name || "your consultant"}</strong> is tomorrow at <strong>${new Date(booking.scheduledStart).toLocaleTimeString()}</strong>.</p>
-          <p>Meeting Link: ${booking.meetingLink ? `<a href="${booking.meetingLink}">Join Here</a>` : "Will be available soon."}</p>
-          <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/client/bookings/${booking.id}" style="display:inline-block; padding: 12px 24px; background: #0F2A44; color: white; text-decoration: none; border-radius: 8px; margin-top: 16px;">View Details</a>
-        </div>
-      `;
-      
-      await sendEmail({
-        to: booking.userEmail,
-        subject: "Reminder: Your Verixa Consultation is Tomorrow",
-        html: clientHtml,
-        type: "REMINDER_24H_CLIENT"
+      // Claim the reminder first so an overlapping run can't double-send.
+      await prisma.bookingEventLog.create({
+        data: { bookingId: booking.id, action: REMINDER_EVENT, actorType: "SYSTEM", notes: "24h reminder queued." },
       });
 
-      // Send to Consultant
+      const when = escapeHtml(formatInTimeZone(booking.scheduledStart, safeTimeZone(booking.profile.timezone)));
+      const consultantName = escapeHtml(booking.profile.fullName || "your consultant");
+      const meetingLink = booking.meetingLink && /^https?:\/\//i.test(booking.meetingLink) ? booking.meetingLink : null;
+
+      const clientHtml = `
+        <div style="font-family: -apple-system, sans-serif; color: #0F2A44; line-height: 1.6;">
+          <h2>Reminder: upcoming consultation</h2>
+          <p>Hi ${escapeHtml(booking.userFirstName)},</p>
+          <p>Your consultation with <strong>${consultantName}</strong> is on <strong>${when}</strong>.</p>
+          <p>Meeting link: ${meetingLink ? `<a href="${escapeHtml(meetingLink)}">Join here</a>` : "your consultant will share it before the session."}</p>
+          <a href="${baseUrl}/dashboard/client/bookings/${booking.id}" style="display:inline-block; padding: 12px 24px; background: #0F2A44; color: white; text-decoration: none; border-radius: 8px; margin-top: 16px;">View booking</a>
+        </div>`;
+
+      const clientResult = await sendEmail({
+        to: booking.userEmail,
+        subject: "Reminder: your Verixa consultation is coming up",
+        html: clientHtml,
+        type: "REMINDER_24H_CLIENT",
+      });
+      if (clientResult?.success) emailsSent++;
+
       if (booking.profile.user?.email) {
         const consultantHtml = `
           <div style="font-family: -apple-system, sans-serif; color: #0F2A44; line-height: 1.6;">
-            <h2>Reminder: Upcoming Session</h2>
-            <p>You have a confirmed consultation with <strong>${booking.userFirstName} ${booking.userLastName}</strong> tomorrow at <strong>${new Date(booking.scheduledStart).toLocaleTimeString()}</strong>.</p>
-            <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/consultant/bookings/${booking.id}" style="display:inline-block; padding: 12px 24px; background: #0F2A44; color: white; text-decoration: none; border-radius: 8px; margin-top: 16px;">View Details</a>
-          </div>
-        `;
-
-        await sendEmail({
+            <h2>Reminder: upcoming session</h2>
+            <p>You have a confirmed consultation with <strong>${escapeHtml(booking.userFirstName)} ${escapeHtml(booking.userLastName)}</strong> on <strong>${when}</strong>.</p>
+            <a href="${baseUrl}/dashboard/booking/${booking.id}" style="display:inline-block; padding: 12px 24px; background: #0F2A44; color: white; text-decoration: none; border-radius: 8px; margin-top: 16px;">Open booking</a>
+          </div>`;
+        const consultantResult = await sendEmail({
           to: booking.profile.user.email,
-          subject: "Reminder: Upcoming Consultation Tomorrow",
+          subject: "Reminder: upcoming consultation",
           html: consultantHtml,
-          type: "REMINDER_24H_CONSULTANT"
+          type: "REMINDER_24H_CONSULTANT",
         });
+        if (consultantResult?.success) emailsSent++;
       }
-
-      emailsSent++;
     }
 
     return NextResponse.json({ success: true, processed: upcomingBookings.length, emailsSent });
-
-  } catch (error: any) {
-    console.error("CRON REMINDERS ERROR:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error) {
+    console.error("[cron/reminders] failed:", error);
+    return NextResponse.json({ success: false, error: "Reminder run failed." }, { status: 500 });
   }
 }

@@ -45,7 +45,6 @@ export default function SupportTicketClient({
     setSubmitting(true);
 
     const res = await createTicket({
-      userId,
       subject,
       category,
       priority: "NORMAL",
@@ -71,7 +70,6 @@ export default function SupportTicketClient({
 
     const res = await replyToTicket({
       ticketId: activeTicketId,
-      senderId: userId,
       content: replyContent
     });
 

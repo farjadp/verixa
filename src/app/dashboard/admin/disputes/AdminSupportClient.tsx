@@ -39,7 +39,7 @@ export default function AdminSupportClient({
 
   const loadFullTicket = async (ticketId: string) => {
     setLoadingTicket(true);
-    const details = await getTicketDetails(ticketId, true); // true = isAdmin, loads internal notes
+    const details = await getTicketDetails(ticketId); // admin role is derived from the session
     setActiveTicket(details);
     setLoadingTicket(false);
   };
@@ -51,7 +51,6 @@ export default function AdminSupportClient({
 
     const res = await replyToTicket({
       ticketId: activeTicket.id,
-      senderId: adminId,
       content: replyContent,
       isInternal
     });
@@ -68,7 +67,7 @@ export default function AdminSupportClient({
   const handleStatusChange = async (newStatus: string) => {
     if (!activeTicket) return;
     setUpdating(true);
-    const res = await updateTicketStatus(activeTicket.id, newStatus, adminId);
+    const res = await updateTicketStatus(activeTicket.id, newStatus);
     if (res.success) {
       await loadFullTicket(activeTicket.id);
       router.refresh();

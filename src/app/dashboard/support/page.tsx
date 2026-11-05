@@ -18,7 +18,7 @@ export default async function SupportPage() {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) redirect("/login");
 
-  const tickets = await getTicketsForUser((session.user as any).id);
+  const tickets = await getTicketsForUser();
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto h-[calc(100vh-2rem)] flex flex-col">

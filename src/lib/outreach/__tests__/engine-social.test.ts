@@ -165,4 +165,15 @@ describe("buildSocialTasks + applyReport", () => {
     deps.settings = async () => ({ enabled: true, dryRun: ++calls > 1, channels: { LINKEDIN: true, X: true, EMAIL: false } });
     expect(await buildSocialTasks(deps, "X")).toEqual([]);
   });
+
+  it("never re-hands a live QUEUED touch while dry-run is on", async () => {
+    const lead = xLead();
+    const { deps, touches } = setup([lead], {});
+    deps.settings = async () => ({ enabled: true, dryRun: true, channels: { LINKEDIN: true, X: true, EMAIL: false } });
+    touches.set("X1:1", { id: "live-old", leadId: "X1", step: 1, status: "QUEUED", body: "old", channel: "X" });
+    const tasks = await buildSocialTasks(deps, "X");
+    expect(tasks.some((t) => t.touchId === "live-old")).toBe(false);
+    expect(tasks.every((t) => t.dryRun)).toBe(true);
+    expect(touches.get("X1:1")!.status).toBe("QUEUED");
+  });
 });

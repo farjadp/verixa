@@ -271,6 +271,7 @@ export async function buildSocialTasks(deps: EngineDeps, channel: "LINKEDIN" | "
     if (t.kind !== "TOUCH" && t.kind !== "INVITE") continue;
     const lead = leads.find((l) => l.id === t.leadId)!;
     const existing = queued.get(`${lead.id}:${t.step}`);
+    if (existing && settings.dryRun) continue; // dry-run: nothing live goes out; the QUEUED touch waits for go-live
     if (!existing && newlyCreated >= capacity) continue;
 
     // Kill switch or dry-run flipped while we were working: stop handing out live work.

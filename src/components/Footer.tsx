@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Shield, Linkedin, Twitter, Send, ArrowUpRight, CheckCircle2, Target } from "lucide-react";
+import { Linkedin, Twitter, Send, ShieldCheck } from "lucide-react";
 
 import { usePlatformSettings } from "@/components/providers/PlatformProvider";
 
-const FOOTER_LINKS = {
+type FooterLink = { label: string; href: string; badge?: string };
+
+const FOOTER_LINKS: Record<"registry" | "intelligence" | "professionals" | "company" | "legal", FooterLink[]> = {
   registry: [
     { label: "Find RCICs", href: "/search" },
     { label: "Browse by City", href: "/search?city=Toronto" },
@@ -39,147 +41,81 @@ const FOOTER_LINKS = {
   ],
 };
 
+const SOCIAL = [
+  { label: "LinkedIn", href: "https://linkedin.com", icon: <Linkedin className="h-4 w-4" aria-hidden="true" /> },
+  { label: "X (Twitter)", href: "https://twitter.com", icon: <Twitter className="h-4 w-4" aria-hidden="true" /> },
+  { label: "Telegram", href: "https://telegram.org", icon: <Send className="h-4 w-4" aria-hidden="true" /> },
+];
+
 export default function Footer() {
   const settings = usePlatformSettings();
   const logoImage = "/api/assets/logo?type=footer";
   const siteName = settings?.siteName || "Verixa";
-  
+
   return (
-    <footer className="bg-[#F8FAFC] pb-8 pt-12 border-t border-gray-200 selection:bg-[#2FA4A9] selection:text-white">
-      <div className="max-w-[1400px] mx-auto px-6 lg:px-12">
-
-        {/* ── CTA BANNER ── */}
-        <div className="bg-[#0F2A44] rounded-[2.5rem] p-10 lg:p-14 mb-20 flex flex-col lg:flex-row items-center justify-between shadow-2xl shadow-[#0F2A44]/20 relative overflow-hidden group">
-          <div className="absolute right-0 top-0 bottom-0 w-[60%] bg-gradient-to-l from-[#2FA4A9]/20 to-transparent pointer-events-none mix-blend-screen" />
-
-          <div className="relative z-10 max-w-2xl text-left w-full">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm text-[10px] font-bold uppercase tracking-widest mb-8 text-[#2FA4A9] border border-white/5">
-              <CheckCircle2 className="w-4 h-4" /> For Immigration Professionals
-            </div>
-            <h2 className="text-4xl lg:text-5xl font-black text-white mb-6 font-serif leading-tight">
-              Stop fighting algorithms.<br />Start booking clients.
-            </h2>
-            <p className="text-lg text-gray-300 font-medium max-w-xl leading-relaxed mb-10">
-              {siteName} is Canada's definitive marketplace for trusted RCICs. Claim your profile, verify your license, and instantly access thousands of high-intent search queries.
+    <footer className="border-t border-gray-200 bg-mist">
+      <div className="mx-auto max-w-7xl px-6 pb-8 pt-14 lg:px-8 lg:pt-16">
+        <div className="grid gap-10 lg:grid-cols-12">
+          {/* Brand */}
+          <div className="flex flex-col gap-5 lg:col-span-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={logoImage} alt={siteName} className="h-10 w-fit object-contain" />
+            <p className="max-w-sm text-sm leading-relaxed text-gray-600">
+              {siteName} lists licensed Canadian immigration consultants (RCICs) from the CICC public register, with
+              immigration data and pathway guides to help you choose who to call.
             </p>
-            <Link
-              href="/claim"
-              className="bg-[#2FA4A9] text-white px-8 py-5 rounded-2xl font-black text-lg hover:bg-white hover:text-[#0F2A44] transition-all shadow-xl flex items-center gap-3 w-full sm:w-max justify-center group/btn"
-            >
-              Claim Your Profile
-              <ArrowUpRight className="w-5 h-5 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
-            </Link>
-          </div>
-
-          <div className="hidden lg:flex relative z-10 shrink-0 w-[280px] h-[280px] rounded-full border border-white/10 items-center justify-center bg-gradient-to-br from-[#2FA4A9]/20 to-transparent shadow-2xl backdrop-blur-3xl group-hover:-translate-y-2 transition-transform duration-500">
-            <div className="absolute inset-0 rounded-full border border-[#2FA4A9]/40 animate-[spin_10s_linear_infinite]" />
-            <div className="absolute inset-4 rounded-full border border-dashed border-[#2FA4A9]/40 animate-[spin_15s_linear_infinite_reverse]" />
-            <Target className="w-24 h-24 text-[#2FA4A9] opacity-90" />
-          </div>
-        </div>
-
-        {/* ── MAIN FOOTER GRID ── */}
-        <div className="grid lg:grid-cols-12 gap-8 lg:gap-14 mb-16">
-
-          {/* Brand Card */}
-          <div className="lg:col-span-3 bg-white rounded-[2.5rem] p-10 shadow-sm border border-gray-100 flex flex-col justify-between group transition-shadow duration-500 hover:shadow-xl hover:shadow-gray-200/50 min-h-[320px] relative overflow-hidden">
-            <div className="absolute -right-12 -bottom-12 text-gray-50 opacity-60 group-hover:scale-110 transition-transform duration-1000 pointer-events-none">
-              <Shield className="w-64 h-64" strokeWidth={0.5} />
-            </div>
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-6">
-                <img src={logoImage} alt={siteName} className="h-10 w-auto object-contain" />
-              </div>
-              <p className="text-sm font-medium text-gray-500 leading-relaxed">
-                The premier verified directory for Canadian immigration professionals. Connecting applicants with licensed RCICs through a secure, transparent platform.
-              </p>
-            </div>
-            <div className="flex gap-3 relative z-10 mt-8 pt-6 border-t border-gray-100">
-              <SocialIcon icon={<Linkedin className="w-4 h-4" />} href="https://linkedin.com" />
-              <SocialIcon icon={<Twitter className="w-4 h-4" />} href="https://twitter.com" />
-              <SocialIcon icon={<Send className="w-4 h-4" />} href="https://telegram.org" />
+            <p className="text-sm font-bold text-navy">Trust isn&apos;t optional. We make it visible.</p>
+            <div className="flex gap-2">
+              {SOCIAL.map((s) => (
+                <a
+                  key={s.label}
+                  href={s.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={s.label}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition-colors hover:border-navy hover:text-navy"
+                >
+                  {s.icon}
+                </a>
+              ))}
             </div>
           </div>
 
-          {/* Link Columns */}
-          <div className="lg:col-span-9 grid grid-cols-2 md:grid-cols-5 gap-8">
+          {/* Link columns */}
+          <nav aria-label="Footer" className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-8 lg:grid-cols-5">
             <FooterColumn title="Registry" links={FOOTER_LINKS.registry} />
             <FooterColumn title="Intelligence" links={FOOTER_LINKS.intelligence} />
             <FooterColumn title="For Professionals" links={FOOTER_LINKS.professionals} />
             <FooterColumn title="Company" links={FOOTER_LINKS.company} />
-
-            {/* Legal – Dark Panel */}
-            <div>
-              <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 mb-6 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />
-                Legal
-              </h4>
-              <ul className="space-y-3">
-                {FOOTER_LINKS.legal.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="text-sm font-semibold text-gray-400 hover:text-[#0F2A44] transition-colors"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+            <FooterColumn title="Legal" links={FOOTER_LINKS.legal} />
+          </nav>
         </div>
 
-        {/* ── BOTTOM BAR ── */}
-        <div className="pt-8 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 bg-white border border-gray-200 px-3 py-1.5 rounded-full shadow-sm text-[10px] font-black uppercase tracking-widest text-[#0F2A44]">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#2FA4A9] opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#2FA4A9]" />
-              </span>
-              CICC Sync: <span className="text-[#2FA4A9] ml-1">Live</span>
-            </div>
-            <div className="hidden md:block h-4 w-px bg-gray-300" />
-            <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">
-              © {new Date().getFullYear()} Verixa Technologies Inc. All rights reserved.
-            </p>
-          </div>
-          <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
-            Not affiliated with IRCC or the Government of Canada.
+        {/* Bottom bar */}
+        <div className="mt-12 flex flex-col gap-3 border-t border-gray-200 pt-6 text-xs text-gray-500 md:flex-row md:items-center md:justify-between">
+          <p className="inline-flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-teal" aria-hidden="true" />
+            © {new Date().getFullYear()} Verixa Technologies Inc. All rights reserved.
           </p>
+          <p>Not affiliated with IRCC, the CICC or the Government of Canada.</p>
         </div>
       </div>
     </footer>
   );
 }
 
-// ─── SUB-COMPONENTS ───────────────────────────────────────────────────────────
-
-function FooterColumn({
-  title,
-  links,
-}: {
-  title: string;
-  links: { label: string; href: string; badge?: string }[];
-}) {
+function FooterColumn({ title, links }: { title: string; links: FooterLink[] }) {
   return (
     <div>
-      <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-[#2FA4A9] mb-6 flex items-center gap-2">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#2FA4A9]" />
-        {title}
-      </h4>
-      <ul className="space-y-3">
+      <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-teal">{title}</h2>
+      <ul className="flex flex-col gap-2.5">
         {links.map((link) => (
-          <li key={link.href} className="flex items-center gap-2">
-            <Link
-              href={link.href}
-              className="text-sm font-semibold text-gray-500 hover:text-[#0F2A44] transition-colors"
-            >
+          <li key={link.href} className="flex items-center">
+            <Link href={link.href} className="text-sm font-medium text-gray-600 transition-colors hover:text-navy">
               {link.label}
             </Link>
             {link.badge && (
-              <span className="text-[9px] font-black uppercase bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded">
+              <span className="ml-2 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink">
                 {link.badge}
               </span>
             )}
@@ -187,18 +123,5 @@ function FooterColumn({
         ))}
       </ul>
     </div>
-  );
-}
-
-function SocialIcon({ icon, href }: { icon: React.ReactNode; href: string }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:text-[#0F2A44] hover:bg-[#F8FAFC] hover:border-[#0F2A44] transition-all hover:scale-110"
-    >
-      {icon}
-    </a>
   );
 }

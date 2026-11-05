@@ -71,7 +71,7 @@ type ArticleRow = {
   publishedAt: Date | null; immigrationPaths?: string | null;
 };
 
-function parseList(raw: string | null | undefined): string[] {
+export function parseList(raw: string | null | undefined): string[] {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);

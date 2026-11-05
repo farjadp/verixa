@@ -8,14 +8,18 @@
 // Owner: Verixa Web
 // Notes: Policy content page; changes should align with legal requirements and published policy versions.
 // ============================================================================
+import { pageMetadata } from "@/lib/seo/metadata";
+import type { Metadata } from "next";
 import { ShieldCheck, Scale, FileText } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
-export const metadata = {
-  title: "Privacy Policy | Verixa",
-  description: "Verixa Privacy & Data Protection Policy - Legal Foundation & Core Principles",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "Privacy Policy",
+  description:
+    "How Verixa collects, uses and protects personal information under Canadian privacy law (PIPEDA).",
+  path: "/privacy",
+});
 
 export default function PrivacyPolicyPage() {
   return (

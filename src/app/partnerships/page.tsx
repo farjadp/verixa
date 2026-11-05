@@ -1,3 +1,5 @@
+import { pageMetadata } from "@/lib/seo/metadata";
+import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import {
@@ -18,10 +20,12 @@ import {
   Rocket
 } from "lucide-react";
 
-export const metadata = {
-  title: "Strategic Partnerships | AshaVid",
-  description: "Support your clients beyond immigration. AshaVid helps immigration professionals provide business and entrepreneurial support to clients across Canada.",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "Strategic Partnerships with AshaVid",
+  description:
+    "Support your clients beyond immigration. AshaVid helps immigration professionals provide business and entrepreneurial support to clients across Canada.",
+  path: "/partnerships",
+});
 
 export default function PartnershipsPage() {
   return (

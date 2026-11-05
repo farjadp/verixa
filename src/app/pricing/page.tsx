@@ -10,6 +10,8 @@
 // Critical Path: Commercial conversion page; pricing/feature mismatches can cause trust and revenue issues.
 // Primary Dependencies: Plan data, billing mode settings, feature highlights, CTA routing into checkout/dashboard.
 // ============================================================================
+import { pageMetadata } from "@/lib/seo/metadata";
+import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { CheckCircle2, ChevronRight, HelpCircle, ShieldCheck, Eye, TrendingUp, CalendarCheck, Target, ArrowUpRight, Check, Minus } from "lucide-react";
@@ -17,10 +19,12 @@ import Link from "next/link";
 import PricingTiers from "./PricingTiers";
 import { prisma } from "@/lib/prisma";
 
-export const metadata = {
-  title: "Pricing | Membership for Verified Consultants",
-  description: "Join Canada's premier immigration marketplace. Get discovered, build trust, and convert high-intent clients.",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "Pricing for Licensed Immigration Consultants",
+  description:
+    "Membership plans for RCICs on Verixa: a verified profile, client bookings with escrow, and visibility to people searching for licensed help.",
+  path: "/pricing",
+});
 
 export default async function PricingPage() {
   const [plans, billingModeSetting] = await Promise.all([

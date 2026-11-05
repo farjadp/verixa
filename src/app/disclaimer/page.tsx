@@ -8,13 +8,18 @@
 // Owner: Verixa Web
 // Notes: Policy content page; changes should align with legal requirements and published policy versions.
 // ============================================================================
+import { pageMetadata } from "@/lib/seo/metadata";
+import type { Metadata } from "next";
 import { AlertTriangle } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
-export const metadata = {
-  title: "Disclaimer | Verixa",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "Disclaimer",
+  description:
+    "Verixa is an independent directory, not affiliated with the CICC or the Government of Canada. Information on this site is not legal or immigration advice.",
+  path: "/disclaimer",
+});
 
 export default function DisclaimerPage() {
   return (

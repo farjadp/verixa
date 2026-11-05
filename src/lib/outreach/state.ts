@@ -12,6 +12,8 @@ export class InvalidTransitionError extends Error {
 const TOUCH_STATE: Record<Step, LeadState> = { 1: "TOUCH_1", 2: "TOUCH_2", 3: "TOUCH_3" };
 const LIVE_REPLY_STATES: readonly LeadState[] = ["INVITED", "TOUCH_1", "TOUCH_2", "TOUCH_3", "CLOSED_NO_REPLY", "CONVERSATION"];
 
+const isStep = (n: unknown): n is Step => n === 1 || n === 2 || n === 3;
+
 export function newBacklogLead(channel: Channel, timezone: string, now: Date): LeadSnapshot {
   return { state: "BACKLOG", channel, touchCount: 0, nextActionAt: null, backlogSince: now, recontactUsed: false, timezone };
 }
@@ -31,7 +33,7 @@ export function transition(lead: LeadSnapshot, event: LeadEvent, now: Date): Lea
       if (!LIVE_REPLY_STATES.includes(s)) return fail();
       if (event.label === "negative") return { ...lead, state: "OPTED_OUT", nextActionAt: null };
       if (event.label === "auto_reply") {
-        if (s === "CONVERSATION") return lead;
+        if (s !== "TOUCH_1" && s !== "TOUCH_2" && s !== "TOUCH_3") return lead;
         const base = lead.nextActionAt && lead.nextActionAt > now ? lead.nextActionAt : now;
         return { ...lead, nextActionAt: addActiveDays(base, OUTREACH.autoReplyDelayActiveDays, lead.timezone) };
       }
@@ -44,13 +46,16 @@ export function transition(lead: LeadSnapshot, event: LeadEvent, now: Date): Lea
 
     case "INVITE_ACCEPTED":
       if (s !== "INVITED") return fail();
-      return { ...lead, state: "TOUCH_1", nextActionAt: addActiveDays(now, 1, lead.timezone) };
+      return { ...lead, state: "TOUCH_1", nextActionAt: addActiveDays(now, OUTREACH.inviteAcceptedNextTouchActiveDays, lead.timezone) };
 
     case "INVITE_EXPIRED":
       if (s !== "INVITED") return fail();
       return { ...lead, state: "TOUCH_1", channel: "EMAIL", nextActionAt: now };
 
     case "TOUCH_SENT": {
+      if (!isStep(event.step)) return fail();
+      if (lead.touchCount >= OUTREACH.maxTouchesPerPerson) return fail();
+      if (event.step === 1 && lead.channel === "LINKEDIN") return fail();
       const expectedFrom: LeadState = event.step === 1 ? "BACKLOG" : TOUCH_STATE[(event.step - 1) as Step];
       if (s !== expectedFrom || lead.touchCount !== event.step - 1) return fail();
       return {
@@ -63,6 +68,7 @@ export function transition(lead: LeadSnapshot, event: LeadEvent, now: Date): Lea
     }
 
     case "TOUCH_CANCELLED": {
+      if (!isStep(event.step)) return fail();
       if (s !== TOUCH_STATE[event.step] || lead.touchCount !== event.step) return fail();
       if (event.step === 1) return { ...lead, state: "BACKLOG", touchCount: 0, backlogSince: now, nextActionAt: now };
       return { ...lead, state: TOUCH_STATE[(event.step - 1) as Step], touchCount: event.step - 1, nextActionAt: now };

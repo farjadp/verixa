@@ -70,4 +70,26 @@ describe("transition", () => {
     const sent = transition(l, { type: "TOUCH_SENT", step: 1 }, thu);
     expect(() => transition(sent, { type: "REASSIGN", channel: "EMAIL" }, thu)).toThrow(InvalidTransitionError);
   });
+
+  it("rejects out-of-range steps from untyped input", () => {
+    let l = newBacklogLead("EMAIL", TOR, thu);
+    l = transition(l, { type: "TOUCH_SENT", step: 1 }, thu);
+    l = transition(l, { type: "TOUCH_SENT", step: 2 }, thu);
+    l = transition(l, { type: "TOUCH_SENT", step: 3 }, thu);
+    expect(() => transition(l, { type: "TOUCH_SENT", step: 4 as never }, thu)).toThrow(InvalidTransitionError);
+    expect(() => transition(l, { type: "TOUCH_CANCELLED", step: 4 as never }, thu)).toThrow(InvalidTransitionError);
+    expect(() => transition(newBacklogLead("EMAIL", TOR, thu), { type: "TOUCH_SENT", step: 0 as never }, thu)).toThrow(InvalidTransitionError);
+    expect(() => transition(l, { type: "TOUCH_CANCELLED", step: 0 as never }, thu)).toThrow(InvalidTransitionError);
+  });
+
+  it("does not extend invite expiry or cooldown on auto-replies", () => {
+    const inv = transition(newBacklogLead("LINKEDIN", TOR, thu), { type: "INVITE_SENT" }, thu);
+    expect(transition(inv, { type: "REPLY", label: "auto_reply" }, thu).nextActionAt).toEqual(inv.nextActionAt);
+    const closed = { ...inv, state: "CLOSED_NO_REPLY" as const };
+    expect(transition(closed, { type: "REPLY", label: "auto_reply" }, thu)).toEqual(closed);
+  });
+
+  it("refuses a first touch on LinkedIn (invite only)", () => {
+    expect(() => transition(newBacklogLead("LINKEDIN", TOR, thu), { type: "TOUCH_SENT", step: 1 }, thu)).toThrow(InvalidTransitionError);
+  });
 });

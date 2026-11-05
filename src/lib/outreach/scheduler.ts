@@ -49,8 +49,8 @@ export function planTasks({ channel, leads, now, sentToday, offerAvailable, acti
   }
 
   const sendable = (l: SchedulableLead) => (activeDayOnly ? isActiveDay(now, l.timezone) : inSendWindow(now, l.timezone));
-  followUps.sort((a, b) => a.nextActionAt!.getTime() - b.nextActionAt!.getTime());
-  backlog.sort((a, b) => b.score - a.score);
+  followUps.sort((a, b) => a.nextActionAt!.getTime() - b.nextActionAt!.getTime() || a.id.localeCompare(b.id));
+  backlog.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
 
   const capacity = Math.max(0, OUTREACH.touchesPerChannelPerDay - sentToday);
   const sends: Task[] = [];

@@ -53,4 +53,12 @@ describe("planTasks", () => {
     expect(planTasks({ channel: "LINKEDIN", leads: [inv, cool], now, sentToday: 5, offerAvailable: true }))
       .toEqual([{ kind: "EXPIRE_INVITE", leadId: "i" }, { kind: "RECONTACT", leadId: "c" }]);
   });
+
+  it("breaks ties by id for deterministic order", () => {
+    const leads = [lead("b", { score: 13 }), lead("a", { score: 13 })];
+    const tasks = planTasks({ channel: "EMAIL", leads, now, sentToday: 0, offerAvailable: true });
+    expect(tasks.map((t) => t.leadId)).toEqual(["a", "b"]);
+    const f = [lead("z", { state: "TOUCH_1", touchCount: 1, nextActionAt: past }), lead("y", { state: "TOUCH_1", touchCount: 1, nextActionAt: past })];
+    expect(planTasks({ channel: "EMAIL", leads: f, now, sentToday: 0, offerAvailable: true }).map((t) => t.leadId)).toEqual(["y", "z"]);
+  });
 });

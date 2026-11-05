@@ -8,6 +8,7 @@ export const OUTREACH = {
   maxTouchesPerPerson: 3,
   waitActiveDaysAfterTouch: { 1: 3, 2: 5, 3: 5 } as Record<Step, number>,
   autoReplyDelayActiveDays: 3,
+  inviteAcceptedNextTouchActiveDays: 1,
   backlogExpiryDays: 34,
   cooldownDays: 89,
   inviteExpiryDays: 21,

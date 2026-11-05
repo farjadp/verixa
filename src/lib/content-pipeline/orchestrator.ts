@@ -16,7 +16,7 @@ import { Prisma } from "@prisma/client";
 import type { PipelineDeps } from "./types";
 import { loadConfig, type PipelineConfig } from "./config";
 import { checkDuplicate, dedupKeyFor, type Candidate } from "./dedup";
-import { normalizePathKeys } from "./paths";
+import { normalizePathKeys, tagImmigrationPaths } from "./paths";
 import { discoverCandidates, extractMainText } from "./agents/discovery";
 import { EXISTING_POSTS_WINDOW, MAX_JOB_ATTEMPTS, selectTopics } from "./agents/selection";
 import { writeDraft } from "./agents/writer";
@@ -406,6 +406,96 @@ export async function runContentPipeline(
       .catch((e) => deps.log(`Could not finalize run ${runId}: ${errMsg(e)}`));
   }
 
+  return summary;
+}
+
+export interface SingleSourceInput {
+  url: string;
+  title: string;
+  sourceName: string;
+  publishedAt: Date | null;
+  sourceTrust?: number;
+}
+
+/**
+ * Run every stage for one source URL an admin picked, bypassing discovery and
+ * the daily quota. Uses the same run lock, job claim (so a URL is never written
+ * twice) and gates as the scheduled run; autopublish/channels come from config.
+ */
+export async function runSingleSource(deps: PipelineDeps, input: SingleSourceInput): Promise<RunSummary> {
+  const { db } = deps;
+  const log: string[] = [];
+  const say = (m: string) => {
+    log.push(m);
+    deps.log(m);
+  };
+  const config = await loadConfig(db);
+  const now = deps.now();
+  const base: RunSummary = {
+    status: "COMPLETED", produced: 0, rejected: 0, failed: 0, discovered: 1, selected: 0, autopublish: config.autopublish, log,
+  };
+
+  await recoverStale(deps, now);
+  let runId: string;
+  try {
+    const run = await db.pipelineRun.create({
+      data: { trigger: "MANUAL", lockKey: LOCK_HELD, language: config.language.raw, targetCount: 1, autoPublished: config.autopublish },
+      select: { id: true },
+    });
+    runId = run.id;
+  } catch (e) {
+    if (isUniqueViolation(e)) return { ...base, status: "SKIPPED", reason: "Another pipeline run is in progress." };
+    throw e;
+  }
+  const summary: RunSummary = { ...base, runId };
+
+  try {
+    const candidate: Candidate = {
+      title: input.title,
+      sourceUrl: input.url,
+      sourceName: input.sourceName,
+      sourceTrust: input.sourceTrust ?? 100,
+      publishedAt: input.publishedAt,
+      snippet: "",
+      paths: tagImmigrationPaths(input.title),
+    };
+    say(`Run ${runId}: single source "${input.title}" (${input.url}), autopublish ${config.autopublish ? "ON" : "OFF"}.`);
+    const jobId = await claimJob(deps, candidate, config, runId);
+    if (!jobId) {
+      summary.status = "SKIPPED";
+      summary.reason = "This source was already processed (or is being processed).";
+      say(summary.reason);
+    } else {
+      summary.selected = 1;
+      const outcome = await runStages(deps, jobId, candidate, config);
+      if (outcome === "produced") summary.produced++;
+      else if (outcome === "rejected") summary.rejected++;
+      else if (outcome === "failed") summary.failed++;
+      say(`Done: ${outcome} (job ${jobId}).`);
+    }
+  } catch (e) {
+    summary.status = "FAILED";
+    summary.reason = errMsg(e);
+    say(`Run failed: ${summary.reason}`);
+  } finally {
+    await db.pipelineRun
+      .update({
+        where: { id: runId },
+        data: {
+          status: summary.status,
+          lockKey: null,
+          discovered: summary.discovered,
+          selected: summary.selected,
+          published: summary.produced,
+          skipped: summary.rejected,
+          failed: summary.failed,
+          error: summary.reason ?? null,
+          log: JSON.stringify(log.slice(-100)),
+          finishedAt: deps.now(),
+        },
+      })
+      .catch((e) => deps.log(`Could not finalize run ${runId}: ${errMsg(e)}`));
+  }
   return summary;
 }
 

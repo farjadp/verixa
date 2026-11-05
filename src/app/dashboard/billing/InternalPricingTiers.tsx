@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Target, Zap, AlertCircle } from "lucide-react";
+import { Check, Target, Zap } from "lucide-react";
 import { createUpgradeCheckoutSession } from "@/actions/checkout.actions";
 import { useRouter } from "next/navigation";
 import CouponBox from "./CouponBox";
@@ -114,8 +114,6 @@ export default function InternalPricingTiers({ plans, billingMode, currentPlanId
     pro: "text-gray-500",
   };
 
-  const proAnnualDisplayPrice = 21;
-
   async function handleUpgrade(planId: string, slug: string, price: number) {
     if (price === 0) return; // Free plan downgrade not supported directly via stripe checkout
 
@@ -186,7 +184,6 @@ export default function InternalPricingTiers({ plans, billingMode, currentPlanId
           const displayPrice = displayPriceCents / 100;
           const yearlyTotal = getYearlyTotal(plan) / 100;
           const bullets = planBullets[plan.slug] ?? [];
-          const isProAnnual = plan.slug === "pro" && isAnnual;
           const monthlyOrig = plan.priceCents / 100;
           const isActive = currentPlanId === plan.id;
           const annualDiscount = getAnnualDiscount(plan);
@@ -198,13 +195,8 @@ export default function InternalPricingTiers({ plans, billingMode, currentPlanId
                     Most Popular
                   </div>
                 )}
-                {isProAnnual && (
-                  <div className="absolute top-0 right-0 left-0 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest py-1.5 px-4 text-center flex justify-center items-center gap-1.5 shadow-sm z-10">
-                    <AlertCircle className="w-3 h-3" /> Special 89% OFF Launch Rate
-                  </div>
-                )}
 
-                <div className={`mb-6 relative z-10 ${isProAnnual ? "mt-4" : ""}`}>
+                <div className="mb-6 relative z-10">
                   <div className="flex justify-between items-start mb-2">
                     <h3 className={`text-xl font-bold ${style.nameColor}`}>{plan.name}</h3>
                     {isAnnual && showToggle && annualDiscount && plan.slug !== "pro" && (
@@ -215,22 +207,20 @@ export default function InternalPricingTiers({ plans, billingMode, currentPlanId
                   </div>
 
                   <div className="font-serif flex items-end gap-1">
-                    {isAnnual && showToggle && plan.priceCents > 0 && !isProAnnual && (
+                    {isAnnual && showToggle && plan.priceCents > 0 && (
                       <span className={`text-2xl font-black line-through mb-1 mr-1 ${plan.slug === "growth" ? "text-gray-500 opacity-60" : "text-gray-300"}`}>
                         ${monthlyOrig.toFixed(0)}
                       </span>
                     )}
-                    {isProAnnual && <span className="text-2xl font-black text-gray-300 line-through mb-1 mr-1">${monthlyOrig.toFixed(0)}</span>}
 
-                    <span className={`text-4xl font-black ${isProAnnual ? "text-red-600" : style.priceColor}`}>
-                      {plan.priceCents === 0 ? "$0" : isProAnnual ? `$${proAnnualDisplayPrice}` : `$${displayPrice.toFixed(0)}`}
+                    <span className={`text-4xl font-black ${style.priceColor}`}>
+                      {plan.priceCents === 0 ? "$0" : `$${displayPrice.toFixed(0)}`}
                     </span>
                     <span className={`font-medium mb-1 ${plan.slug === "growth" ? "text-gray-400" : "text-gray-400"}`}>/mo</span>
                   </div>
 
                   <div className="h-5 mt-1">
                     {(isAnnual || billingMode === "yearly") && plan.priceCents > 0 ? (
-                      isProAnnual ? <span className="text-[9px] font-bold text-red-600 uppercase tracking-widest">Billed $252/yr (Reverts to 55%)</span> :
                         <span className={`text-[10px] font-bold uppercase tracking-widest ${plan.slug === "growth" ? "text-[#2FA4A9]" : "text-gray-400"}`}>Billed ${yearlyTotal.toFixed(0)}/yr</span>
                     ) : <span className="text-[10px] font-bold text-transparent select-none">-</span>}
                   </div>

@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import InternalPricingTiers from "./InternalPricingTiers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Upgrade Plan | Dashboard",
@@ -19,11 +20,14 @@ export const metadata = {
 
 export default async function DashboardUpgradePage() {
   const session = await getServerSession(authOptions);
-  
+  if (!session?.user?.id) redirect("/login?callbackUrl=/dashboard/billing");
+  // Plans are consultant subscriptions; clients have nothing to buy here.
+  if (session.user.role !== "CONSULTANT") redirect("/dashboard");
+
   const [plans, billingModeSetting, currentSubscription] = await Promise.all([
-    prisma.plan.findMany({ orderBy: { sortOrder: "asc" } }),
+    prisma.plan.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
     prisma.platformSetting.findUnique({ where: { key: "billingMode" } }),
-    prisma.subscription.findUnique({ where: { userId: (session?.user as any)?.id } })
+    prisma.subscription.findUnique({ where: { userId: session.user.id } })
   ]);
 
   const billingMode = (billingModeSetting?.value ?? "both") as "monthly" | "yearly" | "both";

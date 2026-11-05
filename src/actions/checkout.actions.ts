@@ -21,12 +21,21 @@ export async function createUpgradeCheckoutSession(planId: string, isAnnual: boo
       throw new Error("User not found");
     }
 
+    // Plans are for consultants; clients (USER) can't subscribe to one.
+    if (user.role !== "CONSULTANT") {
+      return { success: false, error: "Plans are available to consultants who have claimed their profile." };
+    }
+
     const plan = await prisma.plan.findUnique({
-      where: { id: planId },
+      where: { id: String(planId ?? "") },
     });
 
-    if (!plan) {
-      throw new Error("Plan not found");
+    // Soft-deleted plans must not be purchasable, and the free plan has nothing to charge.
+    if (!plan || !plan.isActive) {
+      return { success: false, error: "This plan is no longer available." };
+    }
+    if (plan.priceCents <= 0) {
+      return { success: false, error: "The free plan doesn't need checkout." };
     }
 
     const checkoutSession = await createPlanCheckoutSession({

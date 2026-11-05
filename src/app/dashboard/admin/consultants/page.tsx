@@ -1,174 +1,136 @@
-// ============================================================================
-// Hardware Source: src/app/dashboard/admin/consultants/page.tsx
-// Route: /dashboard/admin/consultants
-// Version: 1.0.0 — 2026-04-08
-// Why: High-privilege admin route for platform governance, operations, and configuration workflows.
-// Domain: Admin Operations
-// Env / Identity: React Server Component
-// Owner: Verixa Web
-// Notes: Must remain server-auth gated for ADMIN users; avoid exposing privileged operations to client without checks.
-// Critical Path: Privileged management surface affecting platform-wide data, policy, and operational behavior.
-// Security Notes: Enforce ADMIN authorization server-side before reads/writes and before rendering sensitive payloads.
-// Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
-// ============================================================================
-import { prisma } from "@/lib/prisma";
+// Admin › Consultants › Directory — CICC registry joined with platform data.
 import Link from "next/link";
-import { Search, Filter, MoreVertical, ShieldCheck, FileText, CheckCircle, XCircle } from "lucide-react";
+import { z } from "zod";
+import { Search, Users } from "lucide-react";
+import { prisma } from "@/lib/prisma";
 import { searchConsultants } from "@/lib/db";
+import { requireAdminPage } from "../_lib/guard";
+import { AdminCard, AdminEmptyState, AdminPageHeader, AdminShell, StatusPill, table, type Tone } from "../_components/AdminUI";
 
-export default async function AdminConsultantsPage(props: { 
-  searchParams: Promise<{ q?: string; page?: string }> 
-}) {
-  const searchParams = await props.searchParams;
-  const q = searchParams.q || "";
-  const page = parseInt(searchParams.page || "1", 10);
-  const limit = 50;
+const LIMIT = 50;
 
-  // 1. Fetch from the original CICC Scraper database
-  const { data: registryConsultants, total, totalPages } = await searchConsultants({ 
-    search: q, 
-    page, 
-    limit 
-  });
+// The registry stores licence status as "Yes"/"No" (a few rows say "Active").
+function licenceActive(status: string | null | undefined) {
+  const s = (status ?? "").toLowerCase();
+  return s === "yes" || s.includes("active");
+}
 
-  // 2. Fetch platform data for these specific consultants
+const VERIFICATION: Record<string, { label: string; tone: Tone }> = {
+  CICC_EMAIL_AND_PHONE: { label: "Email + phone matched", tone: "success" },
+  CICC_EMAIL: { label: "Email matched", tone: "success" },
+  CICC_PHONE: { label: "Phone matched", tone: "success" },
+  PENDING_REVIEW: { label: "Needs manual review", tone: "warning" },
+};
+
+export default async function AdminConsultantsPage(props: { searchParams: Promise<{ q?: string; page?: string }> }) {
+  await requireAdminPage();
+  const sp = await props.searchParams;
+  const q = z.string().trim().max(100).catch("").parse(sp.q ?? "");
+  const page = z.coerce.number().int().min(1).max(10_000).catch(1).parse(sp.page ?? "1");
+
+  const { data: registry, total, totalPages } = await searchConsultants({ search: q, page, limit: LIMIT });
+
   const claimedProfiles = await prisma.consultantProfile.findMany({
-    where: { licenseNumber: { in: registryConsultants.map(c => c.License_Number) } },
-    include: {
-      bookings: { select: { id: true } },
-      reviews: { select: { id: true, rating: true } },
-      user: { select: { email: true } }
-    }
+    where: { licenseNumber: { in: registry.map((c) => c.License_Number) } },
+    take: LIMIT,
+    select: {
+      licenseNumber: true,
+      userId: true,
+      verificationLevel: true,
+      user: { select: { email: true } },
+      _count: { select: { bookings: true, reviews: true } },
+    },
   });
+  const profiles = new Map(claimedProfiles.map((p) => [p.licenseNumber, p]));
 
-  // 3. Map the data back together
-  const profilesMap = new Map(claimedProfiles.map(p => [p.licenseNumber, p]));
+  const pageHref = (n: number) => `/dashboard/admin/consultants?page=${n}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto space-y-6">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-serif font-black text-white tracking-tight">Consultants Directory</h1>
-          <p className="text-gray-400 mt-1 font-light text-sm">Unified view of the CICC Registry and Verified Platform Users.</p>
-        </div>
-        <form className="flex gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <input 
-              type="text" 
-              name="q"
-              defaultValue={q}
-              placeholder="Search Name or License..." 
-              className="pl-9 pr-4 py-2 bg-[#0F2A44] border border-gray-800 rounded-lg text-sm text-white focus:outline-none focus:border-gray-500 w-64"
-            />
-          </div>
-          <button type="submit" className="px-4 py-2 bg-[#0F2A44] border border-gray-800 rounded-lg text-sm text-gray-300 hover:text-white flex items-center gap-2">
-            Search
-          </button>
-        </form>
-      </div>
+    <AdminShell wide>
+      <AdminPageHeader
+        section="Consultants"
+        title="Directory"
+        description="Every licensed consultant in the CICC registry, with their Verixa account status."
+        actions={
+          <form className="flex gap-2" role="search">
+            <label className="relative">
+              <span className="sr-only">Search name or licence</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
+              <input
+                type="search"
+                name="q"
+                defaultValue={q}
+                placeholder="Name or licence…"
+                className="w-64 rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm focus:border-teal focus:outline-none"
+              />
+            </label>
+            <button type="submit" className="rounded-xl bg-navy px-4 py-2 text-sm font-bold text-white hover:bg-[#0a1e30]">Search</button>
+          </form>
+        }
+      />
 
-      <div className="bg-[#0F2A44] border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#222] text-gray-400 text-xs uppercase tracking-wider border-b border-gray-800">
-              <tr>
-                <th className="px-6 py-4 font-bold">Consultant</th>
-                <th className="px-6 py-4 font-bold">License</th>
-                <th className="px-6 py-4 font-bold">Registry Status</th>
-                <th className="px-6 py-4 font-bold">Platform Sync</th>
-                <th className="px-6 py-4 font-bold">Metrics</th>
-                <th className="px-6 py-4 font-bold text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800 text-gray-300">
-              {registryConsultants.map((reg) => {
-                const platformData = profilesMap.get(reg.License_Number) as (typeof claimedProfiles)[0] | undefined;
-                
-                const avgRating = (platformData && platformData.reviews.length > 0)
-                  ? (platformData.reviews.reduce((acc: number, r: { rating: number }) => acc + r.rating, 0) / platformData.reviews.length).toFixed(1) 
-                  : "N/A";
-
-                return (
-                  <tr key={reg.License_Number} className="hover:bg-white/5 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-white">{reg.Full_Name}</div>
-                      <div className="text-[10px] text-gray-500 uppercase tracking-widest">{platformData?.user?.email || reg.Email || "No Email"}</div>
-                    </td>
-                    <td className="px-6 py-4 font-mono text-gray-400">{reg.License_Number}</td>
-                    
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-[10px] uppercase tracking-wider font-bold rounded ${
-                        reg.Status === "Active" ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"
-                      }`}>
-                        {reg.Status}
-                      </span>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5">
-                        {!platformData ? (
-                          <><XCircle className="w-4 h-4 text-gray-600" /> <span className="text-gray-500">Unclaimed</span></>
-                        ) : platformData.status === "Active" ? (
-                          <><ShieldCheck className="w-4 h-4 text-green-500" /> <span className="text-green-500 font-bold">Verified User</span></>
-                        ) : (
-                          <><FileText className="w-4 h-4 text-orange-500" /> <span className="text-orange-500 font-bold">Verification Pending</span></>
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      {platformData ? (
-                        <div className="flex flex-col gap-1 text-[11px]">
-                          <span><b className="text-white">{platformData.bookings.length}</b> Bookings</span>
-                          <span><b className="text-white">{platformData.reviews.length}</b> Reviews ({avgRating} ⭐)</span>
-                        </div>
-                      ) : (
-                        <div className="text-[11px] text-gray-500">N/A</div>
-                      )}
-                    </td>
-
-                    <td className="px-6 py-4 text-center">
-                      <button className="p-1.5 text-gray-500 hover:text-white rounded-md hover:bg-white/10 transition-colors">
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              
-              {registryConsultants.length === 0 && (
+      <AdminCard>
+        {registry.length === 0 ? (
+          <AdminEmptyState icon={Users} title="No consultants match" body={q ? `Nothing found for “${q}”.` : "The registry is empty — run a registry sync."} />
+        ) : (
+          <div className={table.wrap}>
+            <table className={table.table}>
+              <thead className={table.thead}>
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                    No consultants found matching your search.
-                  </td>
+                  <th className={table.th}>Consultant</th>
+                  <th className={table.th}>Licence</th>
+                  <th className={table.th}>Licence status</th>
+                  <th className={table.th}>Verixa account</th>
+                  <th className={`${table.th} text-right`}>Bookings</th>
+                  <th className={`${table.th} text-right`}>Reviews</th>
+                  <th className={table.th}><span className="sr-only">Profile</span></th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        
-        {/* Pagination */}
-        <div className="p-4 border-t border-gray-800 flex justify-between items-center bg-[#0F2A44]">
-          <span className="text-xs text-gray-500">
-            Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total.toLocaleString()} registry records
+              </thead>
+              <tbody className={table.tbody}>
+                {registry.map((reg) => {
+                  const p = profiles.get(reg.License_Number);
+                  const v = p?.verificationLevel ? VERIFICATION[p.verificationLevel] : undefined;
+                  return (
+                    <tr key={reg.License_Number} className={table.tr}>
+                      <td className={table.td}>
+                        <div className="font-bold">{reg.Full_Name}</div>
+                        <div className="text-xs text-gray-500">{p?.user?.email || reg.Email || "No email on file"}</div>
+                      </td>
+                      <td className={`${table.td} font-mono text-xs`}>{reg.License_Number}</td>
+                      <td className={table.td}>
+                        <StatusPill tone={licenceActive(reg.Status) ? "success" : "error"}>{licenceActive(reg.Status) ? "Active" : "Inactive"}</StatusPill>
+                      </td>
+                      <td className={table.td}>
+                        {!p?.userId ? (
+                          <span className="text-xs text-gray-500">Unclaimed</span>
+                        ) : (
+                          <StatusPill tone={v?.tone ?? "info"}>{v?.label ?? "Claimed"}</StatusPill>
+                        )}
+                      </td>
+                      <td className={`${table.td} text-right tabular-nums`}>{p ? p._count.bookings : "—"}</td>
+                      <td className={`${table.td} text-right tabular-nums`}>{p ? p._count.reviews : "—"}</td>
+                      <td className={`${table.td} text-right`}>
+                        <Link href={`/consultant/${encodeURIComponent(reg.License_Number)}`} target="_blank" className="text-xs font-bold text-softblue hover:text-navy">
+                          Public profile ↗
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-xs text-gray-500">
+          <span>
+            {total === 0 ? "0 records" : `${((page - 1) * LIMIT + 1).toLocaleString()}–${Math.min(page * LIMIT, total).toLocaleString()} of ${total.toLocaleString()} registry records`}
           </span>
-          <div className="flex gap-2 text-sm">
-            <Link 
-              href={`/dashboard/admin/consultants?page=${page - 1}${q ? `&q=${q}` : ''}`}
-              className={`px-3 py-1 bg-[#222] border border-gray-700 rounded text-gray-400 ${page <= 1 ? 'pointer-events-none opacity-50' : 'hover:text-white hover:border-gray-500'}`}
-            >
-              Prev
-            </Link>
-            <Link 
-              href={`/dashboard/admin/consultants?page=${page + 1}${q ? `&q=${q}` : ''}`}
-              className={`px-3 py-1 bg-[#222] border border-gray-700 rounded text-gray-400 ${page >= totalPages ? 'pointer-events-none opacity-50' : 'hover:text-white hover:border-gray-500'}`}
-            >
-              Next
-            </Link>
+          <div className="flex gap-2">
+            <Link href={pageHref(page - 1)} aria-disabled={page <= 1} className={`rounded-lg border border-gray-200 px-3 py-1 font-bold ${page <= 1 ? "pointer-events-none opacity-40" : "hover:border-teal"}`}>Prev</Link>
+            <Link href={pageHref(page + 1)} aria-disabled={page >= totalPages} className={`rounded-lg border border-gray-200 px-3 py-1 font-bold ${page >= totalPages ? "pointer-events-none opacity-40" : "hover:border-teal"}`}>Next</Link>
           </div>
         </div>
-      </div>
-    </div>
+      </AdminCard>
+    </AdminShell>
   );
 }

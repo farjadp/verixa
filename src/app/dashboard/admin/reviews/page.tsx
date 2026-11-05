@@ -1,103 +1,100 @@
-// ============================================================================
-// Hardware Source: src/app/dashboard/admin/reviews/page.tsx
-// Route: /dashboard/admin/reviews
-// Version: 1.0.0 — 2026-04-08
-// Why: High-privilege admin route for platform governance, operations, and configuration workflows.
-// Domain: Admin Operations
-// Env / Identity: React Server Component
-// Owner: Verixa Web
-// Notes: Must remain server-auth gated for ADMIN users; avoid exposing privileged operations to client without checks.
-// Critical Path: Privileged management surface affecting platform-wide data, policy, and operational behavior.
-// Security Notes: Enforce ADMIN authorization server-side before reads/writes and before rendering sensitive payloads.
-// Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
-// ============================================================================
-import { prisma } from "@/lib/prisma";
+// Admin › Consultants › Reviews — hide or restore client reviews.
 import Link from "next/link";
-import { Search, Eye, AlertCircle, CheckCircle, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { z } from "zod";
+import { MessageSquare } from "lucide-react";
+import { prisma } from "@/lib/prisma";
+import { requireAdminPage } from "../_lib/guard";
+import { AdminCard, AdminEmptyState, AdminPageHeader, AdminShell, CapNote, StatusPill, table, type Tone } from "../_components/AdminUI";
+import ReviewVisibilityButton from "./ReviewVisibilityButton";
 
-export default async function AdminReviewsPage() {
-  const reviews = await prisma.review.findMany({
-    include: {
-      profile: { select: { fullName: true } },
-      user: { select: { name: true, email: true } },
-      booking: { select: { id: true } }
-    },
-    orderBy: { createdAt: "desc" }
-  });
+const FILTERS = ["PENDING_MODERATION", "PUBLISHED", "HIDDEN"] as const;
+const LABEL: Record<string, string> = { PENDING_MODERATION: "Awaiting moderation", PUBLISHED: "Published", HIDDEN: "Hidden" };
+const TONE: Record<string, Tone> = { PENDING_MODERATION: "warning", PUBLISHED: "success", HIDDEN: "neutral" };
+const LIMIT = 200;
+
+export default async function AdminReviewsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  await requireAdminPage();
+  const sp = await searchParams;
+  const parsed = z.enum(FILTERS).safeParse(sp.status);
+  const status = parsed.success ? parsed.data : null;
+  const where = status ? { status } : {};
+
+  const [reviews, total] = await Promise.all([
+    prisma.review.findMany({
+      where,
+      include: {
+        profile: { select: { fullName: true, licenseNumber: true } },
+        user: { select: { name: true, email: true } },
+        booking: { select: { id: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: LIMIT,
+    }),
+    prisma.review.count({ where }),
+  ]);
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto space-y-6">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-serif font-black text-white tracking-tight">Reviews Moderation</h1>
-          <p className="text-gray-400 mt-1 font-light text-sm">Review queue and published feedback oversight.</p>
-        </div>
-      </div>
+    <AdminShell wide>
+      <AdminPageHeader
+        section="Consultants"
+        title="Reviews"
+        description="Only published reviews appear on public profiles. Hiding is reversible and nothing is deleted."
+      />
 
-      <div className="bg-[#0F2A44] border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#222] text-gray-400 text-xs uppercase tracking-wider border-b border-gray-800">
-              <tr>
-                <th className="px-6 py-4 font-bold">Rating & Text</th>
-                <th className="px-6 py-4 font-bold">Consultant</th>
-                <th className="px-6 py-4 font-bold">Reviewer</th>
-                <th className="px-6 py-4 font-bold">Status</th>
-                <th className="px-6 py-4 font-bold text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800 text-gray-300">
-              {reviews.map((r) => (
-                <tr key={r.id} className="hover:bg-white/5 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-1 mb-1 text-yellow-400">
-                       {'★'.repeat(r.rating)}{'☆'.repeat(5-r.rating)}
-                    </div>
-                    <div className="text-xs text-gray-400 truncate max-w-xs">{r.comment || "No comment provided"}</div>
-                  </td>
-                  <td className="px-6 py-4 font-bold text-white">{r.profile.fullName}</td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm">{r.user.name || "Unknown"}</div>
-                    <div className="text-[10px] text-gray-500 flex items-center gap-1">
-                      {r.booking ? <span className="bg-green-500/10 text-green-400 px-1 rounded">Verified Trip</span> : null}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-[10px] uppercase tracking-wider font-bold rounded ${
-                      r.status === "PUBLISHED" ? "bg-blue-500/10 text-blue-400" :
-                      r.status === "PENDING_MODERATION" ? "bg-orange-500/10 text-orange-400" :
-                      "bg-gray-500/10 text-gray-400"
-                    }`}>
-                      {r.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex justify-center gap-2">
-                       {r.status === "PENDING_MODERATION" && (
-                         <button className="p-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-500 rounded transition-colors" title="Publish">
-                           <CheckCircle className="w-4 h-4" />
-                         </button>
-                       )}
-                       <button className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded transition-colors" title="Remove">
-                         <Trash2 className="w-4 h-4" />
-                       </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              
-              {reviews.length === 0 && (
+      <nav className="mb-4 flex flex-wrap gap-2" aria-label="Filter by status">
+        {[null, ...FILTERS].map((s) => (
+          <Link
+            key={s ?? "ALL"}
+            href={s ? `/dashboard/admin/reviews?status=${s}` : "/dashboard/admin/reviews"}
+            className={`rounded-full px-3 py-1 text-xs font-bold ${status === s ? "bg-navy text-white" : "border border-gray-200 bg-white text-gray-600 hover:border-teal"}`}
+          >
+            {s ? LABEL[s] : "All"}
+          </Link>
+        ))}
+      </nav>
+
+      <AdminCard>
+        {reviews.length === 0 ? (
+          <AdminEmptyState icon={MessageSquare} title={status ? `No ${LABEL[status].toLowerCase()} reviews` : "No reviews yet"} />
+        ) : (
+          <div className={table.wrap}>
+            <table className={table.table}>
+              <thead className={table.thead}>
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                    No reviews in the system.
-                  </td>
+                  <th className={table.th}>Review</th>
+                  <th className={table.th}>Consultant</th>
+                  <th className={table.th}>Reviewer</th>
+                  <th className={table.th}>Status</th>
+                  <th className={`${table.th} text-right`}>Action</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+              </thead>
+              <tbody className={table.tbody}>
+                {reviews.map((r) => (
+                  <tr key={r.id} className={table.tr}>
+                    <td className={`${table.td} max-w-md`}>
+                      <div className="text-amber-500" aria-label={`${r.rating} out of 5`}>{"★".repeat(r.rating)}<span className="text-gray-300">{"★".repeat(Math.max(0, 5 - r.rating))}</span></div>
+                      <p className="mt-1 line-clamp-3 text-sm text-gray-700">{r.comment || <span className="text-gray-400">No comment</span>}</p>
+                      <p className="mt-1 text-xs text-gray-400">{formatDistanceToNow(r.createdAt)} ago</p>
+                    </td>
+                    <td className={`${table.td} font-bold`}>
+                      <Link href={`/consultant/${encodeURIComponent(r.profile.licenseNumber)}`} target="_blank" className="hover:text-softblue">{r.profile.fullName}</Link>
+                    </td>
+                    <td className={table.td}>
+                      <div>{r.user?.name || r.guestName || "Guest"}</div>
+                      <div className="text-xs text-gray-500">{r.user?.email || r.guestEmail || ""}</div>
+                      {r.booking ? <StatusPill tone="teal">Verified booking</StatusPill> : null}
+                    </td>
+                    <td className={table.td}><StatusPill tone={TONE[r.status] ?? "neutral"}>{LABEL[r.status] ?? r.status}</StatusPill></td>
+                    <td className={`${table.td} text-right`}><ReviewVisibilityButton reviewId={r.id} status={r.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <CapNote shown={reviews.length} total={total} noun="reviews" />
+          </div>
+        )}
+      </AdminCard>
+    </AdminShell>
   );
 }

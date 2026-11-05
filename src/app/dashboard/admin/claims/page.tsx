@@ -1,102 +1,120 @@
-// ============================================================================
-// Hardware Source: src/app/dashboard/admin/claims/page.tsx
-// Route: /dashboard/admin/claims
-// Version: 1.0.0 — 2026-04-08
-// Why: High-privilege admin route for platform governance, operations, and configuration workflows.
-// Domain: Admin Operations
-// Env / Identity: React Server Component
-// Owner: Verixa Web
-// Notes: Must remain server-auth gated for ADMIN users; avoid exposing privileged operations to client without checks.
-// Critical Path: Privileged management surface affecting platform-wide data, policy, and operational behavior.
-// Security Notes: Enforce ADMIN authorization server-side before reads/writes and before rendering sensitive payloads.
-// Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
-// ============================================================================
-import { prisma } from "@/lib/prisma";
-import Link from "next/link";
-import { Search, Filter, ShieldAlert, CheckCircle, XCircle, FileText, ShieldCheck } from "lucide-react";
+// Admin › Consultants › Claims.
+// Claims are self-serve (OTP to the CICC email/phone). A claim whose email and
+// phone did not match the registry is stored with verificationLevel
+// PENDING_REVIEW and the public profile says "Pending admin review" — that is
+// the queue shown first. There is no approve/reject action yet (see report).
 import { formatDistanceToNow } from "date-fns";
+import Link from "next/link";
+import { BadgeCheck, ShieldCheck } from "lucide-react";
+import { prisma } from "@/lib/prisma";
+import { requireAdminPage } from "../_lib/guard";
+import { AdminCard, AdminEmptyState, AdminPageHeader, AdminShell, StatusPill, table, type Tone } from "../_components/AdminUI";
+
+const LEVEL: Record<string, { label: string; tone: Tone }> = {
+  CICC_EMAIL_AND_PHONE: { label: "Email + phone", tone: "success" },
+  CICC_EMAIL: { label: "Email", tone: "success" },
+  CICC_PHONE: { label: "Phone", tone: "success" },
+  PENDING_REVIEW: { label: "Needs review", tone: "warning" },
+};
+
+const select = {
+  id: true,
+  fullName: true,
+  licenseNumber: true,
+  verificationLevel: true,
+  rawEmail: true,
+  updatedAt: true,
+  user: { select: { email: true, name: true, createdAt: true } },
+} as const;
 
 export default async function AdminClaimsPage() {
-  const pendingClaims = await prisma.consultantProfile.findMany({
-    where: { status: { in: ["Pending", "Verification Pending"] } },
-    include: {
-      user: { select: { email: true, name: true } }
-    },
-    orderBy: { createdAt: "asc" }
-  });
+  await requireAdminPage();
+
+  const [needsReview, recent] = await Promise.all([
+    prisma.consultantProfile.findMany({
+      where: { userId: { not: null }, verificationLevel: "PENDING_REVIEW" },
+      orderBy: { updatedAt: "asc" },
+      take: 100,
+      select,
+    }),
+    prisma.consultantProfile.findMany({
+      where: { userId: { not: null } },
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+      select,
+    }),
+  ]);
+
+  type Row = (typeof recent)[number];
+  const Table = ({ rows }: { rows: Row[] }) => (
+    <div className={table.wrap}>
+      <table className={table.table}>
+        <thead className={table.thead}>
+          <tr>
+            <th className={table.th}>Consultant</th>
+            <th className={table.th}>Licence</th>
+            <th className={table.th}>Account email</th>
+            <th className={table.th}>Registry email</th>
+            <th className={table.th}>Matched on</th>
+            <th className={table.th}>Account created</th>
+            <th className={table.th}><span className="sr-only">Profile</span></th>
+          </tr>
+        </thead>
+        <tbody className={table.tbody}>
+          {rows.map((c) => {
+            const level = c.verificationLevel ? LEVEL[c.verificationLevel] : undefined;
+            const mismatch = c.rawEmail && c.user?.email && c.rawEmail.toLowerCase() !== c.user.email.toLowerCase();
+            return (
+              <tr key={c.id} className={table.tr}>
+                <td className={`${table.td} font-bold`}>{c.fullName}</td>
+                <td className={`${table.td} font-mono text-xs`}>{c.licenseNumber}</td>
+                <td className={table.td}>{c.user?.email ?? "—"}</td>
+                <td className={`${table.td} ${mismatch ? "text-error" : "text-gray-500"}`}>{c.rawEmail ?? "None on file"}</td>
+                <td className={table.td}><StatusPill tone={level?.tone ?? "neutral"}>{level?.label ?? c.verificationLevel ?? "Unknown"}</StatusPill></td>
+                <td className={`${table.td} whitespace-nowrap text-gray-500`}>
+                  {c.user?.createdAt ? `${formatDistanceToNow(c.user.createdAt)} ago` : "—"}
+                </td>
+                <td className={`${table.td} text-right`}>
+                  <Link href={`/consultant/${encodeURIComponent(c.licenseNumber)}`} target="_blank" className="text-xs font-bold text-softblue hover:text-navy">Profile ↗</Link>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto space-y-6">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-serif font-black text-white tracking-tight">Claim Requests</h1>
-          <p className="text-gray-400 mt-1 font-light text-sm">Security pipeline for verifying consultant identities.</p>
-        </div>
-        <div className="flex gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <input 
-              type="text" 
-              placeholder="Search Name or Email..." 
-              className="pl-9 pr-4 py-2 bg-[#0F2A44] border border-gray-800 rounded-lg text-sm text-white focus:outline-none focus:border-gray-500 w-64"
-            />
-          </div>
-        </div>
-      </div>
+    <AdminShell wide>
+      <AdminPageHeader
+        section="Consultants"
+        title="Claims"
+        description="Consultants claim their profile themselves by one-time code. Claims that did not match the registry email or phone wait here for a manual check."
+      />
 
-      <div className="bg-[#0F2A44] border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#222] text-gray-400 text-xs uppercase tracking-wider border-b border-gray-800">
-              <tr>
-                <th className="px-6 py-4 font-bold">Consultant Name</th>
-                <th className="px-6 py-4 font-bold">License #</th>
-                <th className="px-6 py-4 font-bold">Submitted By</th>
-                <th className="px-6 py-4 font-bold">Submitted At</th>
-                <th className="px-6 py-4 font-bold text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800 text-gray-300">
-              {pendingClaims.map((c) => (
-                <tr key={c.id} className="hover:bg-white/5 transition-colors">
-                  <td className="px-6 py-4 font-bold text-white">{c.fullName}</td>
-                  <td className="px-6 py-4 font-mono text-orange-400">{c.licenseNumber}</td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm">{c.user?.name || "Unknown"}</div>
-                    <div className="text-[10px] text-gray-500">{c.user?.email || "No Email"}</div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-400">
-                    <span className="flex items-center gap-1.5"><ShieldAlert className="w-3.5 h-3.5 text-orange-500" /> {formatDistanceToNow(new Date(c.createdAt))} ago</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-center gap-2">
-                      <button className="px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-500 text-xs font-bold rounded flex items-center gap-1 transition-colors">
-                        <CheckCircle className="w-3.5 h-3.5" /> Approve
-                      </button>
-                      <button className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-xs font-bold rounded flex items-center gap-1 transition-colors">
-                        <XCircle className="w-3.5 h-3.5" /> Reject
-                      </button>
-                      <button className="p-1.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded transition-colors" title="View Docs">
-                        <FileText className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-
-              {pendingClaims.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
-                    <ShieldCheck className="w-12 h-12 text-green-500/50 mx-auto mb-3" />
-                    <p className="text-gray-400 font-bold">Zero Pending Claims</p>
-                    <p className="text-xs text-gray-500 mt-1">All profiles have been verified or rejected.</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      <AdminCard className="mb-6">
+        <div className="border-b border-gray-100 px-5 py-4">
+          <h2 className="text-base font-black text-navy">Needs manual review ({needsReview.length})</h2>
+          <p className="text-xs text-gray-500">Their public profile shows “Pending admin review”. Compare the account email with the registry email before contacting them.</p>
         </div>
-      </div>
-    </div>
+        {needsReview.length === 0 ? (
+          <AdminEmptyState icon={ShieldCheck} title="No claims waiting" body="Every claimed profile matched the registry by email or phone." />
+        ) : (
+          <Table rows={needsReview} />
+        )}
+      </AdminCard>
+
+      <AdminCard>
+        <div className="border-b border-gray-100 px-5 py-4">
+          <h2 className="text-base font-black text-navy">Recently claimed</h2>
+        </div>
+        {recent.length === 0 ? (
+          <AdminEmptyState icon={BadgeCheck} title="No profiles claimed yet" />
+        ) : (
+          <Table rows={recent} />
+        )}
+      </AdminCard>
+    </AdminShell>
   );
 }

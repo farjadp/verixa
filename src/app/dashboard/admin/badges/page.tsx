@@ -12,7 +12,9 @@
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
 import ComingSoonPage from "../ComingSoonTemplate";
+import { requireAdminPage } from "../_lib/guard";
 
-export default function BadgesPage() {
+export default async function BadgesPage() {
+  await requireAdminPage();
   return <ComingSoonPage />;
 }

@@ -14,12 +14,14 @@
 import { getSpecializations, getSpecializationPlanLimits } from "@/actions/specializations.actions";
 import SpecializationsClient from "./SpecializationsClient";
 import { Metadata } from "next";
+import { requireAdminPage } from "../_lib/guard";
 
 export const metadata: Metadata = {
   title: "Immigration Specializations | Admin | Verixa",
 };
 
 export default async function SpecializationsAdminPage() {
+  await requireAdminPage();
   const [categories, planLimits] = await Promise.all([
     getSpecializations(),
     getSpecializationPlanLimits(),

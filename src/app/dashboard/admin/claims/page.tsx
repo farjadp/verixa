@@ -6,6 +6,7 @@
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { BadgeCheck, ShieldCheck } from "lucide-react";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdminPage } from "../_lib/guard";
 import { AdminCard, AdminEmptyState, AdminPageHeader, AdminShell, StatusPill, table, type Tone } from "../_components/AdminUI";
@@ -27,26 +28,10 @@ const select = {
   user: { select: { email: true, name: true, createdAt: true } },
 } as const;
 
-export default async function AdminClaimsPage() {
-  await requireAdminPage();
+type Row = Prisma.ConsultantProfileGetPayload<{ select: typeof select }>;
 
-  const [needsReview, recent] = await Promise.all([
-    prisma.consultantProfile.findMany({
-      where: { userId: { not: null }, verificationLevel: "PENDING_REVIEW" },
-      orderBy: { updatedAt: "asc" },
-      take: 100,
-      select,
-    }),
-    prisma.consultantProfile.findMany({
-      where: { userId: { not: null } },
-      orderBy: { updatedAt: "desc" },
-      take: 50,
-      select,
-    }),
-  ]);
-
-  type Row = (typeof recent)[number];
-  const Table = ({ rows }: { rows: Row[] }) => (
+function ClaimsTable({ rows }: { rows: Row[] }) {
+  return (
     <div className={table.wrap}>
       <table className={table.table}>
         <thead className={table.thead}>
@@ -84,6 +69,25 @@ export default async function AdminClaimsPage() {
       </table>
     </div>
   );
+}
+
+export default async function AdminClaimsPage() {
+  await requireAdminPage();
+
+  const [needsReview, recent] = await Promise.all([
+    prisma.consultantProfile.findMany({
+      where: { userId: { not: null }, verificationLevel: "PENDING_REVIEW" },
+      orderBy: { updatedAt: "asc" },
+      take: 100,
+      select,
+    }),
+    prisma.consultantProfile.findMany({
+      where: { userId: { not: null } },
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+      select,
+    }),
+  ]);
 
   return (
     <AdminShell wide>
@@ -101,7 +105,7 @@ export default async function AdminClaimsPage() {
         {needsReview.length === 0 ? (
           <AdminEmptyState icon={ShieldCheck} title="No claims waiting" body="Every claimed profile matched the registry by email or phone." />
         ) : (
-          <Table rows={needsReview} />
+          <ClaimsTable rows={needsReview} />
         )}
       </AdminCard>
 
@@ -112,7 +116,7 @@ export default async function AdminClaimsPage() {
         {recent.length === 0 ? (
           <AdminEmptyState icon={BadgeCheck} title="No profiles claimed yet" />
         ) : (
-          <Table rows={recent} />
+          <ClaimsTable rows={recent} />
         )}
       </AdminCard>
     </AdminShell>

@@ -12,18 +12,15 @@
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
 import { getPlans, getFeatures } from "@/actions/plans.actions";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import PlanBuilderClient from "./PlanBuilderClient";
+import { requireAdminPage } from "../../_lib/guard";
 
 export const metadata = { title: "Plan Builder | Verixa Admin" };
 
 export default async function PlanBuilderPage() {
-  const session = await getServerSession(authOptions);
-  if ((session?.user as any)?.role !== "ADMIN") redirect("/dashboard");
+  await requireAdminPage();
 
   const [plans, features] = await Promise.all([getPlans(), getFeatures()]);
 

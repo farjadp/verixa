@@ -11,22 +11,20 @@
 // Security Notes: Enforce ADMIN authorization server-side before reads/writes and before rendering sensitive payloads.
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import NewsAggregatorClient from "./NewsAggregatorClient";
-import { Satellite } from "lucide-react";
+import { requireAdminPage } from "../_lib/guard";
+import { AdminPageHeader, AdminShell } from "../_components/AdminUI";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 MINUTES (Max for Pro, Vercel Edge supports more but this guards against timeout loops)
 
 export default async function NewsAggregatorPage() {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") redirect("/login");
+  await requireAdminPage();
 
   const sources = await prisma.contentSource.findMany({
-    orderBy: { createdAt: "desc" }
+    orderBy: { createdAt: "desc" },
+    take: 200,
   });
 
   const rawQueue = await prisma.rawArticle.findMany({
@@ -36,21 +34,15 @@ export default async function NewsAggregatorPage() {
   });
 
   return (
-    <div className="p-4 md:p-8 max-w-[1600px] mx-auto min-h-screen flex flex-col">
-      <div className="mb-6 shrink-0 flex justify-between items-end">
-        <div>
-          <h1 className="text-3xl font-serif font-black text-white tracking-tight flex items-center gap-3">
-            Autonomous Content Aggregator <Satellite className="w-6 h-6 text-[#2FA4A9]" />
-          </h1>
-          <p className="text-gray-400 mt-1 font-light text-sm max-w-2xl">
-            Monitor the 6-layer GPT-4o pipeline. Register external syndicates (RSS), audit the extraction queue, and command automated AEO mass-generation loops.
-          </p>
-        </div>
-      </div>
-
-      <div className="flex-1 min-h-[700px] flex">
+    <AdminShell wide>
+      <AdminPageHeader
+        section="Content"
+        title="Sources & feeds"
+        description="The RSS/web sources the Content pipeline reads, plus the older raw-article queue and auto-pilot. New articles should come from the pipeline."
+      />
+      <div className="flex min-h-[700px]">
         <NewsAggregatorClient initialSources={sources} initialQueue={rawQueue} />
       </div>
-    </div>
+    </AdminShell>
   );
 }

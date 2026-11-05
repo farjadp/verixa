@@ -191,6 +191,8 @@ export async function planEmailDay(deps: EngineDeps) {
       continue;
     }
 
+    // An overlapping run may have taken capacity since we computed it; re-read right before claiming a lead.
+    if ((await deps.repo.countTouchesToday("EMAIL", deps.now())) >= OUTREACH.touchesPerChannelPerDay) break;
     const at = nextSlot(lead.timezone);
     if (!at) continue; // window already full for this timezone today
     const touch = await deps.repo.createTouch({ leadId: lead.id, channel: "EMAIL", step: task.step, cycle, subject: msg.subject, body: msg.body, status: "QUEUED" });
@@ -289,6 +291,8 @@ export async function buildSocialTasks(deps: EngineDeps, channel: "LINKEDIN" | "
     }
     const msg = await composeWithRetry(deps, lead, t.step, offer);
     if (!msg) continue;
+    // An overlapping run may have taken capacity since we computed it.
+    if (!settings.dryRun && (await deps.repo.countTouchesToday(channel, deps.now())) >= OUTREACH.touchesPerChannelPerDay) break;
     const touch = await deps.repo.createTouch({
       leadId: lead.id, channel, step: t.step, cycle: lead.recontactUsed ? 1 : 0, subject: null, body: msg.body,
       status: settings.dryRun ? "DRY_RUN" : "QUEUED", dryRunDay: today,

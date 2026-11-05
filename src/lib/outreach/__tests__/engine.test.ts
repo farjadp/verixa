@@ -8,7 +8,7 @@ import type { LeadSnapshot } from "../types";
 const TOR = "America/Toronto";
 const NOW = new Date("2026-11-05T11:00:00Z"); // Thu 06:00 Toronto — daily cron time
 
-interface MemoryOpts { noEmail?: Set<string>; failFirstScheduledWrite?: boolean }
+interface MemoryOpts { noEmail?: Set<string>; failFirstScheduledWrite?: boolean; external?: { n: number }; afterCreate?: () => void }
 
 function memoryRepo(leads: LeadRow[], opts: MemoryOpts = {}) {
   const touches: { id: string; leadId: string; step: number; status: string; externalMessageId?: string; scheduledFor?: Date; key: string; body: string }[] = [];
@@ -20,7 +20,7 @@ function memoryRepo(leads: LeadRow[], opts: MemoryOpts = {}) {
     saveLead: async (id, s: LeadSnapshot) => { Object.assign(leads.find((l) => l.id === id)!, s); },
     createLead: async () => false,
     countLeadsCreatedToday: async () => 8,
-    countTouchesToday: async () => touches.filter((t) => !["CANCELLED", "FAILED", "DRY_RUN"].includes(t.status)).length,
+    countTouchesToday: async () => touches.filter((t) => !["CANCELLED", "FAILED", "DRY_RUN"].includes(t.status)).length + (opts.external?.n ?? 0),
     getProfileEligibility: async () => ({ exists: true, claimed: false, ciccActive: true, suppressed: false }),
     findDiscoveryCandidates: async () => [],
     getComposeContext: async (leadId) => ({ consultantProfileId: leadId, email: opts.noEmail?.has(leadId) ? null : `${leadId}@firm.ca`, firstName: "Sam", city: null, licenseNumber: `R${leadId}`, profileViews30d: 0, externalHandle: null }),
@@ -34,6 +34,7 @@ function memoryRepo(leads: LeadRow[], opts: MemoryOpts = {}) {
       if (ex) return { id: ex.id, created: false, status: ex.status, body: ex.body };
       const row = { id: `t${touches.length}`, leadId: t.leadId, step: t.step, status: t.status, key, body: t.body };
       touches.push(row);
+      opts.afterCreate?.();
       return { id: row.id, created: true, status: row.status, body: row.body };
     },
     updateTouch: async (id, p) => {
@@ -94,6 +95,24 @@ describe("planEmailDay", () => {
     const times = (d.email.send as ReturnType<typeof vi.fn>).mock.calls.map((c) => (c[1] as Date).getTime()).sort((a, b) => a - b);
     expect(times.length).toBe(4);
     for (let i = 1; i < times.length; i++) expect((times[i] - times[i - 1]) / 60000).toBeGreaterThanOrEqual(5);
+  });
+
+  it("respects capacity already used today (4 counted -> at most 1 new send)", async () => {
+    const leads = Array.from({ length: 6 }, (_, i) => backlog(`L${i}`, 20 + i));
+    const external = { n: 4 };
+    const { repo } = memoryRepo(leads, { external });
+    const d = deps(repo);
+    expect((await planEmailDay(d)).scheduled).toBe(1);
+  });
+
+  it("stops mid-loop when an overlapping run takes the remaining capacity", async () => {
+    const leads = Array.from({ length: 8 }, (_, i) => backlog(`L${i}`, 20 + i));
+    const external = { n: 0 };
+    const { repo } = memoryRepo(leads, { external, afterCreate: () => { external.n = 4; } });
+    const d = deps(repo);
+    const res = await planEmailDay(d);
+    expect(res.scheduled).toBe(1); // 1 ours + 4 from the rival = 5, so the loop stops
+    expect(d.email.send).toHaveBeenCalledTimes(1);
   });
 
   it("dry-run records touches but sends nothing and keeps state", async () => {

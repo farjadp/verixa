@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { 
-  ChevronDown, LayoutDashboard, Presentation, BarChart2, CalendarDays, Inbox, 
-  MessageSquare, Activity, Bell, User, CreditCard, LifeBuoy, HelpCircle, 
-  UserCircle, Bookmark, Settings, Users, CheckCircle, Award, Database, 
-  Mailbox, Flag, FileText, Zap, DollarSign, RefreshCw, Building, Layers, 
-  Cpu, Share2, Rss, NotebookPen, FileImage, Tag, KeyRound
+import {
+  ChevronDown, LayoutDashboard, Presentation, BarChart2, CalendarDays, Inbox,
+  MessageSquare, Activity, Bell, User, CreditCard, LifeBuoy, HelpCircle,
+  UserCircle, Bookmark, Settings, KeyRound,
 } from "lucide-react";
+import { ADMIN_NAV, activeAdminHref } from "@/app/dashboard/admin/_lib/nav";
 
 export type NavItem = {
   label: string;
@@ -90,81 +89,12 @@ export default function SidebarNav({ role }: { role: string }) {
     }
   ];
 
-  const adminGroups: NavGroupType[] = [
-    {
-      label: "Overview & Pulse",
-      items: [
-        { label: "Mission Control", href: "/dashboard", icon: LayoutDashboard },
-        { label: "Platform Analytics", href: "/dashboard/admin/analytics", icon: BarChart2 },
-        { label: "Revenue & Escrow", href: "/dashboard/admin/revenue", icon: DollarSign },
-        { label: "System Logs", href: "/dashboard/admin/logs", icon: Activity },
-      ]
-    },
-    {
-      label: "Platform Users",
-      items: [
-        { label: "Consultant CRM", href: "/dashboard/admin/consultants", icon: Users },
-        { label: "Client Database", href: "/dashboard/admin/users", icon: User },
-        { label: "Verification Claims", href: "/dashboard/admin/claims", icon: CheckCircle },
-        { label: "Badge Management", href: "/dashboard/admin/badges", icon: Award },
-      ]
-    },
-    {
-      label: "Operations & Support",
-      items: [
-        { label: "Bookings & Calendars", href: "/dashboard/admin/bookings", icon: CalendarDays },
-        { label: "Review Moderation", href: "/dashboard/admin/reviews", icon: MessageSquare },
-        { label: "Flags & Disputes", href: "/dashboard/admin/disputes", icon: Flag },
-        { label: "Notifications", href: "/dashboard/admin/notifications", icon: Bell },
-      ]
-    },
-    {
-      label: "Marketing & Tools",
-      items: [
-        { label: "Plans & Features", href: "/dashboard/admin/plans", icon: Zap },
-        { label: "Coupon Codes", href: "/dashboard/admin/coupons", icon: Tag },
-        { 
-          label: "Marketing & Reach", 
-          icon: Share2,
-          children: [
-            { label: "Email Broadcasts", href: "/dashboard/admin/broadcasts" },
-            { label: "Social Publishing", href: "/dashboard/admin/social" },
-          ]
-        },
-        { 
-          label: "Content Generation", 
-          icon: Cpu,
-          children: [
-            { label: "Content Pipeline", href: "/dashboard/admin/content-pipeline" },
-            { label: "Verify AI Factory", href: "/dashboard/admin/ai-factory" },
-            { label: "CMS Pages", href: "/dashboard/admin/cms" },
-            { label: "Blog Engine", href: "/dashboard/admin/blog" },
-          ]
-        }
-      ]
-    },
-    {
-      label: "Data & Systems",
-      items: [
-        { 
-          label: "Integrations & Scrapers", 
-          icon: Database,
-          children: [
-            { label: "CICC Extractor", href: "/dashboard/admin/extractor" },
-            { label: "Company Enrichment", href: "/dashboard/admin/enrichment" },
-            { label: "News Aggregator", href: "/dashboard/admin/news-aggregator" },
-          ]
-        },
-        { label: "Settings & Setup", icon: Settings, children: [
-            { label: "In-App Announcements", href: "/dashboard/admin/announcements" },
-            { label: "General Configs", href: "/dashboard/admin/settings" },
-            { label: "Taxonomy & Specs", href: "/dashboard/admin/specializations" },
-            { label: "Database Sync", href: "/dashboard/admin/sync" },
-            { label: "Database Backups", href: "/dashboard/admin/settings" },
-        ] }
-      ]
-    }
-  ];
+  // Admin IA lives in src/app/dashboard/admin/_lib/nav.ts (flat, no nested menus).
+  const adminGroups: NavGroupType[] = ADMIN_NAV.map((g) => ({
+    label: g.label,
+    items: g.items.map(({ label, href, icon }) => ({ label, href, icon })),
+  }));
+  const adminActiveHref = role === "ADMIN" ? activeAdminHref(pathname) : null;
 
   let activeGroups = role === "CONSULTANT" ? consultantGroups : clientGroups;
   if (role === "ADMIN") activeGroups = adminGroups;
@@ -256,7 +186,9 @@ export default function SidebarNav({ role }: { role: string }) {
               }
 
               // Handle Direct Links
-              const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+              const isActive = role === "ADMIN"
+                ? adminActiveHref === item.href
+                : pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
               return (
                 <Link
                   key={item.href || item.label}

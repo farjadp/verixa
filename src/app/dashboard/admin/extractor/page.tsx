@@ -12,10 +12,8 @@
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
 import { Metadata } from 'next';
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import ExtractorClient from "./ExtractorClient";
+import { requireAdminPage } from "../_lib/guard";
 
 export const metadata: Metadata = {
   title: 'Lead Extraction | Verixa Admin',
@@ -23,11 +21,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminExtractorPage() {
-  const session = await getServerSession(authOptions);
-  
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    redirect("/login");
-  }
+  await requireAdminPage();
 
   return <ExtractorClient />;
 }

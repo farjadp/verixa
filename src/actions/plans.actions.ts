@@ -24,8 +24,10 @@ async function requireAdmin() {
 // ─── PLAN CRUD ───────────────────────────────────────────────────────────────
 
 export async function getPlans() {
+  await requireAdmin();
   return prisma.plan.findMany({
     orderBy: { sortOrder: "asc" },
+    take: 100,
     include: {
       planFeatures: {
         include: { feature: true },
@@ -80,7 +82,9 @@ export async function deletePlan(id: string) {
 // ─── FEATURE CRUD ────────────────────────────────────────────────────────────
 
 export async function getFeatures() {
+  await requireAdmin();
   return prisma.feature.findMany({
+    take: 1000,
     orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
     include: { _count: { select: { planFeatures: true } } },
   });
@@ -144,8 +148,10 @@ export async function updatePlanFeature(
 // ─── SUBSCRIPTION MANAGEMENT ─────────────────────────────────────────────────
 
 export async function getSubscriptions() {
+  await requireAdmin();
   return prisma.subscription.findMany({
     orderBy: { createdAt: "desc" },
+    take: 500,
     include: {
       user: {
         select: {
@@ -160,10 +166,12 @@ export async function getSubscriptions() {
 }
 
 export async function getUnsubscribedConsultants() {
+  await requireAdmin();
   // Consultants with no active subscription (they're implicitly on free)
   const consultantsWithSub = await prisma.subscription.findMany({
     where: { status: "active", user: { role: "CONSULTANT" } },
     select: { userId: true },
+    take: 5000,
   });
   const subscribedIds = consultantsWithSub.map((s) => s.userId);
 
@@ -225,8 +233,10 @@ export async function cancelSubscription(userId: string) {
 // ─── STATS ───────────────────────────────────────────────────────────────────
 
 export async function getPlanStats() {
+  await requireAdmin();
   const plans = await prisma.plan.findMany({
     orderBy: { sortOrder: "asc" },
+    take: 100,
     include: {
       _count: { select: { subscriptions: { where: { status: "active" } } } },
     },

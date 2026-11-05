@@ -7,7 +7,7 @@ import {
 import {
   Users, DollarSign, CalendarCheck, TrendingUp, TrendingDown,
   Activity, AlertTriangle, FileText, Globe, Star, ChevronRight,
-  ShieldCheck, ShieldAlert
+  ShieldCheck,
 } from "lucide-react";
 import type { PlatformAnalytics } from "@/lib/analytics";
 import Link from "next/link";
@@ -46,25 +46,23 @@ export default function AdminAnalyticsClient({ platform, consultantRows, days }:
     <div className="p-8 max-w-7xl mx-auto space-y-8">
 
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 text-red-400 rounded-full text-[10px] font-bold uppercase tracking-widest mb-3">
-            <ShieldAlert className="w-3.5 h-3.5" /> Admin Analytics
-          </div>
-          <h1 className="text-4xl font-serif font-black text-white">Platform Intelligence</h1>
-          <p className="text-gray-400 mt-2">Full-access analytics — visible to Superadmin only</p>
+          <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-teal">Overview</p>
+          <h1 className="text-2xl font-black tracking-tight text-navy md:text-3xl">Analytics</h1>
+          <p className="mt-1 text-sm text-gray-600">Bookings, revenue, demand and consultant performance for the selected period.</p>
         </div>
 
         {/* Period Selector */}
-        <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl p-1">
+        <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl p-1">
           {PERIODS.map((p) => (
             <a
               key={p.value}
               href={`?period=${p.value}`}
               className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
                 period === p.value
-                  ? "bg-white/10 text-white"
-                  : "text-gray-400 hover:text-white"
+                  ? "bg-navy text-white"
+                  : "text-gray-500 hover:text-navy"
               }`}
             >
               {p.label}

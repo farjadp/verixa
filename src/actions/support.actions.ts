@@ -1,55 +1,52 @@
 "use server";
 
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { logEvent } from "@/lib/logger";
-import { requireAuth, requireAdmin } from "@/lib/permissions";
-import { z } from "zod";
+import { requireAdmin, requireAuth } from "@/lib/permissions";
 
-// Every function derives identity from the session. Caller-supplied userId /
-// senderId / adminId / isAdmin are never trusted.
+// Every export here is a callable server action, so identity always comes
+// from the session. Caller-supplied ids (userId / senderId / adminId /
+// isAdmin) are kept in the signatures for compatibility but are ignored.
 
 const TICKET_STATUSES = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"] as const;
 
 const createTicketSchema = z.object({
   subject: z.string().trim().min(1).max(200),
-  category: z.string().trim().min(1).max(100),
-  priority: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]).default("NORMAL"),
-  message: z.string().trim().min(1).max(10000),
+  category: z.string().trim().min(1).max(50),
+  priority: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]).catch("NORMAL"),
+  message: z.string().trim().min(1).max(10_000),
 });
 
 const replySchema = z.object({
-  ticketId: z.string().min(1),
-  content: z.string().trim().min(1).max(10000),
+  ticketId: z.string().min(1).max(64),
+  content: z.string().trim().min(1).max(10_000),
   isInternal: z.boolean().optional(),
 });
 
-export async function createTicket(input: {
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Unexpected error";
+}
+
+export async function createTicket(data: {
+  userId?: string;
   subject: string;
   category: string;
-  priority?: string;
+  priority: string;
   message: string;
 }) {
   try {
     const { userId, role } = await requireAuth();
-    const parsed = createTicketSchema.safeParse(input);
-    if (!parsed.success) {
-      return { success: false, error: parsed.error.issues[0]?.message || "Invalid ticket data" };
-    }
-    const data = parsed.data;
-
+    const input = createTicketSchema.parse(data);
     const ticket = await prisma.ticket.create({
       data: {
         userId,
-        subject: data.subject,
-        category: data.category,
-        priority: data.priority,
+        subject: input.subject,
+        category: input.category,
+        priority: input.priority,
         status: "OPEN",
         messages: {
-          create: {
-            senderId: userId,
-            content: data.message,
-            isInternal: false,
-          },
+          create: { senderId: userId, content: input.message, isInternal: false },
         },
       },
     });
@@ -62,47 +59,38 @@ export async function createTicket(input: {
     });
 
     return { success: true, ticketId: ticket.id };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to create ticket:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: errorMessage(error) };
   }
 }
 
-export async function replyToTicket(input: {
+export async function replyToTicket(data: {
   ticketId: string;
+  senderId?: string;
   content: string;
   isInternal?: boolean;
 }) {
   try {
     const { userId, role } = await requireAuth();
-    const parsed = replySchema.safeParse(input);
-    if (!parsed.success) {
-      return { success: false, error: parsed.error.issues[0]?.message || "Invalid reply" };
-    }
-    const data = parsed.data;
+    const input = replySchema.parse(data);
     const isAdmin = role === "ADMIN";
 
     const ticket = await prisma.ticket.findUnique({
-      where: { id: data.ticketId },
-      select: { id: true, userId: true, status: true },
+      where: { id: input.ticketId },
+      select: { userId: true },
     });
-    if (!ticket) return { success: false, error: "Ticket not found" };
-    if (!isAdmin && ticket.userId !== userId) {
-      return { success: false, error: "Forbidden" };
-    }
+    if (!ticket) return { success: false, error: "Ticket not found." };
+    if (!isAdmin && ticket.userId !== userId) return { success: false, error: "Forbidden." };
 
+    const isInternal = isAdmin && input.isInternal === true;
     const message = await prisma.ticketMessage.create({
-      data: {
-        ticketId: ticket.id,
-        senderId: userId,
-        content: data.content,
-        // Only admins can leave internal notes.
-        isInternal: isAdmin ? Boolean(data.isInternal) : false,
-      },
+      data: { ticketId: input.ticketId, senderId: userId, content: input.content, isInternal },
     });
 
+    // An admin reply moves the ticket to IN_PROGRESS; a user reply reopens it.
     await prisma.ticket.update({
-      where: { id: ticket.id },
+      where: { id: input.ticketId },
       data: { status: isAdmin ? "IN_PROGRESS" : "OPEN", updatedAt: new Date() },
     });
 
@@ -110,51 +98,50 @@ export async function replyToTicket(input: {
       userId,
       role,
       action: "TICKET_REPLY",
-      details: { ticketId: ticket.id, isInternal: isAdmin && Boolean(data.isInternal) },
+      details: { ticketId: input.ticketId, isInternal },
     });
 
     return { success: true, messageId: message.id };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to reply to ticket:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: errorMessage(error) };
   }
 }
 
-export async function updateTicketStatus(ticketId: string, status: string) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function updateTicketStatus(ticketId: string, status: string, _adminId?: string) {
   try {
     const { userId } = await requireAdmin();
-    if (!(TICKET_STATUSES as readonly string[]).includes(status)) {
-      return { success: false, error: "Invalid status" };
-    }
+    const input = z
+      .object({ ticketId: z.string().min(1).max(64), status: z.enum(TICKET_STATUSES) })
+      .parse({ ticketId, status });
 
-    await prisma.ticket.update({
-      where: { id: ticketId },
-      data: { status },
-    });
+    await prisma.ticket.update({ where: { id: input.ticketId }, data: { status: input.status } });
 
     await logEvent({
       userId,
       role: "ADMIN",
       action: "TICKET_STATUS_UPDATED",
-      details: { ticketId, status },
+      details: { ticketId: input.ticketId, status: input.status },
     });
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to update ticket status:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: errorMessage(error) };
   }
 }
 
-export async function getTicketsForUser() {
-  const { userId } = await requireAuth();
-  return await prisma.ticket.findMany({
+export async function getTicketsForUser(userId: string) {
+  const ctx = await requireAuth();
+  if (ctx.role !== "ADMIN" && ctx.userId !== userId) throw new Error("Forbidden.");
+  return prisma.ticket.findMany({
     where: { userId },
     orderBy: { updatedAt: "desc" },
     take: 100,
     include: {
       messages: {
-        where: { isInternal: false }, // Users never see internal notes
+        where: { isInternal: false }, // Users shouldn't see internal notes
         orderBy: { createdAt: "desc" },
         take: 1,
       },
@@ -164,43 +151,36 @@ export async function getTicketsForUser() {
 
 export async function getAllTicketsForAdmin(statusFilter?: string) {
   await requireAdmin();
-  const whereClause = statusFilter && statusFilter !== "ALL" ? { status: statusFilter } : {};
-
-  return await prisma.ticket.findMany({
-    where: whereClause,
+  const parsed = z.enum(TICKET_STATUSES).safeParse(statusFilter);
+  return prisma.ticket.findMany({
+    where: parsed.success ? { status: parsed.data } : {},
     orderBy: { updatedAt: "desc" },
-    take: 500,
+    take: 200,
     include: {
       user: { select: { name: true, email: true, role: true } },
-      messages: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-      },
+      messages: { orderBy: { createdAt: "desc" }, take: 1 },
     },
   });
 }
 
-export async function getTicketDetails(ticketId: string) {
-  const { userId, role } = await requireAuth();
-  const isAdmin = role === "ADMIN";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function getTicketDetails(ticketId: string, _isAdmin: boolean = false) {
+  const ctx = await requireAuth();
+  const id = z.string().min(1).max(64).parse(ticketId);
+  const isAdmin = ctx.role === "ADMIN";
 
   const ticket = await prisma.ticket.findUnique({
-    where: { id: ticketId },
+    where: { id },
     include: {
       user: { select: { name: true, email: true, role: true } },
       messages: {
         where: isAdmin ? undefined : { isInternal: false },
         orderBy: { createdAt: "asc" },
-        include: {
-          sender: { select: { name: true, email: true, role: true } },
-        },
+        take: 500,
+        include: { sender: { select: { name: true, email: true, role: true } } },
       },
     },
   });
-
-  if (!ticket) return null;
-  if (!isAdmin && ticket.userId !== userId) {
-    throw new Error("Forbidden: You do not have access to this ticket.");
-  }
+  if (ticket && !isAdmin && ticket.userId !== ctx.userId) return null;
   return ticket;
 }

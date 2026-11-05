@@ -11,32 +11,25 @@
 // Security Notes: Enforce ADMIN authorization server-side before reads/writes and before rendering sensitive payloads.
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
-import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
 import AnnouncementComposer from "./AnnouncementComposer";
+import { requireAdminPage } from "../_lib/guard";
+import { AdminPageHeader, AdminShell } from "../_components/AdminUI";
 
 export const metadata = {
   title: "Admin Announcements | Verixa",
 };
 
 export default async function AdminAnnouncementsPage() {
-  const session = await getServerSession(authOptions);
-
-  if (!session || (session.user as any)?.role !== "ADMIN") {
-    redirect("/login");
-  }
+  await requireAdminPage();
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex justify-between items-center bg-[#0F2A44] p-6 rounded-3xl text-white shadow-xl">
-        <div>
-          <h1 className="text-3xl font-black font-serif text-[#2FA4A9]">Announcement Broadcast</h1>
-          <p className="text-gray-300 text-sm mt-1">Send priority in-app announcements directly to consultant dashboards.</p>
-        </div>
-      </div>
-
+    <AdminShell>
+      <AdminPageHeader
+        section="People"
+        title="Announcements"
+        description="Post an in-app announcement to consultant dashboards. Sending also emails the selected audience."
+      />
       <AnnouncementComposer />
-    </div>
+    </AdminShell>
   );
 }

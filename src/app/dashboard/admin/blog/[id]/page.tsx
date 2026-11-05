@@ -11,19 +11,17 @@
 // Security Notes: Enforce ADMIN authorization server-side before reads/writes and before rendering sensitive payloads.
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import BlogEditorClient from "./BlogEditorClient";
+import { requireAdminPage } from "../../_lib/guard";
 
 export default async function AdminBlogEditorPage({
   params
 }: {
   params: Promise<{ id: string }>
 }) {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") redirect("/login");
+  await requireAdminPage();
 
   const resolvedParams = await params;
   const isNew = resolvedParams.id === "new";

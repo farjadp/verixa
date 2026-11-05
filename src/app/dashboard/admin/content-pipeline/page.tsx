@@ -5,20 +5,15 @@
 //      and manual runs.
 // Security: ADMIN only. Data is loaded through an action that calls requireAdmin().
 // ============================================================================
-import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/permissions";
 import { getContentPipelineDashboard } from "@/actions/content-pipeline.actions";
 import ContentPipelineClient from "./ContentPipelineClient";
+import { requireAdminPage } from "../_lib/guard";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // manual runs execute inside a server action
 
 export default async function ContentPipelinePage() {
-  try {
-    await requireAdmin();
-  } catch {
-    redirect("/login");
-  }
+  await requireAdminPage();
   const data = await getContentPipelineDashboard();
 
   return (

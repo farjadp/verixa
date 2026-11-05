@@ -11,19 +11,17 @@
 // Security Notes: Enforce ADMIN authorization server-side before reads/writes and before rendering sensitive payloads.
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import { getAllTicketsForAdmin } from "@/actions/support.actions";
 import AdminSupportClient from "./AdminSupportClient";
+import { requireAdminPage } from "../_lib/guard";
+import { AdminPageHeader, AdminShell } from "../_components/AdminUI";
 
 export default async function AdminDisputesPage({
   searchParams
 }: {
   searchParams: Promise<{ filter?: string }>
 }) {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") redirect("/login");
+  await requireAdminPage();
 
   const sp = await searchParams;
   const filter = sp.filter || "ALL";
@@ -32,17 +30,15 @@ export default async function AdminDisputesPage({
   const tickets = await getAllTicketsForAdmin(filter);
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto h-[calc(100vh-2rem)] flex flex-col">
-      <div className="mb-6 shrink-0 flex justify-between items-end">
-        <div>
-          <h1 className="text-3xl font-serif font-black text-white tracking-tight">Support & Disputes</h1>
-          <p className="text-gray-400 mt-1 font-light text-sm">Global inbox for all client and consultant tickets.</p>
-        </div>
-      </div>
-
-      <div className="flex-1 min-h-0 bg-[#0F2A44] border border-gray-800 rounded-xl overflow-hidden shadow-2xl flex relative">
+    <AdminShell wide>
+      <AdminPageHeader
+        section="People"
+        title="Support tickets"
+        description="One inbox for client and consultant tickets, including booking disputes. Internal notes are never shown to the user."
+      />
+      <div className="relative flex h-[calc(100vh-14rem)] min-h-[500px] overflow-hidden rounded-2xl border border-gray-200 bg-navy shadow-sm">
         <AdminSupportClient initialTickets={tickets} />
       </div>
-    </div>
+    </AdminShell>
   );
 }

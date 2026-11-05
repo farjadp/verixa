@@ -78,10 +78,10 @@ export default function BookingFlow({ profile, sessionUser }: { profile: any; se
     
     try {
       // Generate the Hold PaymentIntent based strictly on the selected Consultation Type price
-      const res = await createPaymentIntentAction(selectedType.priceCents, {
+      const res = await createPaymentIntentAction({
         licenseNumber: profile.licenseNumber,
+        consultationTypeId: selectedType.id,
         clientEmail: formData.email,
-        consultationTypeId: selectedType.id
       });
       
       if (res.success && res.clientSecret) {

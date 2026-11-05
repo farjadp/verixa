@@ -1,75 +1,51 @@
 "use server";
 
 import { stripe } from "@/lib/stripe";
+import { prisma } from "@/lib/prisma";
 
-export async function createPaymentIntentAction(amountCents: number, metadata: Record<string, string>) {
+// The ONLY public payment action. Capture / cancel / refund / verify live in
+// src/lib/stripe-payments.ts so they cannot be invoked by anonymous callers.
+
+// The amount is looked up server-side from the consultant's active consultation
+// type. The client only tells us WHICH service it wants, never the price.
+export async function createPaymentIntentAction(input: {
+  licenseNumber: string;
+  consultationTypeId: string;
+  clientEmail?: string;
+}) {
   try {
-    if (!amountCents || amountCents <= 0) {
-      throw new Error("Invalid amount");
+    const licenseNumber = String(input?.licenseNumber || "").toUpperCase().trim();
+    const consultationTypeId = String(input?.consultationTypeId || "").trim();
+    if (!licenseNumber || !consultationTypeId) {
+      throw new Error("Missing consultation details");
     }
 
-    // Create a PaymentIntent with capture_method: 'manual' (Escrow hold)
+    const type = await prisma.consultationType.findFirst({
+      where: { id: consultationTypeId, isActive: true, profile: { licenseNumber } },
+      select: { id: true, priceCents: true },
+    });
+    if (!type) throw new Error("Invalid consultation type");
+    if (type.priceCents <= 0) throw new Error("This consultation does not require payment");
+
+    // Manual capture = escrow hold; captured only when the consultant confirms.
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountCents,
+      amount: type.priceCents,
       currency: "cad",
       capture_method: "manual",
-      metadata, 
+      metadata: {
+        licenseNumber,
+        consultationTypeId: type.id,
+        clientEmail: (input.clientEmail || "").slice(0, 200),
+      },
     });
 
-    return { 
-      success: true, 
-      clientSecret: paymentIntent.client_secret, 
-      paymentIntentId: paymentIntent.id 
+    return {
+      success: true,
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
     };
-  } catch (e: any) {
+  } catch (e) {
     console.error("Stripe create error:", e);
-    return { success: false, error: e.message };
-  }
-}
-
-export async function capturePaymentAction(paymentIntentId: string) {
-  try {
-    const paymentIntent = await stripe.paymentIntents.capture(paymentIntentId);
-    return { success: true, status: paymentIntent.status };
-  } catch (e: any) {
-    console.error("Stripe capture error:", e);
-    return { success: false, error: e.message };
-  }
-}
-
-export async function cancelPaymentAction(paymentIntentId: string) {
-  try {
-    const paymentIntent = await stripe.paymentIntents.cancel(paymentIntentId);
-    return { success: true, status: paymentIntent.status };
-  } catch (e: any) {
-    console.error("Stripe cancel error:", e);
-    return { success: false, error: e.message };
-  }
-}
-
-// Issue 10 fix: Refund a captured payment when a booking is cancelled post-capture.
-// Called when booking.paymentStatus === "CAPTURED" and the booking is being cancelled.
-export async function refundPaymentAction(
-  paymentIntentId: string,
-  amountCents?: number // optional: partial refund; omit for full refund
-) {
-  try {
-    // Retrieve the PI to find the charge ID
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-    const chargeId = paymentIntent.latest_charge as string | undefined;
-
-    if (!chargeId) {
-      return { success: false, error: "No charge found on PaymentIntent — cannot refund." };
-    }
-
-    const refund = await stripe.refunds.create({
-      charge: chargeId,
-      ...(amountCents ? { amount: amountCents } : {}), // omit for full refund
-    });
-
-    return { success: true, refundId: refund.id, status: refund.status };
-  } catch (e: any) {
-    console.error("Stripe refund error:", e);
-    return { success: false, error: e.message };
+    return { success: false, error: e instanceof Error ? e.message : "Payment setup failed" };
   }
 }

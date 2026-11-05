@@ -1,25 +1,19 @@
 // ============================================================================
-// Hardware Source: src/app/api/linkedin/auth/route.ts
 // Route: /api/linkedin/auth
-// Version: 1.0.0 — 2026-04-08
 // Why: OAuth initiation route for connecting LinkedIn publishing credentials.
-// Domain: OAuth Integrations
-// Env / Identity: Next.js Route Handler
-// Owner: Verixa Web
-// Notes: OAuth flows must validate state, handle missing credentials safely, and avoid persisting invalid tokens.
-// Critical Path: Admin social publishing credential bootstrap.
-// Primary Dependencies: OAuth client config, session authorization, logSystemEvent, settings persistence.
-// Risk Notes: Do not persist partial authorizations or stale tokens.
+// Security: admin-only; issues a random `state` bound to an httpOnly cookie
+//           that the callback verifies (CSRF / token-substitution protection).
 // ============================================================================
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { logSystemEvent } from "@/lib/logger";
+import { issueOAuthState, oauthRedirectBase } from "@/lib/oauth-state";
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || (session.user as any).role !== "ADMIN") {
+    if (!session || session.user.role !== "ADMIN") {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
@@ -30,16 +24,21 @@ export async function GET(req: Request) {
       return new NextResponse(err, { status: 500 });
     }
 
-    const PROD_URL = process.env.NODE_ENV === "production" ? "https://www.getverixa.com" : "http://localhost:3000";
-    const redirectUri = `${PROD_URL}/api/linkedin/auth/callback`;
-    
-    // Using legacy scopes since r_liteprofile was reported to work previously
+    const redirectUri = `${oauthRedirectBase()}/api/linkedin/auth/callback`;
     const scope = "openid profile email w_member_social";
+    const state = await issueOAuthState("linkedin");
 
-    const linkedinUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`;
+    const params = new URLSearchParams({
+      response_type: "code",
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope,
+      state,
+    });
+    const linkedinUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
 
     await logSystemEvent("LINKEDIN_AUTH_INIT", { redirectUri, scope, clientIdPrefix: clientId.substring(0, 4) });
-    
+
     return NextResponse.redirect(linkedinUrl);
   } catch (error: any) {
     console.error("[LinkedIn Init Error]:", error);

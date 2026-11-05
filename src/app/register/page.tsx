@@ -39,10 +39,15 @@ export default function RegisterPage() {
     setError("");
 
     try {
-      await registerUser({
+      const result = await registerUser({
         ...formData,
         role,
       });
+      if (!result.success) {
+        setError(result.error);
+        setIsLoading(false);
+        return;
+      }
 
       // Auto login
       const res = await signIn("credentials", {

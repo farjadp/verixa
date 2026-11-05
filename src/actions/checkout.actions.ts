@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
+import { createPlanCheckoutSession } from "@/lib/stripe-checkout";
 
 export async function createUpgradeCheckoutSession(planId: string, isAnnual: boolean) {
   try {
@@ -28,50 +29,10 @@ export async function createUpgradeCheckoutSession(planId: string, isAnnual: boo
       throw new Error("Plan not found");
     }
 
-    if (plan.priceCents === 0) {
-      throw new Error("Cannot create checkout for a free plan.");
-    }
-
-    const amount = isAnnual ? (plan.yearlyPriceCents ?? plan.priceCents * 12) : plan.priceCents;
-    const interval = isAnnual ? "year" : "month";
-
-    const APP_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
-
-    const checkoutSession = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      payment_method_types: ["card"],
-      customer_email: user.email!,
-      line_items: [
-        {
-          price_data: {
-            currency: "cad",
-            product_data: {
-              name: `Verixa ${plan.name} Plan`,
-              description: `${interval === "year" ? "Annual" : "Monthly"} subscription for verified consultants.`,
-            },
-            unit_amount: amount,
-            recurring: {
-              interval: interval,
-            },
-          },
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        userId: user.id,
-        planId: plan.id,
-        planSlug: plan.slug,
-      },
-      // Subscription metadata specifically for webhooks to read easily
-      subscription_data: {
-        metadata: {
-          userId: user.id,
-          planId: plan.id,
-          planSlug: plan.slug,
-        }
-      },
-      success_url: `${APP_URL}/dashboard/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${APP_URL}/dashboard/billing/cancel`,
+    const checkoutSession = await createPlanCheckoutSession({
+      user: { id: user.id, email: user.email! },
+      plan,
+      isAnnual,
     });
 
     return { success: true, url: checkoutSession.url };

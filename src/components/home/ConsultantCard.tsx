@@ -20,7 +20,7 @@ interface ConsultantCardProps {
    * "portrait" (default) is the homepage card. "row" is the compact card used in
    * search results and sidebars, where most profiles have no photo.
    */
-  variant?: "portrait" | "row";
+  variant?: "portrait" | "row" | "mini";
   /** Licence standing from the CICC register. Shown only on the row variant. */
   standing?: LicenceStanding;
 }
@@ -112,8 +112,46 @@ function RowCard({ consultant, standing }: { consultant: HomeConsultant; standin
   );
 }
 
+/** One-line card for narrow sidebars (article pages). */
+function MiniCard({ consultant }: { consultant: HomeConsultant }) {
+  const location = [consultant.city, consultant.province].filter(Boolean).join(", ");
+  return (
+    <Link
+      href={`/consultant/${consultant.licenseNumber}`}
+      className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 transition-colors hover:border-navy"
+    >
+      <span className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-mist">
+        {consultant.avatarImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={consultant.avatarImage} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <span
+            className="flex h-full w-full items-center justify-center bg-gradient-to-br from-navy to-teal text-sm font-bold text-white"
+            aria-hidden="true"
+          >
+            {initials(consultant.fullName)}
+          </span>
+        )}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="flex items-center gap-1.5">
+          <span className="truncate text-sm font-bold text-navy group-hover:text-teal">{consultant.fullName}</span>
+          {consultant.claimed && (
+            <ShieldCheck className="h-4 w-4 shrink-0 text-success" aria-label="Verified on Verixa" />
+          )}
+        </span>
+        <span className="truncate text-xs text-gray-500">
+          RCIC · {consultant.licenseNumber}
+          {location ? ` · ${location}` : ""}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 export default function ConsultantCard({ consultant, variant = "portrait", standing }: ConsultantCardProps) {
   if (variant === "row") return <RowCard consultant={consultant} standing={standing} />;
+  if (variant === "mini") return <MiniCard consultant={consultant} />;
 
   const location = [consultant.city, consultant.province].filter(Boolean).join(", ");
   return (

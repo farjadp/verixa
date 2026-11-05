@@ -4,11 +4,12 @@ import { Printer } from "lucide-react";
 
 export default function PrintButton() {
   return (
-    <button 
-      onClick={() => window.print()} 
-      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold text-xs transition-colors shadow-sm border border-gray-100"
+    <button
+      type="button"
+      onClick={() => window.print()}
+      className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-xs font-bold text-navy transition-colors hover:border-navy"
     >
-      <Printer className="w-4 h-4" /> Print PDF
+      <Printer className="h-4 w-4" aria-hidden="true" /> Print PDF
     </button>
   );
 }

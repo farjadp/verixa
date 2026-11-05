@@ -282,6 +282,13 @@ export async function completeClaim(
       });
       if (linked.count === 0) throw new Error("CLAIM_RACE");
 
+      if (!profile.userId) {
+        // An old lazy-create path seeded "$150 / $300" consultation types and
+        // Mon–Fri 9–5 hours on unclaimed profiles. They aren't the consultant's,
+        // so a fresh claim starts with nothing live until they set their own.
+        await tx.consultationType.updateMany({ where: { consultantProfileId: profile.id }, data: { isActive: false } });
+        await tx.weeklyAvailability.updateMany({ where: { consultantProfileId: profile.id }, data: { isActive: false } });
+      }
       if (decision.action === "override") {
         await tx.user.update({ where: { id: decision.previousUserId }, data: { role: "USER" } });
       }

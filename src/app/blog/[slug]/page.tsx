@@ -22,6 +22,20 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import PrintButton from "@/components/blog/PrintButton";
 import TrackPageView from "@/components/TrackPageView";
+import { buildArticleJsonLd, buildFaqJsonLd, getSiteUrl, serializeJsonLd } from "@/lib/content-pipeline/seo";
+
+const RTL_SCRIPT = /[؀-ۿ]/;
+
+/** Citation URLs saved in a pipeline post's stored JSON-LD, if any. */
+function storedCitations(jsonLd: string | null): string[] {
+  if (!jsonLd) return [];
+  try {
+    const parsed = JSON.parse(jsonLd) as { citation?: { url?: unknown }[] };
+    return (parsed.citation ?? []).map((c) => c.url).filter((u): u is string => typeof u === "string");
+  } catch {
+    return [];
+  }
+}
 
 export async function generateStaticParams() {
   try {
@@ -42,17 +56,28 @@ export async function generateMetadata({
   const post = await getBlogPostBySlug(resolvedParams.slug);
   
   if (!post || !post.isPublished) return { title: 'Article Not Found | Verixa' };
-  
+
+  const canonical = post.canonicalUrl || `${getSiteUrl()}/blog/${post.slug}`;
+  // Pipeline posts store a brand-free seoTitle; the root layout template appends " | Verixa".
+  const title = post.source === "PIPELINE" && post.seoTitle ? post.seoTitle : post.seoTitle || `${post.title} | Verixa Insights`;
+
   return {
-    title: post.seoTitle || `${post.title} | Verixa Insights`,
+    title,
     description: post.seoDesc || post.summary,
+    keywords: post.targetKeyword ? [post.targetKeyword] : undefined,
+    alternates: { canonical },
     openGraph: {
       title: post.seoTitle || post.title,
       description: post.seoDesc || post.summary,
-      images: post.coverImage ? [post.coverImage] : ['/Brand/Vertixa3.png'],
+      url: canonical,
+      images: post.coverImage && !post.coverImage.startsWith("data:")
+        ? [{ url: post.coverImage, alt: post.imageAlt || post.title }]
+        : ['/Brand/Vertixa3.png'],
       type: "article",
-      publishedTime: post.publishedAt?.toISOString() || post.createdAt.toISOString()
-    }
+      publishedTime: post.publishedAt?.toISOString() || post.createdAt.toISOString(),
+      modifiedTime: post.updatedAt.toISOString(),
+    },
+    twitter: { card: "summary_large_image" },
   };
 }
 
@@ -161,6 +186,27 @@ export default async function BlogPostPage({
   const wordCount = post.content.split(/\s+/).length;
   const readingTime = Math.ceil(wordCount / 200) || 1;
 
+  // Structured data for every post (Article + FAQ). Built from current fields so
+  // datePublished reflects the real publish time, not draft creation.
+  const isRtl = RTL_SCRIPT.test(post.title);
+  const articleJsonLd = serializeJsonLd(
+    buildArticleJsonLd({
+      title: post.title,
+      description: post.seoDesc || post.summary,
+      slug: post.slug,
+      image: post.coverImage,
+      imageAlt: post.imageAlt,
+      datePublished: post.publishedAt || post.createdAt,
+      dateModified: post.updatedAt,
+      keywords: post.targetKeyword ? [post.targetKeyword] : undefined,
+      inLanguage: isRtl ? "fa" : "en",
+      citations: storedCitations(post.jsonLd),
+      section: post.category.replace(/_/g, " "),
+    })
+  );
+  const faqLd = buildFaqJsonLd(faqs);
+  const faqJsonLd = faqLd ? serializeJsonLd(faqLd) : null;
+
   // AST Text Extractor for IDs
   const extractText = (children: any): string => {
     if (typeof children === 'string') return children;
@@ -191,6 +237,9 @@ export default async function BlogPostPage({
   return (
     <div className="min-h-screen bg-[#F5F7FA] font-sans flex flex-col">
       <TrackPageView eventName="article_view" articleId={post.id} />
+      {/* JSON-LD is serialized with "<" escaped, so post content can't break out of the script tag. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: articleJsonLd }} />
+      {faqJsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd }} />}
       <Header />
       
       <main className="flex-1">
@@ -229,7 +278,7 @@ export default async function BlogPostPage({
         {post.coverImage && (
           <section className="max-w-5xl mx-auto px-6 -mt-12 relative z-20">
             <div className="rounded-[32px] overflow-hidden shadow-2xl shadow-black/20 border-4 border-white aspect-[21/9] bg-gray-100">
-              <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover" />
+              <img src={post.coverImage} alt={post.imageAlt || post.title} className="w-full h-full object-cover" />
             </div>
           </section>
         )}
@@ -239,7 +288,7 @@ export default async function BlogPostPage({
           <div className="flex flex-col lg:flex-row gap-16">
              
              {/* MAIN ARTICLE BODY */}
-             <div className="flex-1 min-w-0">
+             <div className="flex-1 min-w-0" dir={isRtl ? "rtl" : undefined} lang={isRtl ? "fa" : undefined}>
                {/* INLINE CTA BEFORE CONTENT */}
                <div className="mb-12">
                   <div className="p-5 bg-white border-l-4 border-[#2FA4A9] rounded-r-2xl shadow-sm flex items-start gap-4">

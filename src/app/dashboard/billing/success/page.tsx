@@ -10,17 +10,23 @@
 // ============================================================================
 import { CheckCircle2, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { getServerSession } from "next-auth";
 import { stripe } from "@/lib/stripe";
+import { authOptions } from "@/lib/authOptions";
 
 export const metadata = { title: "Upgrade Successful" };
 
-export default async function UpgradeSuccessPage({ searchParams }: { searchParams: { session_id?: string } }) {
+export default async function UpgradeSuccessPage({ searchParams }: { searchParams: Promise<{ session_id?: string }> }) {
+  // Next 16: searchParams is a Promise. Reading it synchronously meant every
+  // successful payment showed "Processing Upgrade…".
+  const { session_id } = await searchParams;
+  const viewer = await getServerSession(authOptions);
   let isSuccess = false;
-  
-  if (searchParams.session_id) {
+
+  if (session_id && viewer?.user?.id) {
     try {
-      const session = await stripe.checkout.sessions.retrieve(searchParams.session_id);
-      if (session.payment_status === "paid") {
+      const session = await stripe.checkout.sessions.retrieve(session_id);
+      if (session.payment_status === "paid" && session.metadata?.userId === viewer.user.id) {
         isSuccess = true;
       }
     } catch (e) {

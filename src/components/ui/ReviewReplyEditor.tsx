@@ -26,7 +26,11 @@ export default function ReviewReplyEditor({
     setError(null);
 
     try {
-      await replyToReview(reviewId, replyText);
+      const res = await replyToReview(reviewId, replyText);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
       setIsEditing(false);
     } catch (err: any) {
       setError(err.message || "Failed to submit reply");

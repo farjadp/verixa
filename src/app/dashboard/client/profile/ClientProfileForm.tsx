@@ -27,10 +27,14 @@ export default function ClientProfileForm({ initialData }: { initialData: any })
     setError("");
 
     try {
-      await updateClientProfile({
+      const res = await updateClientProfile({
         ...formData,
         age: formData.age ? Number(formData.age) : undefined,
       });
+      if (!res.success) {
+        setError(res.error);
+        return;
+      }
       setSuccess(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e: any) {

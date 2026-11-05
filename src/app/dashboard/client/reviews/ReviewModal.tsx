@@ -19,15 +19,15 @@ export default function ReviewModal({ booking, onClose }: { booking: any; onClos
 
     setIsSubmitting(true);
     try {
-      await submitReview({
-        bookingId: booking.id,
-        consultantProfileId: booking.consultantProfileId,
-        rating,
-        comment,
-      });
+      const res = await submitReview({ bookingId: booking.id, rating, comment });
+      if (!res.ok) {
+        alert(res.error);
+        setIsSubmitting(false);
+        return;
+      }
       onClose();
-    } catch (e: any) {
-      alert(e.message || "Something went wrong.");
+    } catch {
+      alert("Something went wrong. Please try again.");
       setIsSubmitting(false);
     }
   };

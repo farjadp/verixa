@@ -29,20 +29,25 @@ export default async function LeadsInboxPage() {
   const bookings = await prisma.booking.findMany({
     where: { consultantProfileId: profile.id },
     orderBy: { scheduledStart: "asc" },
-    include: { type: true }
+    include: { type: true, events: { where: { action: "CREATED" }, select: { actorType: true }, take: 1 } },
+    take: 300,
   });
 
   const pendingCount = bookings.filter(b => b.status === "PENDING").length;
 
-  const userEmails = [...new Set(bookings.map(b => b.userEmail))];
-  const usersWithProfiles = await prisma.user.findMany({
-    where: { email: { in: userEmails } },
-    include: { clientProfile: true }
-  });
+  // Only bookings made while signed in prove the email belongs to the booker;
+  // a guest can type anyone's address. And only clients who opted in to sharing.
+  const verifiedEmails = [...new Set(bookings.filter(b => b.events[0]?.actorType === "USER").map(b => b.userEmail.toLowerCase()))];
+  const usersWithProfiles = verifiedEmails.length
+    ? await prisma.user.findMany({
+        where: { email: { in: verifiedEmails }, clientProfile: { shareWithConsultant: true } },
+        include: { clientProfile: true },
+      })
+    : [];
 
   const profileMap = usersWithProfiles.reduce((acc, user) => {
     if (user.email && user.clientProfile) {
-      acc[user.email] = user.clientProfile;
+      acc[user.email.toLowerCase()] = user.clientProfile;
     }
     return acc;
   }, {} as Record<string, any>);
@@ -94,7 +99,7 @@ export default async function LeadsInboxPage() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {bookings.map((booking) => {
-                  const clientProfile = profileMap[booking.userEmail];
+                  const clientProfile = booking.events[0]?.actorType === "USER" ? profileMap[booking.userEmail.toLowerCase()] : undefined;
                   const hasSharedProfile = clientProfile && clientProfile.shareWithConsultant;
 
                   return (

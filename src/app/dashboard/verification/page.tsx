@@ -1,86 +1,78 @@
 // ============================================================================
-// Hardware Source: src/app/dashboard/verification/page.tsx
 // Route: /dashboard/verification
-// Version: 1.0.0 — 2026-04-08
-// Why: Authenticated consultant/dashboard route for profile management, booking operations, and workspace workflows.
-// Domain: Authenticated Dashboard
-// Env / Identity: React Server Component
-// Owner: Verixa Web
-// Notes: Assumes authenticated session context; unauthorized users must be redirected before data access.
+// Why: Shows the consultant's real verification status and the one working
+//      way to raise it (re-run the claim with the CICC-register email/phone).
+//      The old page had an email box and an upload area wired to nothing.
 // ============================================================================
-import { CheckCircle2, FileText, Mail, ShieldAlert, ShieldCheck, UploadCloud } from "lucide-react";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { BadgeCheck, CheckCircle2, Circle, Mail, Phone, ShieldCheck } from "lucide-react";
+import { authOptions } from "@/lib/authOptions";
+import { prisma } from "@/lib/prisma";
+import { isRegistryActive } from "@/lib/booking-rules";
+import { describeVerification } from "@/lib/verification";
 
-export default function VerificationPage() {
+export default async function VerificationPage() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) redirect("/login?callbackUrl=/dashboard/verification");
+  if (session.user.role !== "CONSULTANT") redirect("/dashboard");
+
+  const profile = await prisma.consultantProfile.findUnique({
+    where: { userId: session.user.id },
+    select: { licenseNumber: true, status: true, verificationLevel: true, rawEmail: true, rawPhone: true },
+  });
+  if (!profile) redirect("/dashboard");
+
+  const trust = describeVerification(true, profile.verificationLevel);
+  const active = isRegistryActive(profile.status);
+  const steps = [
+    { icon: ShieldCheck, label: "Licence active on the CICC register", done: active, note: active ? `Licence ${profile.licenseNumber}` : `Register status: ${profile.status}` },
+    { icon: Mail, label: "Email matches the CICC register", done: trust.emailMatched, note: profile.rawEmail ? "Verify with the email listed on your register entry." : "The register has no email for you." },
+    { icon: Phone, label: "Phone matches the CICC register", done: trust.phoneMatched, note: profile.rawPhone ? "Verify with the phone number listed on your register entry." : "The register has no phone number for you." },
+  ];
+
   return (
-    <main className="p-8 max-w-4xl mx-auto space-y-8">
-      
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <main className="mx-auto max-w-3xl space-y-6 p-4 md:p-8">
+      <div>
+        <h1 className="text-2xl font-bold text-navy">Verification</h1>
+        <p className="mt-1 text-sm text-gray-600">What clients see about your identity on your public profile.</p>
+      </div>
+
+      <div className={`flex items-start gap-3 rounded-2xl border p-5 ${trust.tone === "pending" ? "border-warning/30 bg-warning/5" : "border-success/30 bg-success/5"}`}>
+        <BadgeCheck className={`mt-0.5 h-5 w-5 shrink-0 ${trust.tone === "pending" ? "text-warning" : "text-success"}`} aria-hidden="true" />
         <div>
-          <h1 className="text-2xl font-bold font-serif text-[#1A1F2B]">Identity Verification</h1>
-          <p className="text-gray-500 text-sm mt-1">Verify your identity to unlock the Verified Badge and build trust.</p>
-        </div>
-        <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 px-4 py-2 rounded-xl text-sm font-bold">
-          <ShieldAlert className="w-4 h-4" /> Unverified
+          <p className="font-bold text-ink">{trust.label}</p>
+          <p className="text-sm text-gray-600">{trust.detail}</p>
         </div>
       </div>
 
-      <div className="space-y-8 pb-16">
-        
-        {/* WHAT IS THE VERIFIED BADGE */}
-        <div className="bg-[#0F2A44] rounded-3xl p-8 text-white relative overflow-hidden shadow-xl shadow-black/10">
-          <div className="absolute -right-16 -top-16 opacity-5">
-            <ShieldCheck className="w-64 h-64" />
-          </div>
-          <div className="relative z-10">
-            <h2 className="text-xl font-bold font-serif mb-2 text-[#2FA4A9]">Why get verified?</h2>
-            <p className="text-gray-400 text-sm max-w-xl mb-6">Profiles with the 'Verified Badge' appear higher in search results, receive up to 3x more bookings, and instantly build trust with prospective clients.</p>
-            <ul className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm font-medium">
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#2FA4A9]" /> Higher Search Ranking</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#2FA4A9]" /> "Verified" Profile Badge</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#2FA4A9]" /> Enable Direct Booking</li>
-            </ul>
-          </div>
+      <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white">
+        {steps.map(({ icon: Icon, label, done, note }) => (
+          <li key={label} className="flex items-start gap-4 p-5">
+            <Icon className="mt-0.5 h-5 w-5 shrink-0 text-teal" aria-hidden="true" />
+            <div className="flex-1">
+              <p className="font-semibold text-ink">{label}</p>
+              <p className="text-sm text-gray-500">{note}</p>
+            </div>
+            {done ? <CheckCircle2 className="h-5 w-5 text-success" aria-label="Done" /> : <Circle className="h-5 w-5 text-gray-300" aria-label="Not done" />}
+          </li>
+        ))}
+      </ul>
+
+      {(!trust.emailMatched || !trust.phoneMatched) && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-600">
+          <p className="mb-3">
+            To add a match, run the claim again with the email or phone number on your CICC register entry. Your account, profile and bookings stay the same.
+          </p>
+          <Link href={`/claim/${profile.licenseNumber}`} className="inline-flex rounded-xl bg-navy px-5 py-2.5 text-sm font-bold text-white hover:bg-ink">
+            Verify with register details
+          </Link>
+          <p className="mt-3 text-xs text-gray-500">
+            Register details out of date? Update them with CICC first; Verixa reads the public register and can&apos;t change it.
+          </p>
         </div>
-
-        {/* VERIFICATION OPTIONS */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* OPTION 1: EMAIL */}
-          <div className="bg-white rounded-3xl border border-[#e5e7eb] p-6 shadow-sm flex flex-col">
-             <div className="w-12 h-12 rounded-xl bg-[#F5F7FA] text-[#2FA4A9] flex items-center justify-center mb-5">
-               <Mail className="w-6 h-6" />
-             </div>
-             <h3 className="text-lg font-bold text-[#1A1F2B] mb-2">Verify via Business Email</h3>
-             <p className="text-sm text-gray-500 mb-6 flex-1">Fastest method. We'll send a magic link to the email associated with your CICC registry profile or corporate domain.</p>
-             
-             <div className="space-y-3">
-               <input type="email" placeholder="name@yourpractice.com" className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3 rounded-xl text-[#1A1F2B] text-sm focus:border-[#2FA4A9]/50 focus:ring-4 focus:ring-[#2FA4A9]/10 outline-none transition-all" />
-               <button className="w-full bg-[#F5F7FA] text-[#1A1F2B] border border-[#e5e7eb] px-4 py-3 rounded-xl text-sm font-bold hover:bg-[#e5e7eb] transition-colors">
-                 Send Magic Link
-               </button>
-             </div>
-          </div>
-
-          {/* OPTION 2: UPLOAD */}
-          <div className="bg-white rounded-3xl border border-[#e5e7eb] p-6 shadow-sm flex flex-col">
-             <div className="w-12 h-12 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center mb-5 border border-gray-100">
-               <FileText className="w-6 h-6" />
-             </div>
-             <h3 className="text-lg font-bold text-[#1A1F2B] mb-2">Upload Identity Documents</h3>
-             <p className="text-sm text-gray-500 mb-6 flex-1">Use this if you use a personal email (like Gmail or Yahoo). Requires manual review by our team within 2-3 business days.</p>
-             
-             <div className="w-full bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:border-gray-300 transition-colors cursor-pointer">
-               <UploadCloud className="w-6 h-6 text-gray-400 mb-2" />
-               <p className="text-xs font-bold text-gray-600 mb-1">Click to upload or drag & drop</p>
-               <p className="text-[10px] text-gray-400">PDF, JPG or PNG (max. 10MB)</p>
-               <p className="text-[10px] text-gray-400 mt-2">Required: CICC Certificate + Gov ID</p>
-             </div>
-          </div>
-
-        </div>
-
-      </div>
+      )}
     </main>
   );
 }

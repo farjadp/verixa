@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import {
   ChevronDown, LayoutDashboard, Presentation, BarChart2, CalendarDays, Inbox,
   MessageSquare, Activity, Bell, User, CreditCard, LifeBuoy, HelpCircle,
-  UserCircle, Bookmark, Settings,
+  UserCircle, Bookmark, Settings, KeyRound,
 } from "lucide-react";
 import { ADMIN_NAV, activeAdminHref } from "@/app/dashboard/admin/_lib/nav";
 
@@ -31,7 +31,6 @@ export default function SidebarNav({ role }: { role: string }) {
       label: "Overview",
       items: [
         { label: "Dashboard Home", href: "/dashboard", icon: LayoutDashboard },
-        { label: "Performance", href: "/dashboard/performance", icon: Presentation },
         { label: "Analytics", href: "/dashboard/analytics", icon: BarChart2 },
       ]
     },
@@ -49,6 +48,8 @@ export default function SidebarNav({ role }: { role: string }) {
       label: "Management",
       items: [
         { label: "Profile Management", href: "/dashboard/profile", icon: User },
+        { label: "Meeting & Notice Settings", href: "/dashboard/settings", icon: Settings },
+        { label: "Account & Password", href: "/dashboard/client/settings", icon: KeyRound },
         { label: "Billing", href: "/dashboard/billing", icon: CreditCard },
       ]
     },

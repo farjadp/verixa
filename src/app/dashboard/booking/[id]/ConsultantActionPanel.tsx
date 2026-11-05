@@ -20,56 +20,50 @@ export default function ConsultantActionPanel({ booking }: { booking: any }) {
   const isConfirmed = booking.status === "CONFIRMED";
   const isPast = new Date(booking.scheduledEnd) < new Date();
   
-  const handleConfirmAccept = async () => {
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Runs an action, surfaces its error (actions return { ok, error } instead
+  // of throwing so the message survives production builds).
+  const run = async (
+    action: () => Promise<{ ok: boolean; error?: string }>,
+    onSuccess?: () => void
+  ) => {
+    setActionError(null);
+    setLoading(true);
     try {
-      setLoading(true);
-      await updateBookingStatus(booking.id, "CONFIRMED", {
-        meetingLink: linkInput,
-        meetingMethod: method,
-        consultantNotes: notesInput
-      });
-      setIsConfirming(false);
+      const res = await action();
+      if (!res.ok) {
+        setActionError(res.error || "Something went wrong.");
+        return;
+      }
+      onSuccess?.();
       router.refresh();
-    } finally { setLoading(false); }
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDecline = async () => {
+  const handleConfirmAccept = () =>
+    run(
+      () => updateBookingStatus(booking.id, "CONFIRMED", { meetingLink: linkInput, meetingMethod: method, consultantNotes: notesInput }),
+      () => setIsConfirming(false)
+    );
+
+  const handleDecline = () => {
     if (!confirm("Are you sure you want to decline this booking?")) return;
-    try {
-      setLoading(true);
-      await updateBookingStatus(booking.id, "DECLINED");
-      router.refresh();
-    } finally { setLoading(false); }
+    return run(() => updateBookingStatus(booking.id, "DECLINED"));
   };
 
-  const handleUpdateDetails = async () => {
-    try {
-      setLoading(true);
-      await updateBookingStatus(booking.id, booking.status, {
-        meetingLink: linkInput,
-        consultantNotes: notesInput,
-        meetingMethod: method
-      });
-      alert("Meeting details updated successfully.");
-      router.refresh();
-    } finally { setLoading(false); }
-  };
+  const handleUpdateDetails = () =>
+    run(() => updateBookingStatus(booking.id, booking.status, { meetingLink: linkInput, consultantNotes: notesInput, meetingMethod: method }));
 
-  const handleMarkCompleted = async () => {
-    try {
-      setLoading(true);
-      await markBookingCompleted(booking.id);
-      router.refresh();
-    } finally { setLoading(false); }
-  };
+  const handleMarkCompleted = () => run(() => markBookingCompleted(booking.id));
 
-  const handleMarkNoShow = async () => {
+  const handleMarkNoShow = () => {
     if (!confirm("Mark this client as a No-Show? This affects their reliability score.")) return;
-    try {
-      setLoading(true);
-      await markBookingNoShow(booking.id);
-      router.refresh();
-    } finally { setLoading(false); }
+    return run(() => markBookingNoShow(booking.id));
   };
 
 
@@ -101,7 +95,13 @@ export default function ConsultantActionPanel({ booking }: { booking: any }) {
 
   return (
     <div className="space-y-6">
-      
+      {actionError && (
+        <div role="alert" className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+          <p className="text-sm font-medium">{actionError}</p>
+        </div>
+      )}
+
       {/* PHASE 1: ACCEPT / DECLINE PENDING REQUESTS */}
       {isPending && (
         <div className="bg-[#0F2A44] text-white p-8 rounded-3xl shadow-2xl relative overflow-hidden">

@@ -15,6 +15,7 @@ import { ShieldCheck, ArrowRight, CheckCircle2, Loader2, Eye, EyeOff } from "luc
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { loginErrorMessage, safeCallbackPath } from "@/lib/safe-redirect";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -37,9 +38,10 @@ export default function LoginPage() {
       });
 
       if (res?.error) {
-        setError(res.error);
+        setError(loginErrorMessage(res.error));
       } else {
-        router.push("/dashboard");
+        router.push(safeCallbackPath(new URLSearchParams(window.location.search).get("callbackUrl")));
+        router.refresh();
       }
     } catch (err) {
       setError("An unexpected error occurred");

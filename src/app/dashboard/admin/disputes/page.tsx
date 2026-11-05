@@ -21,7 +21,7 @@ export default async function AdminDisputesPage({
 }: {
   searchParams: Promise<{ filter?: string }>
 }) {
-  const { userId: adminUserId } = await requireAdminPage();
+  await requireAdminPage();
 
   const sp = await searchParams;
   const filter = sp.filter || "ALL";
@@ -37,7 +37,7 @@ export default async function AdminDisputesPage({
         description="One inbox for client and consultant tickets, including booking disputes. Internal notes are never shown to the user."
       />
       <div className="relative flex h-[calc(100vh-14rem)] min-h-[500px] overflow-hidden rounded-2xl border border-gray-200 bg-navy shadow-sm">
-        <AdminSupportClient initialTickets={tickets} adminId={adminUserId} />
+        <AdminSupportClient initialTickets={tickets} />
       </div>
     </AdminShell>
   );

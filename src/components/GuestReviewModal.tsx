@@ -27,7 +27,12 @@ export default function GuestReviewModal({ licenseNumber, consultantName, onClos
     try {
       setIsSubmitting(true);
       setError("");
-      await submitGuestReview({ licenseNumber, guestName, guestEmail, rating, comment });
+      const res = await submitGuestReview({ licenseNumber, guestName, guestEmail, rating, comment });
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      alert("Thanks! Your review was received. Reviews without a Verixa booking are checked by our team before they appear.");
       onClose();
     } catch (err: any) {
       setError(err.message || "Failed to submit review");

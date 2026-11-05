@@ -19,7 +19,11 @@ export default function BookingActions({ bookingId, currentStatus }: { bookingId
 
     setIsProcessing(true);
     try {
-      await updateBookingStatus(bookingId, status, { meetingLink });
+      const res = await updateBookingStatus(bookingId, status, { meetingLink });
+      if (!res.ok) {
+        alert(res.error);
+        return;
+      }
       router.refresh();
     } catch (e) {
       console.error(e);

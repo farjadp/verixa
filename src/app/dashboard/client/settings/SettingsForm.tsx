@@ -16,7 +16,11 @@ export default function SettingsForm({ user }: { user: { name: string; email: st
     setError("");
 
     try {
-      await updateProfileSettings(formData);
+      const res = await updateProfileSettings({ name: formData.name });
+      if (!res.success) {
+        setError(res.error);
+        return;
+      }
       setSuccess(true);
     } catch (e: any) {
       setError(e.message || "Failed to update profile.");
@@ -41,13 +45,13 @@ export default function SettingsForm({ user }: { user: { name: string; email: st
          <div className="space-y-2">
            <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Email Address</label>
            <input 
-             required 
              type="email" 
              value={formData.email} 
-             onChange={e => setFormData(p => ({...p, email: e.target.value}))} 
-             className="w-full bg-[#ffffff] border border-[#e5e7eb] px-4 py-3.5 rounded-xl text-sm focus:border-[#2FA4A9] outline-none transition-colors" 
+             readOnly
+             aria-describedby="email-help"
+             className="w-full bg-mist border border-[#e5e7eb] px-4 py-3.5 rounded-xl text-sm text-gray-500 outline-none cursor-not-allowed" 
            />
-           <p className="text-[10px] text-gray-400 font-medium">Changing your email may require you to log in again.</p>
+           <p id="email-help" className="text-xs text-gray-500">To change your email, contact support so we can verify the new address.</p>
          </div>
        </div>
 

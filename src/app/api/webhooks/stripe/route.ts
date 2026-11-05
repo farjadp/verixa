@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { revalidatePath } from "next/cache";
+import { paymentStatusAfterRefund } from "@/lib/booking-rules";
 
 // Stripe sends signed webhook events to this endpoint.
 // Setup:
@@ -64,6 +65,8 @@ export async function POST(req: NextRequest) {
         });
         if (!booking) break;
 
+        // Never rewrite a booking that already moved past the request stage.
+        if (booking.status !== "PENDING" || booking.paymentStatus !== "REQUIRES_CAPTURE") break;
         await prisma.booking.update({
           where: { id: booking.id },
           data: { paymentStatus: "FAILED", status: "CANCELLED" },
@@ -79,7 +82,7 @@ export async function POST(req: NextRequest) {
         });
 
         console.log(`[Stripe Webhook] Booking ${booking.id} marked FAILED.`);
-        revalidatePath("/dashboard/bookings");
+        revalidatePath("/dashboard/booking");
         break;
       }
 
@@ -92,10 +95,13 @@ export async function POST(req: NextRequest) {
         if (!booking) break;
 
         // Only update if we haven't already processed it
-        if (!["CAPTURED", "CANCELED"].includes(booking.paymentStatus ?? "")) {
+        if (!["CAPTURED", "CANCELED", "REFUNDED", "PARTIALLY_REFUNDED", "PROCESSING"].includes(booking.paymentStatus ?? "")) {
+          // A request whose hold lapsed can no longer be confirmed: close it so the
+          // consultant can't confirm an unpaid session and the client can rebook.
+          const closeRequest = booking.status === "PENDING";
           await prisma.booking.update({
             where: { id: booking.id },
-            data: { paymentStatus: "CANCELED" },
+            data: { paymentStatus: "CANCELED", ...(closeRequest ? { status: "CANCELLED" } : {}) },
           });
 
           await prisma.bookingEventLog.create({
@@ -108,7 +114,7 @@ export async function POST(req: NextRequest) {
           });
 
           console.log(`[Stripe Webhook] Booking ${booking.id} payment marked CANCELED.`);
-          revalidatePath("/dashboard/bookings");
+          revalidatePath("/dashboard/booking");
         }
         break;
       }
@@ -123,9 +129,11 @@ export async function POST(req: NextRequest) {
         });
         if (!booking) break;
 
+        const refundStatus = paymentStatusAfterRefund(obj);
+        if (booking.paymentStatus === refundStatus) break; // duplicate delivery
         await prisma.booking.update({
           where: { id: booking.id },
-          data: { paymentStatus: "REFUNDED" },
+          data: { paymentStatus: refundStatus },
         });
 
         await prisma.bookingEventLog.create({
@@ -137,8 +145,8 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        console.log(`[Stripe Webhook] Booking ${booking.id} marked REFUNDED.`);
-        revalidatePath("/dashboard/bookings");
+        console.log(`[Stripe Webhook] Booking ${booking.id} marked ${refundStatus}.`);
+        revalidatePath("/dashboard/booking");
         break;
       }
 
@@ -155,7 +163,7 @@ export async function POST(req: NextRequest) {
           if (booking && booking.paymentStatus === "REQUIRES_CAPTURE") {
             await prisma.booking.update({
               where: { id: booking.id },
-              data: { paymentStatus: "FAILED" },
+              data: { paymentStatus: "FAILED", ...(booking.status === "PENDING" ? { status: "CANCELLED" } : {}) },
             });
             await prisma.bookingEventLog.create({
               data: {
@@ -195,11 +203,59 @@ export async function POST(req: NextRequest) {
               }
             });
             console.log(`[Stripe Webhook] Subscription created/updated for User ${userId}. Plan: ${planId}`);
+
+            // Coupon flow: the use was reserved (usedCount++) when checkout started;
+            // here we only record the redemption and annotate the subscription.
+            if (metadata.couponId) {
+              const discountCents = Number(metadata.discountCents) || 0;
+              const sub = await prisma.subscription.findUnique({ where: { userId }, select: { id: true } });
+              try {
+                await prisma.$transaction([
+                  prisma.discountCodeUsage.create({
+                    data: { codeId: metadata.couponId, userId, subscriptionId: sub?.id, discountCents },
+                  }),
+                  prisma.subscription.update({
+                    where: { userId },
+                    data: { notes: `Coupon: ${metadata.couponCode ?? metadata.couponId}` },
+                  }),
+                  prisma.systemLog.create({
+                    data: {
+                      userId,
+                      role: "CONSULTANT",
+                      action: "COUPON_APPLIED",
+                      details: JSON.stringify({ code: metadata.couponCode, planId, discountCents, via: "stripe_checkout" }),
+                    },
+                  }),
+                ]);
+              } catch (e) {
+                // Only a duplicate (webhook retry) is a benign no-op; anything else
+                // must surface so Stripe retries instead of silently losing the record.
+                const code = (e as { code?: string })?.code;
+                if (code !== "P2002") throw e;
+                console.warn(`[Stripe Webhook] Coupon usage already recorded for ${userId}.`);
+              }
+            }
             revalidatePath("/dashboard");
             revalidatePath("/dashboard/billing");
           } else {
             console.warn(`[Stripe Webhook] checkout.session.completed missing userId/planId in metadata`);
           }
+        }
+        break;
+      }
+
+      // Checkout abandoned: release the coupon reservation and the Stripe coupon.
+      case "checkout.session.expired": {
+        const metadata = obj.metadata || {};
+        if (metadata.couponId) {
+          await prisma.discountCode.updateMany({
+            where: { id: metadata.couponId, usedCount: { gt: 0 } },
+            data: { usedCount: { decrement: 1 } },
+          });
+          if (metadata.stripeCouponId) {
+            await stripe.coupons.del(metadata.stripeCouponId).catch(() => {});
+          }
+          console.log(`[Stripe Webhook] Released coupon reservation ${metadata.couponId} (session expired).`);
         }
         break;
       }
@@ -253,7 +309,7 @@ export async function POST(req: NextRequest) {
              // mapping prices -> verixa plans. For now, we update the status.
              await prisma.subscription.update({
                 where: { id: existingSub.id },
-                data: { status: status === 'active' ? 'active' : 'past_due' } // simplest safe mapping
+                data: { status: status === 'active' || status === 'trialing' ? 'active' : status === 'canceled' ? 'cancelled' : 'past_due' }
              });
              console.log(`[Stripe Webhook] Updated subscription status ${subId} to ${status}`);
            }

@@ -1,171 +1,186 @@
-import { CalendarDays, Save, Star, Clock, Video, FileText, ArrowRight, User } from "lucide-react";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
+import { ArrowRight, Bookmark, CalendarDays, Clock, Search, Star } from "lucide-react";
+import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
+import { formatInTimeZone, safeTimeZone } from "@/lib/timezone";
+import ConsultantAvatar, { firstNameOf } from "@/components/consultant/ConsultantAvatar";
+
+const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
+  PENDING: { text: "Awaiting consultant", cls: "bg-warning/10 text-warning" },
+  CONFIRMED: { text: "Confirmed", cls: "bg-success/10 text-success" },
+  COMPLETED: { text: "Completed", cls: "bg-mist text-gray-600" },
+  DECLINED: { text: "Declined", cls: "bg-error/10 text-error" },
+  CANCELLED: { text: "Cancelled", cls: "bg-mist text-gray-600" },
+  CANCELLED_BY_USER: { text: "Cancelled by you", cls: "bg-mist text-gray-600" },
+  CANCELLED_BY_CONSULTANT: { text: "Cancelled by consultant", cls: "bg-error/10 text-error" },
+  NO_SHOW: { text: "Missed", cls: "bg-mist text-gray-600" },
+};
 
 export default async function ClientHome() {
   const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
+  const email = session?.user?.email?.toLowerCase() ?? "";
+  const now = new Date();
 
-  const userDetails = await prisma.user.findUnique({
-    where: { email: session?.user?.email! },
-    include: { clientProfile: true }
-  });
+  const [user, bookings, savedCount, toReview] = await Promise.all([
+    userId ? prisma.user.findUnique({ where: { id: userId }, include: { clientProfile: true } }) : null,
+    prisma.booking.findMany({
+      where: { userEmail: { equals: email, mode: "insensitive" } },
+      include: {
+        type: { select: { title: true } },
+        profile: { select: { fullName: true, licenseNumber: true, avatarImage: true, timezone: true } },
+      },
+      orderBy: { scheduledStart: "desc" },
+      take: 20,
+    }),
+    userId ? prisma.savedProfile.count({ where: { userId } }) : 0,
+    prisma.booking.count({
+      where: { userEmail: { equals: email, mode: "insensitive" }, status: "COMPLETED", review: null },
+    }),
+  ]);
 
-  const profile = userDetails?.clientProfile;
-  let recommendedConsultants: any[] = [];
-  
-  if (profile && profile.languages) {
-    const langs = profile.languages.split(',').map(l => l.trim().toLowerCase()).filter(Boolean);
-    if (langs.length > 0) {
-      const orConditions = langs.map(l => ({ languages: { contains: l } }));
-      recommendedConsultants = await prisma.consultantProfile.findMany({
-        where: { OR: orConditions },
-        take: 3
-      });
-    }
-  }
+  const upcoming = bookings
+    .filter((b) => (b.status === "CONFIRMED" || b.status === "PENDING") && b.scheduledStart > now)
+    .sort((a, b) => a.scheduledStart.getTime() - b.scheduledStart.getTime());
+  const next = upcoming[0];
+  const recent = bookings.filter((b) => b !== next).slice(0, 5);
 
-  if (recommendedConsultants.length === 0) {
-    recommendedConsultants = await prisma.consultantProfile.findMany({
-      take: 2,
-      orderBy: { createdAt: 'desc' }
+  // Recommendations: only consultants who can actually be booked, matching the
+  // client's languages when they told us; no invented "Top Rated" labels.
+  const langs = (user?.clientProfile?.languages ?? "").split(",").map((l) => l.trim()).filter(Boolean).slice(0, 5);
+  const bookableWhere: Prisma.ConsultantProfileWhereInput = {
+    userId: { not: null },
+    bookingEnabled: true,
+    status: { in: ["Yes", "Active"] },
+    NOT: { verificationLevel: "PENDING_REVIEW" },
+    consultationTypes: { some: { isActive: true } },
+    weeklyAvailability: { some: { isActive: true } },
+  };
+  let recommended = langs.length
+    ? await prisma.consultantProfile.findMany({
+        where: { ...bookableWhere, OR: langs.map((l) => ({ languages: { contains: l, mode: "insensitive" as const } })) },
+        select: { id: true, fullName: true, company: true, licenseNumber: true, avatarImage: true, languages: true },
+        take: 3,
+      })
+    : [];
+  const languageMatched = recommended.length > 0;
+  if (!languageMatched) {
+    recommended = await prisma.consultantProfile.findMany({
+      where: bookableWhere,
+      select: { id: true, fullName: true, company: true, licenseNumber: true, avatarImage: true, languages: true },
+      orderBy: { updatedAt: "desc" },
+      take: 3,
     });
   }
 
+  const firstName = session?.user?.name ? firstNameOf(session.user.name) : "there";
+
   return (
     <div className="space-y-8">
-      {/* HEADER / NEXT BEST ACTION */}
-      <div className="bg-[#0F2A44] text-white rounded-[32px] p-8 md:p-12 relative overflow-hidden shadow-xl shadow-black/10">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[#2FA4A9]/30 to-transparent blur-3xl rounded-full translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
-        <div className="relative z-10">
-          <h1 className="text-3xl font-serif font-bold mb-3 tracking-wide">
-            Welcome back, {session?.user?.name?.split(' ')[0] || 'Client'}.
-          </h1>
-          <p className="text-gray-400 text-sm mb-8 max-w-lg leading-relaxed">
-            You have <strong className="text-white">1 upcoming consultation</strong> and 2 saved consultants waiting for your review. Let's get your immigration journey sorted.
-          </p>
+      {/* Header + next session */}
+      <section className="rounded-3xl bg-navy p-6 text-white md:p-10">
+        <h1 className="mb-2 text-2xl font-bold md:text-3xl">Welcome back, {firstName}</h1>
+        <p className="mb-6 max-w-xl text-sm text-white/70">
+          {upcoming.length > 0
+            ? `You have ${upcoming.length} upcoming consultation${upcoming.length === 1 ? "" : "s"}.`
+            : "You have no upcoming consultations."}
+          {savedCount > 0 && ` ${savedCount} saved consultant${savedCount === 1 ? "" : "s"}.`}
+        </p>
 
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 flex flex-col md:flex-row items-center gap-6 max-w-3xl">
-             <div className="w-16 h-16 rounded-[16px] bg-white text-[#1A1F2B] flex items-center justify-center shrink-0">
-               <CalendarDays className="w-8 h-8 opacity-80" />
-             </div>
-             <div className="flex-1">
-               <h3 className="text-white font-bold text-lg mb-1">Strategy Session with Amir Hossein</h3>
-               <p className="text-gray-300 text-sm flex items-center gap-2">
-                 <Clock className="w-4 h-4" /> Tomorrow at 10:00 AM EST &bull; <Video className="w-4 h-4 ml-2" /> Google Meet
-               </p>
-             </div>
-             <div className="shrink-0 w-full md:w-auto">
-                <Link href="/dashboard/client/bookings/1" className="block w-full text-center bg-[#2FA4A9] text-[#1A1F2B] font-bold px-6 py-3 rounded-xl hover:bg-[#258d92] transition-colors shadow-lg">
-                  View Details
-                </Link>
-             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* QUICK ACTIONS GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <Link href="/search" className="bg-white p-6 rounded-3xl border border-[#e5e7eb] shadow-sm hover:shadow-md hover:border-[#2FA4A9]/30 transition-all group">
-           <div className="w-12 h-12 bg-[#F5F7FA] rounded-xl flex items-center justify-center mb-4 group-hover:bg-[#2FA4A9]/10 transition-colors">
-             <User className="w-6 h-6 text-[#1A1F2B] group-hover:text-[#2FA4A9] transition-colors" />
-           </div>
-           <h3 className="font-bold text-[#1A1F2B] mb-1">Find a Consultant</h3>
-           <p className="text-xs text-gray-500">Search vetted and licensed immigration experts.</p>
-        </Link>
-        <Link href="/dashboard/client/saved" className="bg-white p-6 rounded-3xl border border-[#e5e7eb] shadow-sm hover:shadow-md hover:border-[#2FA4A9]/30 transition-all group">
-           <div className="w-12 h-12 bg-[#F5F7FA] rounded-xl flex items-center justify-center mb-4 group-hover:bg-[#2FA4A9]/10 transition-colors">
-             <Save className="w-6 h-6 text-[#1A1F2B] group-hover:text-[#2FA4A9] transition-colors" />
-           </div>
-           <h3 className="font-bold text-[#1A1F2B] mb-1">Compare Saved Profiles</h3>
-           <p className="text-xs text-gray-500">Review the consultants you've bookmarked.</p>
-        </Link>
-        <Link href="/dashboard/client/reviews" className="bg-white p-6 rounded-3xl border border-[#e5e7eb] shadow-sm hover:shadow-md hover:border-[#2FA4A9]/30 transition-all group">
-           <div className="w-12 h-12 bg-[#F5F7FA] rounded-xl flex items-center justify-center mb-4 group-hover:bg-[#2FA4A9]/10 transition-colors">
-             <Star className="w-6 h-6 text-[#1A1F2B] group-hover:text-[#2FA4A9] transition-colors" />
-           </div>
-           <h3 className="font-bold text-[#1A1F2B] mb-1">Leave a Review</h3>
-           <p className="text-xs text-gray-500">Help others by rating your past consultations.</p>
-        </Link>
-      </div>
-
-      {/* RECENT ACTIVITY & RECOMMENDED */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        
-        {/* Recent Activity */}
-        <div className="xl:col-span-2">
-          <div className="flex items-center justify-between mb-6">
-             <h2 className="font-bold text-xl font-serif tracking-tight text-[#1A1F2B]">Recent Activity</h2>
-          </div>
-          <div className="bg-white border border-[#e5e7eb] rounded-3xl p-6 shadow-sm shadow-[#0F2A44]/5">
-            <div className="space-y-6">
-              
-              <div className="flex gap-4 items-start relative pb-6 border-b border-[#e5e7eb]">
-                 <div className="w-10 h-10 rounded-full bg-green-50 text-green-600 flex items-center justify-center shrink-0">
-                   <CalendarDays className="w-5 h-5" />
-                 </div>
-                 <div>
-                   <h4 className="text-sm font-bold text-[#1A1F2B]">Consultation Confirmed</h4>
-                   <p className="text-xs text-gray-500 mt-1">Amir Hossein confirmed your meeting for tomorrow. Check your email for the Google Meet link.</p>
-                   <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mt-3 block">2 hours ago</span>
-                 </div>
-              </div>
-
-              <div className="flex gap-4 items-start relative pb-6 border-b border-[#e5e7eb]">
-                 <div className="w-10 h-10 rounded-full bg-[#F5F7FA] text-[#1A1F2B] flex items-center justify-center shrink-0">
-                   <FileText className="w-5 h-5" />
-                 </div>
-                 <div>
-                   <h4 className="text-sm font-bold text-[#1A1F2B]">Booking Request Sent</h4>
-                   <p className="text-xs text-gray-500 mt-1">You requested a 30-min strategy session with Amir Hossein.</p>
-                   <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mt-3 block">Yesterday</span>
-                 </div>
-              </div>
-
+        {next ? (
+          <div className="flex max-w-3xl flex-col gap-5 rounded-2xl border border-white/15 bg-white/10 p-5 md:flex-row md:items-center">
+            <ConsultantAvatar name={next.profile.fullName} src={next.profile.avatarImage} size="md" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-lightteal">{STATUS_LABEL[next.status]?.text ?? next.status}</p>
+              <h2 className="truncate text-lg font-bold">{next.type.title} with {next.profile.fullName}</h2>
+              <p className="mt-1 flex items-center gap-1.5 text-sm text-white/70">
+                <Clock className="h-4 w-4" aria-hidden="true" /> {formatInTimeZone(next.scheduledStart, safeTimeZone(next.profile.timezone))}
+              </p>
             </div>
-            <Link href="/dashboard/client/bookings" className="text-sm font-bold text-[#2FA4A9] hover:underline mt-4 inline-block">
-              View All History
+            <Link href={`/dashboard/client/bookings/${next.id}`} className="rounded-xl bg-teal px-5 py-3 text-center text-sm font-bold text-white hover:bg-lightteal hover:text-navy">
+              View details
             </Link>
           </div>
-        </div>
+        ) : (
+          <Link href="/search" className="inline-flex items-center gap-2 rounded-xl bg-teal px-5 py-3 text-sm font-bold text-white hover:bg-lightteal hover:text-navy">
+            Find a consultant <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        )}
+      </section>
 
-        {/* Recommended Consultants */}
-        <div>
-          <div className="flex items-center justify-between mb-6">
-             <h2 className="font-bold text-xl font-serif tracking-tight text-[#1A1F2B]">Recommended for You</h2>
-          </div>
-          <div className="space-y-4">
-            {recommendedConsultants.map((c: any) => (
-               <div key={c.id} className="bg-white border border-[#e5e7eb] rounded-3xl p-6 shadow-sm flex flex-col items-center justify-center text-center gap-3">
-                  <div className="w-16 h-16 rounded-full bg-[#F5F7FA] text-[#1A1F2B] text-xl font-black font-serif flex flex-col items-center justify-center border-2 border-white shadow-sm ring-2 ring-[#e5e7eb]">
-                    {c.fullName[0]}
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-[#1A1F2B]">{c.fullName}</h4>
-                    <p className="text-xs text-gray-500 line-clamp-1">{c.company || "Independent RCIC"}</p>
-                  </div>
-                  {(profile?.languages && c.languages && profile.languages.split(',')[0].trim().toLowerCase() === c.languages.split(',')[0].trim().toLowerCase()) ? (
-                     <p className="text-[10px] font-bold uppercase tracking-widest text-[#2FA4A9] bg-[#ffffff] px-3 py-1 rounded-lg border border-[#e5e7eb]">Language Match</p>
-                  ) : (
-                     <p className="text-[10px] font-bold uppercase tracking-widest text-green-600 bg-green-50 px-3 py-1 rounded-lg border border-green-100">Top Rated</p>
-                  )}
-                  <Link href={`/consultant/${c.licenseNumber}`} className="mt-2 w-full flex items-center justify-center gap-2 border border-[#e5e7eb] rounded-xl py-2.5 text-xs font-bold text-[#1A1F2B] hover:bg-[#ffffff] hover:border-[#2FA4A9] transition-all">
-                    View Profile <ArrowRight className="w-3.5 h-3.5 opacity-50" />
-                  </Link>
-               </div>
-            ))}
-            
-            {recommendedConsultants.length === 0 && (
-               <div className="bg-[#ffffff] border border-[#e5e7eb] rounded-2xl p-6 text-center text-sm text-gray-500">
-                  Fill out your Immigration Profile to get personalized recommendations.
-               </div>
-            )}
-          </div>
-        </div>
-
+      {/* Quick actions */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {[
+          { href: "/search", icon: Search, title: "Find a consultant", desc: "Search licensed RCICs on the CICC register." },
+          { href: "/dashboard/client/saved", icon: Bookmark, title: "Saved consultants", desc: savedCount ? `${savedCount} saved` : "Bookmark profiles to compare later." },
+          { href: "/dashboard/client/reviews", icon: Star, title: "Reviews", desc: toReview ? `${toReview} consultation${toReview === 1 ? "" : "s"} to review` : "Rate consultations you've completed." },
+        ].map(({ href, icon: Icon, title, desc }) => (
+          <Link key={href} href={href} className="group rounded-2xl border border-gray-200 bg-white p-5 transition hover:border-teal hover:shadow-md hover:shadow-navy/5">
+            <Icon className="mb-3 h-5 w-5 text-teal" aria-hidden="true" />
+            <h3 className="font-bold text-navy group-hover:text-teal">{title}</h3>
+            <p className="text-sm text-gray-500">{desc}</p>
+          </Link>
+        ))}
       </div>
 
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        {/* Recent bookings */}
+        <section className="rounded-2xl border border-gray-200 bg-white p-5 xl:col-span-2" aria-labelledby="recent">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 id="recent" className="font-bold text-navy">Your bookings</h2>
+            <Link href="/dashboard/client/bookings" className="text-sm font-semibold text-teal hover:underline">See all</Link>
+          </div>
+          {bookings.length === 0 ? (
+            <div className="py-8 text-center">
+              <CalendarDays className="mx-auto mb-2 h-8 w-8 text-gray-300" aria-hidden="true" />
+              <p className="text-sm text-gray-500">No bookings yet. When you book a consultation it will show up here.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {[...(next ? [next] : []), ...recent].slice(0, 6).map((b) => {
+                const label = STATUS_LABEL[b.status] ?? { text: b.status, cls: "bg-mist text-gray-600" };
+                return (
+                  <li key={b.id}>
+                    <Link href={`/dashboard/client/bookings/${b.id}`} className="flex items-center justify-between gap-3 py-3 hover:bg-mist/60">
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold text-ink">{b.profile.fullName}</span>
+                        <span className="block text-xs text-gray-500">{b.type.title} · {formatInTimeZone(b.scheduledStart, safeTimeZone(b.profile.timezone))}</span>
+                      </span>
+                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${label.cls}`}>{label.text}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {/* Recommended */}
+        <section aria-labelledby="recommended">
+          <h2 id="recommended" className="mb-1 font-bold text-navy">{languageMatched ? "Consultants who speak your language" : "Consultants taking bookings"}</h2>
+          <p className="mb-4 text-xs text-gray-500">
+            {languageMatched ? "Based on the languages in your profile." : (
+              <>Add your languages in your <Link href="/dashboard/client/profile" className="font-semibold text-teal hover:underline">profile</Link> for better matches.</>
+            )}
+          </p>
+          <div className="space-y-3">
+            {recommended.map((c) => (
+              <Link key={c.id} href={`/consultant/${c.licenseNumber}`} className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 transition hover:border-teal">
+                <ConsultantAvatar name={c.fullName} src={c.avatarImage} size="sm" />
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold text-navy">{c.fullName}, RCIC</span>
+                  <span className="block truncate text-xs text-gray-500">{c.languages || c.company || "Independent practice"}</span>
+                </span>
+              </Link>
+            ))}
+            {recommended.length === 0 && (
+              <p className="rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-500">No consultants are taking online bookings yet.</p>
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

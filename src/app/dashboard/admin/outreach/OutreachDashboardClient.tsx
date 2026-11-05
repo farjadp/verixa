@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { toggleOutreachFlag, type OutreachDashboard } from "@/actions/outreach.actions";
+import { getOutreachSettingsAction, toggleOutreachFlag, type OutreachDashboard } from "@/actions/outreach.actions";
 import type { OutreachFlag } from "@/lib/outreach/settings";
 
 const TZ = "America/Toronto";
@@ -33,15 +33,26 @@ function Toggle({ label, on, danger, disabled, onChange }: { label: string; on: 
 export default function OutreachDashboardClient({ initial }: { initial: OutreachDashboard }) {
   const [settings, setSettings] = useState(initial.settings);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   const flip = (flag: OutreachFlag, value: boolean) =>
     start(async () => {
       setError(null);
+      setWarning(null);
       try {
-        setSettings(await toggleOutreachFlag(flag, value));
+        const result = await toggleOutreachFlag(flag, value);
+        setSettings(result.settings);
+        if (result.cancelFailed > 0) {
+          setWarning(`Sending is OFF, but ${result.cancelFailed} scheduled emails could not be cancelled at Resend and may still go out — cancel them in the Resend dashboard.`);
+        }
       } catch (e) {
         setError((e as Error).message);
+        try {
+          setSettings(await getOutreachSettingsAction());
+        } catch {
+          // Leave the last known state; the red banner already tells the admin something failed.
+        }
       }
     });
 
@@ -60,6 +71,7 @@ export default function OutreachDashboardClient({ initial }: { initial: Outreach
         </p>
       </header>
 
+      {warning && <p className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">{warning}</p>}
       {error && <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

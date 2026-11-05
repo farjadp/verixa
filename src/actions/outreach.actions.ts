@@ -70,19 +70,23 @@ export async function getOutreachDashboard(): Promise<OutreachDashboard> {
 
 const flagSchema = z.enum(["enabled", "dryRun", "LINKEDIN", "X", "EMAIL"]);
 
-export async function toggleOutreachFlag(flag: OutreachFlag, value: boolean): Promise<OutreachSettings> {
+export async function getOutreachSettingsAction(): Promise<OutreachSettings> {
+  await requireAdmin();
+  return getOutreachSettings();
+}
+
+/** cancelFailed > 0 means sending is off but that many scheduled emails could not be pulled back from Resend. */
+export async function toggleOutreachFlag(flag: OutreachFlag, value: boolean): Promise<{ settings: OutreachSettings; cancelFailed: number }> {
   await requireAdmin();
   const f = flagSchema.safeParse(flag);
   const v = z.boolean().safeParse(value);
   if (!f.success || !v.success) throw new Error("Invalid flag or value");
   await setOutreachFlag(f.data, v.data);
-  revalidatePath("/dashboard/admin/outreach");
+  let cancelFailed = 0;
   // Turning sending off must also pull back emails already handed to Resend.
   if (!v.data && (f.data === "enabled" || f.data === "EMAIL")) {
-    const { failed } = await cancelScheduledEmails(realDeps());
-    if (failed > 0) {
-      throw new Error(`${failed} scheduled emails could not be cancelled at Resend — they may still send; cancel them in the Resend dashboard. The flag is now off.`);
-    }
+    cancelFailed = (await cancelScheduledEmails(realDeps())).failed;
   }
-  return getOutreachSettings();
+  revalidatePath("/dashboard/admin/outreach");
+  return { settings: await getOutreachSettings(), cancelFailed };
 }

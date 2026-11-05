@@ -1,0 +1,29 @@
+# Verixa
+
+> Verixa (getverixa.com) is a Canadian directory and booking platform for Regulated Canadian Immigration Consultants (RCICs). It lists every consultant on the public register of the College of Immigration and Citizenship Consultants (CICC), shows whether the register says each one is entitled to practise, and lets people book paid consultations with payment held in escrow. Verixa is independent: it is not affiliated with the CICC or the Government of Canada, and nothing on the site is legal or immigration advice.
+
+Key facts:
+- Coverage: about 15,900 register entries; about 11,400 are listed as entitled to practise.
+- Profile URL pattern: https://www.getverixa.com/consultant/{CICC licence number}, for example /consultant/R423111.
+- Register status on a profile comes from the CICC public register. To confirm a consultant's standing, check the register itself: https://college-ic.ca
+- Official immigration rules, forms and fees come from Immigration, Refugees and Citizenship Canada (IRCC): https://www.canada.ca/en/immigration-refugees-citizenship.html
+
+## Find a consultant
+
+- [Search RCICs](https://www.getverixa.com/search): search the register by name, licence number or company
+- [For consultants: pricing](https://www.getverixa.com/pricing): membership plans for licensed consultants who claim their profile
+
+## Immigration news and guides
+
+- [Verixa blog](https://www.getverixa.com/blog): plain-language summaries of IRCC announcements and policy changes, with links to the official sources
+
+## Policies
+
+- [Disclaimer](https://www.getverixa.com/disclaimer)
+- [Booking and refund policy](https://www.getverixa.com/refund-policy)
+- [Terms of service](https://www.getverixa.com/terms)
+- [Privacy policy](https://www.getverixa.com/privacy)
+
+## Optional
+
+- [Sitemap](https://www.getverixa.com/sitemap.xml): every indexable profile and article

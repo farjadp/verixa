@@ -11,24 +11,17 @@
 // Security Notes: Enforce ADMIN authorization server-side before reads/writes and before rendering sensitive payloads.
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import { getPlatformAnalytics } from "@/lib/analytics";
 import { prisma } from "@/lib/prisma";
 import AdminAnalyticsClient from "./AdminAnalyticsClient";
+import { requireAdminPage } from "../_lib/guard";
 
 export default async function AdminAnalyticsPage({
   searchParams,
 }: {
   searchParams: Promise<{ period?: string }>;
 }) {
-  const session = await getServerSession(authOptions);
-
-  // 🔒 ADMIN ONLY — hard redirect if not admin
-  if (!session || (session.user as any).role !== "ADMIN") {
-    redirect("/dashboard");
-  }
+  await requireAdminPage();
 
   const sp = await searchParams;
   const days = sp.period === "7" ? 7 : sp.period === "90" ? 90 : 30;

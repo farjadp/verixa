@@ -11,20 +11,18 @@
 // Security Notes: Enforce ADMIN authorization server-side before reads/writes and before rendering sensitive payloads.
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import CmsHubClient from "./CmsHubClient";
-import { Layers } from "lucide-react";
+import { requireAdminPage } from "../_lib/guard";
+import { AdminPageHeader, AdminShell } from "../_components/AdminUI";
 
 export default async function AdminCmsHubPage() {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") redirect("/login");
+  await requireAdminPage();
 
   // Fetch all posts for dashboard metrics and tracking
   const posts = await prisma.blogPost.findMany({
     orderBy: { createdAt: "desc" },
+    take: 500,
     select: {
       id: true,
       title: true,
@@ -40,21 +38,15 @@ export default async function AdminCmsHubPage() {
   });
 
   return (
-    <div className="p-4 md:p-8 max-w-[1600px] mx-auto min-h-screen flex flex-col">
-      <div className="mb-6 shrink-0 flex justify-between items-end">
-        <div>
-          <h1 className="text-3xl font-serif font-black text-gray-900 tracking-tight flex items-center gap-3">
-            Unified Content Hub <Layers className="w-6 h-6 text-[#2FA4A9]" />
-          </h1>
-          <p className="text-gray-600 mt-1 font-light text-sm max-w-2xl">
-            Command Center for all SEO Articles, Social Configurations, Categories, and AI Generation workflows.
-          </p>
-        </div>
-      </div>
-
-      <div className="flex-1 min-h-[700px] flex">
+    <AdminShell wide>
+      <AdminPageHeader
+        section="Content"
+        title="Content hub"
+        description="SEO and social completeness across all articles, with shortcuts to every content tool."
+      />
+      <div className="flex min-h-[700px]">
         <CmsHubClient initialPosts={posts} />
       </div>
-    </div>
+    </AdminShell>
   );
 }

@@ -11,18 +11,13 @@
 // Security Notes: Enforce ADMIN authorization server-side before reads/writes and before rendering sensitive payloads.
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import AdminLogsTable from "./AdminLogsTable";
+import { requireAdminPage } from "../_lib/guard";
+import { AdminPageHeader, AdminShell } from "../_components/AdminUI";
 
 export default async function AdminLogsPage() {
-  const session = await getServerSession(authOptions);
-  
-  if (!session || (session.user as any).role !== "ADMIN") {
-    redirect("/dashboard");
-  }
+  await requireAdminPage();
 
   const logs = await prisma.systemLog.findMany({
     orderBy: { createdAt: "desc" },
@@ -31,15 +26,15 @@ export default async function AdminLogsPage() {
   });
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-8">
-      <div>
-         <h1 className="text-3xl font-serif font-bold text-[#1A1F2B]">System Audit Logs</h1>
-         <p className="text-gray-500 mt-2">Comprehensive, real-time activity tracking across the Consultation Control Center.</p>
-      </div>
-
-      <div className="bg-white rounded-[32px] border border-[#e5e7eb] shadow-sm overflow-hidden">
+    <AdminShell>
+      <AdminPageHeader
+        section="Overview"
+        title="Activity log"
+        description="The latest 200 system events: logins, content approvals, ticket changes and admin actions."
+      />
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         <AdminLogsTable initialLogs={logs} />
       </div>
-    </div>
+    </AdminShell>
   );
 }

@@ -11,18 +11,15 @@
 // Security Notes: Enforce ADMIN authorization server-side before reads/writes and before rendering sensitive payloads.
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import { getRegistrySyncPreview, getLastSyncLog } from "@/actions/sync.actions";
 import RegistrySyncClient from "./RegistrySyncClient";
+import { requireAdminPage } from "../_lib/guard";
 
 export const maxDuration = 60; // Max execution time for Vercel
 export const metadata = { title: "Registry Sync | Verixa Admin" };
 
 export default async function SyncPage() {
-  const session = await getServerSession(authOptions);
-  if ((session?.user as any)?.role !== "ADMIN") redirect("/dashboard");
+  await requireAdminPage();
 
   const [preview, lastSync] = await Promise.all([
     getRegistrySyncPreview().catch(() => null),

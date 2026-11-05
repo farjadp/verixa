@@ -12,18 +12,15 @@
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
 import { getFeatures, getPlans } from "@/actions/plans.actions";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import FeatureLibraryClient from "./FeatureLibraryClient";
+import { requireAdminPage } from "../../_lib/guard";
 
 export const metadata = { title: "Feature Library | Verixa Admin" };
 
 export default async function FeaturePage() {
-  const session = await getServerSession(authOptions);
-  if ((session?.user as any)?.role !== "ADMIN") redirect("/dashboard");
+  await requireAdminPage();
 
   const [features, plans] = await Promise.all([getFeatures(), getPlans()]);
   const categories = Array.from(new Set(features.map((f) => f.category))).sort();

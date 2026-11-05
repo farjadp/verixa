@@ -158,7 +158,7 @@ export async function sendNewBookingEmail(consultantEmail: string, data: any) {
 
     <p>Please review and confirm or decline this request as soon as possible.</p>
 
-    <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/consultant/bookings" style="${buttonStyle}">Review & Respond</a>
+    <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/booking" style="${buttonStyle}">Review & Respond</a>
     
     <p style="font-size: 12px; color: #6c757d;">This is an automated notification from Verixa.</p>
   </div>`;

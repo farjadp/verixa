@@ -18,7 +18,7 @@ export default function ClientNotificationList({ initialNotifications, userRole 
     await markNotificationAsRead(id);
     
     if (relatedEntityId) {
-       const basePath = userRole === "CONSULTANT" ? "/dashboard/consultant/bookings" : "/dashboard/client/bookings";
+       const basePath = userRole === "CONSULTANT" ? "/dashboard/booking" : "/dashboard/client/bookings";
        router.push(`${basePath}/${relatedEntityId}`);
     }
   };

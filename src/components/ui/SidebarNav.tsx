@@ -8,7 +8,7 @@ import {
   MessageSquare, Activity, Bell, User, CreditCard, LifeBuoy, HelpCircle, 
   UserCircle, Bookmark, Settings, Users, CheckCircle, Award, Database, 
   Mailbox, Flag, FileText, Zap, DollarSign, RefreshCw, Building, Layers, 
-  Cpu, Share2, Rss, NotebookPen, FileImage, Tag
+  Cpu, Share2, Rss, NotebookPen, FileImage, Tag, KeyRound
 } from "lucide-react";
 
 export type NavItem = {
@@ -32,7 +32,6 @@ export default function SidebarNav({ role }: { role: string }) {
       label: "Overview",
       items: [
         { label: "Dashboard Home", href: "/dashboard", icon: LayoutDashboard },
-        { label: "Performance", href: "/dashboard/performance", icon: Presentation },
         { label: "Analytics", href: "/dashboard/analytics", icon: BarChart2 },
       ]
     },
@@ -50,6 +49,8 @@ export default function SidebarNav({ role }: { role: string }) {
       label: "Management",
       items: [
         { label: "Profile Management", href: "/dashboard/profile", icon: User },
+        { label: "Meeting & Notice Settings", href: "/dashboard/settings", icon: Settings },
+        { label: "Account & Password", href: "/dashboard/client/settings", icon: KeyRound },
         { label: "Billing", href: "/dashboard/billing", icon: CreditCard },
       ]
     },

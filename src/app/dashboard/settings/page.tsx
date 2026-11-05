@@ -30,7 +30,7 @@ export default async function ConsultantSettingsPage() {
   });
 
   if (!profile) {
-    redirect("/dashboard/setup");
+    redirect("/dashboard");
   }
 
   return (

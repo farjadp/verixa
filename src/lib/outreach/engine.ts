@@ -125,22 +125,25 @@ export async function composeWithRetry(deps: EngineDeps, lead: LeadRow, step: St
   return null;
 }
 
-/** Hands out send slots per timezone: 08:00 local + random 0–13 min, then +5–13 min each. */
+/**
+ * Hands out send slots as ONE chain per run: each send is 5–13 minutes after the previous one,
+ * whatever the recipient's zone, then clamped into the recipient's own 08:00–13:00 window.
+ */
 function slotAllocator(deps: EngineDeps) {
-  const last = new Map<string, Date>();
+  let prev: Date | null = null;
   const { min, max } = OUTREACH.gapMinutes;
   return (tz: string): Date | null => {
     const now = deps.now();
     const ymd = localParts(now, tz).ymd;
-    const prev = last.get(tz);
     const open = localTimeToUtc(ymd, OUTREACH.sendWindow.startHour, 0, tz);
     const close = localTimeToUtc(ymd, OUTREACH.sendWindow.endHour, 0, tz);
     let next = prev
       ? new Date(prev.getTime() + Math.round(min + deps.random() * (max - min)) * 60_000)
       : new Date(open.getTime() + Math.round(deps.random() * max) * 60_000);
     if (next.getTime() < now.getTime() + min * 60_000) next = new Date(now.getTime() + min * 60_000);
-    if (next >= close) return null;
-    last.set(tz, next);
+    if (next < open) next = open; // later than the chain time, so the gap still holds
+    if (next >= close) return null; // skip this lead for today
+    prev = next;
     return next;
   };
 }

@@ -85,6 +85,17 @@ describe("planEmailDay", () => {
     expect(touches.every((t) => t.status === "SCHEDULED")).toBe(true);
   });
 
+  it("never schedules two leads in different zones less than 5 minutes apart", async () => {
+    const van = (id: string, score: number): LeadRow => ({ ...backlog(id, score), timezone: "America/Vancouver" });
+    const leads = [van("V1", 20), backlog("T1", 19), van("V2", 18), backlog("T2", 17)];
+    const { repo } = memoryRepo(leads);
+    const d = deps(repo);
+    await planEmailDay(d);
+    const times = (d.email.send as ReturnType<typeof vi.fn>).mock.calls.map((c) => (c[1] as Date).getTime()).sort((a, b) => a - b);
+    expect(times.length).toBe(4);
+    for (let i = 1; i < times.length; i++) expect((times[i] - times[i - 1]) / 60000).toBeGreaterThanOrEqual(5);
+  });
+
   it("dry-run records touches but sends nothing and keeps state", async () => {
     const leads = [backlog("A", 20)];
     const { repo, touches } = memoryRepo(leads);

@@ -6,6 +6,7 @@ import { OUTREACH } from "./config";
 import type { SchedulableLead } from "./scheduler";
 import { isCiccActive } from "./scoring";
 import { isSuppressed } from "./suppression";
+import { timezoneForProvince } from "./timezone";
 import { TERMINAL_STATES, type Channel, type LeadSnapshot, type LeadState, type Step } from "./types";
 
 export interface LeadRow extends SchedulableLead {
@@ -142,7 +143,7 @@ export const prismaRepo: OutreachRepo = {
     if (ids.length === 0) return [];
     const profiles = await prisma.consultantProfile.findMany({
       where: { id: { in: ids.map((r) => r.id) } },
-      select: { id: true, timezone: true, status: true, rawEmail: true, company: true },
+      select: { id: true, province: true, country: true, status: true, rawEmail: true, company: true },
     });
     const companies = profiles.map((p) => p.company).filter((c): c is string => !!c);
     const peers = companies.length
@@ -155,13 +156,19 @@ export const prismaRepo: OutreachRepo = {
       _count: { _all: true },
     });
     const viewMap = new Map(views.map((v) => [v.consultantId, v._count._all]));
-    return profiles
-      .filter((p) => isCiccActive(p.status))
-      .map((p) => ({
-        consultantProfileId: p.id, timezone: p.timezone, status: p.status, email: p.rawEmail,
+    const out: Candidate[] = [];
+    for (const p of profiles) {
+      if (!isCiccActive(p.status)) continue;
+      // Phase 1: Canadian profiles only; the zone comes from the province, never a default.
+      const timezone = timezoneForProvince(p.province, p.country);
+      if (!timezone) continue;
+      out.push({
+        consultantProfileId: p.id, timezone, status: p.status, email: p.rawEmail,
         companyPeerCount: p.company ? peerMap.get(p.company) ?? 1 : 0,
         profileViews30d: viewMap.get(p.id) ?? 0,
-      }));
+      });
+    }
+    return out;
   },
 
   async getComposeContext(leadId) {

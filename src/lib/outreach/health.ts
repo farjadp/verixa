@@ -1,4 +1,4 @@
-import { isActiveDay } from "./calendar";
+import { addCalendarDays, isActiveDay } from "./calendar";
 import { OUTREACH } from "./config";
 import type { OutreachSettings } from "./settings";
 
@@ -10,7 +10,9 @@ export function checkHealth({ now, settings, heartbeat, stats }: {
 
   const socialOn = settings.channels.LINKEDIN || settings.channels.X;
   const staleMs = OUTREACH.heartbeatStaleHours * 3_600_000;
-  if (socialOn && isActiveDay(now, OUTREACH.operatorTimezone) && (!heartbeat || now.getTime() - heartbeat.getTime() > staleMs)) {
+  // Both today and yesterday must be active days, else the first run after a rest day always looks stale.
+  const tz = OUTREACH.operatorTimezone;
+  if (socialOn && isActiveDay(now, tz) && isActiveDay(addCalendarDays(now, -1), tz) && (!heartbeat || now.getTime() - heartbeat.getTime() > staleMs)) {
     alerts.push(`Worker heartbeat is stale (last: ${heartbeat?.toISOString() ?? "never"}). Check the Mac worker.`);
   }
 

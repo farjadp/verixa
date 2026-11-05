@@ -11,6 +11,14 @@ describe("checkHealth", () => {
     expect(r.pause).toBe(false);
   });
 
+  it("does not alert on a Monday even with a 4-day-old heartbeat, but does on Tuesday with a 30h-old one", () => {
+    const mon = new Date("2026-11-09T10:00:00Z");
+    expect(checkHealth({ now: mon, settings: on, heartbeat: new Date("2026-11-05T15:00:00Z"), stats: { touches: 0, negatives: 0 } }).alerts).toEqual([]);
+    const tue = new Date("2026-11-10T10:00:00Z");
+    const r = checkHealth({ now: tue, settings: on, heartbeat: new Date("2026-11-09T04:00:00Z"), stats: { touches: 0, negatives: 0 } });
+    expect(r.alerts[0]).toMatch(/heartbeat/i);
+  });
+
   it("stays quiet on rest days and when social channels are off", () => {
     expect(checkHealth({ now: new Date("2026-11-07T15:00:00Z"), settings: on, heartbeat: null, stats: { touches: 0, negatives: 0 } }).alerts).toEqual([]);
     expect(checkHealth({ now: thu, settings: { ...on, channels: { LINKEDIN: false, X: false, EMAIL: true } }, heartbeat: null, stats: { touches: 0, negatives: 0 } }).alerts).toEqual([]);

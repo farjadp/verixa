@@ -14,6 +14,8 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { revalidatePath } from "next/cache";
+import { stripe } from "@/lib/stripe";
+import { createPlanCheckoutSession } from "@/lib/stripe-checkout";
 
 // ─── Auth Guards ──────────────────────────────────────────────────────────────
 
@@ -253,29 +255,79 @@ export async function applyCouponToSubscription(
   code: string,
   planId: string,
   notes?: string
-): Promise<{ ok: boolean; error?: string; subscription?: any }> {
+): Promise<{ ok: boolean; error?: string; subscription?: any; url?: string }> {
   const session = await requireAuth();
-  const userId = (session.user as any)?.id;
+  const userId = (session.user as any)?.id as string;
+  const userEmail = session.user?.email;
 
-  // Re-validate server-side (race condition safe)
+  // Re-validate server-side (never trust the client preview)
   const validation = await validateCoupon(code, planId);
   if (!validation.ok || !validation.coupon) {
     return { ok: false, error: validation.error };
   }
+  const couponId: string = validation.coupon.id;
+  const finalPriceCents = validation.finalPriceCents ?? 0;
+  const discountCents = validation.discountCents ?? 0;
 
-  try {
-    // Atomic: update usedCount + create subscription + log usage in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Final guard: increment usedCount only if still under limit
-      const coupon = await tx.discountCode.findUnique({
-        where: { id: validation.coupon!.id },
+  const plan = await prisma.plan.findUnique({ where: { id: planId } });
+  if (!plan) return { ok: false, error: "Plan not found." };
+
+  // ── Paid remainder: the coupon is mirrored to Stripe and the user pays the
+  //    discounted price through Checkout. The subscription is activated (and the
+  //    coupon usage recorded) by the checkout.session.completed webhook.
+  if (finalPriceCents > 0) {
+    if (!userEmail) return { ok: false, error: "Your account has no email address." };
+    try {
+      const c = validation.coupon;
+      const stripeCoupon = await stripe.coupons.create({
+        name: `Verixa ${c.code}`,
+        ...(c.type === "PERCENT"
+          ? { percent_off: c.value }
+          : { amount_off: Math.min(c.value, plan.priceCents), currency: "cad" }),
+        ...(c.durationMonths
+          ? { duration: "repeating" as const, duration_in_months: c.durationMonths }
+          : { duration: "once" as const }),
+        max_redemptions: 1,
+        metadata: { verixaCouponId: couponId, userId },
       });
-      if (!coupon) throw new Error("Coupon not found.");
-      if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) {
+
+      const checkout = await createPlanCheckoutSession({
+        user: { id: userId, email: userEmail },
+        plan,
+        isAnnual: false,
+        stripeCouponId: stripeCoupon.id,
+        extraMetadata: {
+          couponId,
+          couponCode: c.code,
+          discountCents: String(discountCents),
+        },
+      });
+
+      if (!checkout.url) return { ok: false, error: "Could not start checkout." };
+      return { ok: true, url: checkout.url };
+    } catch (err: any) {
+      console.error("Coupon checkout error:", err);
+      return { ok: false, error: err.message || "Failed to start checkout." };
+    }
+  }
+
+  // ── 100% discount: activate directly, atomically.
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      // Atomic guard: claim one use only if still under the limit. Two concurrent
+      // callers cannot both pass because the increment and the check are one UPDATE.
+      const claimed = await tx.discountCode.updateMany({
+        where: {
+          id: couponId,
+          isActive: true,
+          OR: [{ maxUses: null }, { usedCount: { lt: tx.discountCode.fields.maxUses } }],
+        },
+        data: { usedCount: { increment: 1 } },
+      });
+      if (claimed.count === 0) {
         throw new Error("This coupon has just reached its usage limit.");
       }
 
-      // Create/update subscription
       const sub = await tx.subscription.upsert({
         where: { userId },
         update: {
@@ -283,31 +335,26 @@ export async function applyCouponToSubscription(
           status: "active",
           startDate: new Date(),
           endDate: null,
-          notes: notes ?? `Coupon: ${coupon.code}`,
+          notes: notes ?? `Coupon: ${validation.coupon!.code}`,
         },
         create: {
           userId,
           planId,
           status: "active",
           startDate: new Date(),
-          notes: `Coupon: ${coupon.code}`,
+          notes: `Coupon: ${validation.coupon!.code}`,
         },
       });
 
-      // Record usage
+      // Unique (codeId, userId) makes a second use of the same code fail here
+      // and roll back the increment above.
       await tx.discountCodeUsage.create({
         data: {
-          codeId: coupon.id,
+          codeId: couponId,
           userId,
           subscriptionId: sub.id,
-          discountCents: validation.discountCents!,
+          discountCents,
         },
-      });
-
-      // Increment usedCount
-      await tx.discountCode.update({
-        where: { id: coupon.id },
-        data: { usedCount: { increment: 1 } },
       });
 
       return sub;
@@ -318,11 +365,7 @@ export async function applyCouponToSubscription(
         userId,
         role: "CONSULTANT",
         action: "COUPON_APPLIED",
-        details: JSON.stringify({
-          code: validation.coupon!.code,
-          planId,
-          discountCents: validation.discountCents,
-        }),
+        details: JSON.stringify({ code: validation.coupon!.code, planId, discountCents }),
       },
     });
 

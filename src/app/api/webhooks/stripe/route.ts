@@ -195,6 +195,26 @@ export async function POST(req: NextRequest) {
               }
             });
             console.log(`[Stripe Webhook] Subscription created/updated for User ${userId}. Plan: ${planId}`);
+
+            // Coupon flow: record the redemption now that payment actually happened.
+            if (metadata.couponId) {
+              const discountCents = Number(metadata.discountCents) || 0;
+              const sub = await prisma.subscription.findUnique({ where: { userId }, select: { id: true } });
+              try {
+                await prisma.$transaction([
+                  prisma.discountCodeUsage.create({
+                    data: { codeId: metadata.couponId, userId, subscriptionId: sub?.id, discountCents },
+                  }),
+                  prisma.discountCode.update({
+                    where: { id: metadata.couponId },
+                    data: { usedCount: { increment: 1 } },
+                  }),
+                ]);
+              } catch (e: any) {
+                // Unique (codeId, userId) violation on webhook retry: already recorded.
+                console.warn(`[Stripe Webhook] Coupon usage not recorded (likely duplicate):`, e.message);
+              }
+            }
             revalidatePath("/dashboard");
             revalidatePath("/dashboard/billing");
           } else {

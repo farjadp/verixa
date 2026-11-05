@@ -1,9 +1,9 @@
 "use server";
 
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
+import { prisma } from "@/lib/prisma";
+import { MAX_PROFILE_IMAGE_BYTES, sniffImage } from "@/lib/image-upload";
 
 export async function uploadImageAction(formData: FormData) {
   // 1. Verify Authentication
@@ -29,50 +29,34 @@ export async function uploadImageAction(formData: FormData) {
   return `data:${file.type};base64,${base64}`;
 }
 
-export async function uploadConsultantImageAction(formData: FormData) {
-  // 1. Verify Authentication
+export type UploadResult = { ok: true; url: string } | { ok: false; error: string };
+
+// Stores the image in Postgres (ContentImage) and serves it from
+// /api/content-image/[id]. Writing to public/ fails on Vercel's read-only
+// filesystem and let a renamed .html file be served same-origin.
+export async function uploadConsultantImageAction(formData: FormData): Promise<UploadResult> {
   const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  
-  if (!session || (role !== "ADMIN" && role !== "CONSULTANT")) {
-    throw new Error("Unauthorized to upload consultant files.");
+  const role = session?.user?.role;
+  if (!session?.user?.id || (role !== "ADMIN" && role !== "CONSULTANT")) {
+    return { ok: false, error: "Please sign in as a consultant to upload images. If you just claimed your profile, sign out and back in." };
   }
 
-  const file = formData.get("image") as File;
-  if (!file) throw new Error("No image file provided.");
+  const file = formData.get("image");
+  if (!(file instanceof File)) return { ok: false, error: "No image file provided." };
+  if (file.size > MAX_PROFILE_IMAGE_BYTES) return { ok: false, error: "Image must be smaller than 5 MB." };
 
-  // 2. Validate File
-  if (!file.type.startsWith("image/")) {
-    throw new Error("File must be an image.");
-  }
-  
-  // 10MB Limit
-  if (file.size > 10 * 1024 * 1024) {
-    throw new Error("Image must be smaller than 10MB.");
-  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const sniffed = sniffImage(bytes);
+  if (!sniffed) return { ok: false, error: "Upload a PNG, JPEG or WebP image." };
 
-  // 3. Convert to Buffer
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
-
-  // 4. Generate Unique Filename & Path
-  const ext = file.name.split('.').pop() || 'png';
-  const userId = (session?.user as any)?.id || "anon";
-  const filename = `c_${userId}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
-  const uploadDir = join(process.cwd(), "public", "uploads", "consultants");
-
-  // Ensure directory exists
   try {
-    await mkdir(uploadDir, { recursive: true });
+    const image = await prisma.contentImage.create({
+      data: { mimeType: sniffed.mimeType, data: Buffer.from(bytes), alt: `Consultant image (${session.user.id})` },
+      select: { id: true },
+    });
+    return { ok: true, url: `/api/content-image/${image.id}` };
   } catch (e) {
-    // Ignore if exists
+    console.error("[uploadConsultantImageAction] failed:", e);
+    return { ok: false, error: "Upload failed. Please try again." };
   }
-
-  const path = join(uploadDir, filename);
-
-  // 5. Write to Disk
-  await writeFile(path, buffer);
-
-  // 6. Return Public URL
-  return `/uploads/consultants/${filename}`;
 }

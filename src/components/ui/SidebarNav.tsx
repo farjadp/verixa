@@ -134,6 +134,7 @@ export default function SidebarNav({ role }: { role: string }) {
           label: "Content Generation", 
           icon: Cpu,
           children: [
+            { label: "Content Pipeline", href: "/dashboard/admin/content-pipeline" },
             { label: "Verify AI Factory", href: "/dashboard/admin/ai-factory" },
             { label: "CMS Pages", href: "/dashboard/admin/cms" },
             { label: "Blog Engine", href: "/dashboard/admin/blog" },

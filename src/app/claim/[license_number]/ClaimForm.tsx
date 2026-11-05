@@ -137,7 +137,7 @@ export default function ClaimForm({ licenseNumber, fullName, ciccHint }: Props) 
 
     if (signInRes?.ok) {
       setStep("done");
-      setTimeout(() => router.push("/dashboard/setup"), 1800);
+      setTimeout(() => router.push("/dashboard/profile"), 1800);
     } else {
       setError("Account created but auto-login failed. Please sign in manually.");
     }

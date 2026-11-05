@@ -1,6 +1,8 @@
 // src/lib/outreach/engine.ts
+import { z } from "zod";
 import type { Llm } from "@/lib/content-pipeline/types";
 import { isActiveDay, localParts, localTimeToUtc } from "./calendar";
+import { classifyReply } from "./classifier";
 import { ComposeRejectedError, composeMessage } from "./composer";
 import { OUTREACH } from "./config";
 import type { BuiltEmail } from "./email";
@@ -10,7 +12,7 @@ import { planTasks, type Task } from "./scheduler";
 import { scoreLead } from "./scoring";
 import type { OutreachSettings } from "./settings";
 import { InvalidTransitionError, newBacklogLead, transition } from "./state";
-import type { Channel, LeadEvent, Step } from "./types";
+import { CHANNELS, type Channel, type LeadEvent, type Step } from "./types";
 
 export interface EngineDeps {
   now: () => Date;
@@ -204,4 +206,117 @@ export async function cancelScheduledEmails(deps: EngineDeps): Promise<number> {
     }
   }
   return cancelled;
+}
+
+export interface WorkerTask {
+  touchId: string;
+  leadId: string;
+  kind: "INVITE" | "TOUCH";
+  step: Step;
+  handle: string;
+  body: string;
+  dryRun: boolean;
+}
+
+export async function buildSocialTasks(deps: EngineDeps, channel: "LINKEDIN" | "X"): Promise<WorkerTask[]> {
+  const settings = await deps.settings();
+  if (!settings.enabled || !settings.channels[channel]) return [];
+  await runMaintenance(deps, channel);
+  const now = deps.now();
+  const leads = (await deps.repo.listLeads(channel)).filter((l) => !l.profileClaimed && !l.suppressed && l.externalHandle);
+  const offer = await deps.getOffer();
+  const sentToday = await deps.repo.countTouchesToday(channel, now);
+  const tasks = planTasks({ channel, leads, now, sentToday, offerAvailable: offer !== null });
+  const today = localParts(now, OUTREACH.operatorTimezone).ymd;
+  const out: WorkerTask[] = [];
+
+  for (const t of tasks) {
+    if (t.kind !== "TOUCH" && t.kind !== "INVITE") continue;
+    const lead = leads.find((l) => l.id === t.leadId)!;
+    const msg = await composeWithRetry(deps, lead, t.step, offer);
+    if (!msg) continue;
+    const touch = await deps.repo.createTouch({
+      leadId: lead.id, channel, step: t.step, cycle: lead.recontactUsed ? 1 : 0, subject: null, body: msg.body,
+      status: settings.dryRun ? "DRY_RUN" : "QUEUED", dryRunDay: today,
+    });
+    if (touch.status !== "QUEUED" && touch.status !== "DRY_RUN") continue; // already sent or failed
+    out.push({ touchId: touch.id, leadId: lead.id, kind: t.kind, step: t.step, handle: lead.externalHandle!, body: touch.body, dryRun: settings.dryRun });
+  }
+  return out;
+}
+
+const channelEnum = z.enum(CHANNELS);
+const signalsSchema = z.object({
+  postedAboutMarketing: z.boolean(), soloOrSmallFirm: z.boolean(), activeLast21Days: z.boolean(),
+  socialProfileComplete: z.boolean(), hadProfileViews30d: z.boolean(),
+});
+
+export const workerReportSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("TOUCH_RESULT"), touchId: z.string(), status: z.enum(["SENT", "FAILED"]), externalMessageId: z.string().optional(), error: z.string().max(500).optional() }),
+  z.object({ type: z.literal("INVITE_ACCEPTED"), leadId: z.string() }),
+  z.object({ type: z.literal("REPLY"), channel: channelEnum, handle: z.string().optional(), email: z.string().email().optional(), body: z.string().max(8000) }),
+  z.object({ type: z.literal("LEAD_MATCHED"), consultantProfileId: z.string(), channel: z.enum(["LINKEDIN", "X"]), handle: z.string().min(1), matchConfidence: z.number().min(0).max(1), timezone: z.string(), signals: signalsSchema }),
+  z.object({ type: z.literal("DMS_CLOSED"), leadId: z.string() }),
+  z.object({ type: z.literal("CHANNEL_HALT"), channel: z.enum(["LINKEDIN", "X", "EMAIL"]), reason: z.enum(["CHECKPOINT", "ADAPTER_BROKEN"]), detail: z.string().max(1000) }),
+]);
+export type WorkerReport = z.infer<typeof workerReportSchema>;
+
+export async function applyReport(
+  deps: EngineDeps,
+  r: WorkerReport,
+  hooks: { haltChannel: (c: Channel, reason: string, detail: string) => Promise<void> },
+): Promise<{ ok: boolean; detail?: string }> {
+  switch (r.type) {
+    case "TOUCH_RESULT": {
+      const touch = await deps.repo.getTouch(r.touchId);
+      if (!touch) return { ok: false, detail: "unknown touch" };
+      if (touch.status === "SENT") return { ok: true, detail: "already recorded" };
+      if (touch.status === "DRY_RUN") return { ok: true, detail: "dry run" };
+      if (r.status === "FAILED") {
+        await deps.repo.updateTouch(touch.id, { status: "FAILED", error: r.error });
+        return { ok: true };
+      }
+      await deps.repo.updateTouch(touch.id, { status: "SENT", externalMessageId: r.externalMessageId, sentAt: deps.now() });
+      const lead = await deps.repo.getLead(touch.leadId);
+      if (!lead) return { ok: false, detail: "unknown lead" };
+      const event: LeadEvent = lead.channel === "LINKEDIN" && touch.step === 1 ? { type: "INVITE_SENT" } : { type: "TOUCH_SENT", step: touch.step };
+      return { ok: await apply(deps, lead, event) };
+    }
+
+    case "INVITE_ACCEPTED": {
+      const lead = await deps.repo.getLead(r.leadId);
+      return { ok: lead ? await apply(deps, lead, { type: "INVITE_ACCEPTED" }) : false };
+    }
+
+    case "REPLY": {
+      const lead = await deps.repo.findLeadByContact(r.email ? { email: r.email } : { handle: r.handle });
+      if (!lead) return { ok: false, detail: "no lead for contact" };
+      const { label, confidence } = await classifyReply(deps.llm, r.body);
+      await deps.repo.recordReply({ leadId: lead.id, body: r.body, label, confidence });
+      if (label === "negative") {
+        await deps.suppress(lead.consultantProfileId, "negative_reply", r.email ? { email: r.email } : r.channel === "X" ? { xHandle: r.handle } : { linkedinUrl: r.handle });
+      }
+      return { ok: await apply(deps, lead, { type: "REPLY", label }) };
+    }
+
+    case "LEAD_MATCHED": {
+      if (r.matchConfidence < OUTREACH.minMatchConfidence) return { ok: true, detail: "below confidence threshold" };
+      if ((await deps.repo.countLeadsCreatedToday(r.channel, deps.now())) >= OUTREACH.newLeadsPerChannelPerDay) return { ok: true, detail: "daily cap reached" };
+      const score = scoreLead({ ciccActive: true, ...r.signals });
+      const created = await deps.repo.createLead({
+        consultantProfileId: r.consultantProfileId, score, externalHandle: r.handle, matchConfidence: r.matchConfidence,
+        snapshot: newBacklogLead(r.channel, r.timezone, deps.now()),
+      });
+      return { ok: true, detail: created ? "created" : "already a lead" };
+    }
+
+    case "DMS_CLOSED": {
+      const lead = await deps.repo.getLead(r.leadId);
+      return { ok: lead ? await apply(deps, lead, { type: "REASSIGN", channel: "EMAIL" }) : false };
+    }
+
+    case "CHANNEL_HALT":
+      await hooks.haltChannel(r.channel, r.reason, r.detail);
+      return { ok: true };
+  }
 }

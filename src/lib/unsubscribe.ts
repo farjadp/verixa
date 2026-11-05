@@ -1,22 +1,36 @@
 import crypto from "crypto";
 
-const UNSUB_SECRET = process.env.UNSUBSCRIBE_SECRET || "verixa-unsub-secret-2024";
-
-export function signUnsubscribeToken(email: string): string {
-  return crypto
-    .createHmac("sha256", UNSUB_SECRET)
-    .update(email.toLowerCase())
-    .digest("hex")
-    .slice(0, 24);
+function secret(): string {
+  const s = process.env.UNSUBSCRIBE_SECRET;
+  if (!s) throw new Error("UNSUBSCRIBE_SECRET is not configured.");
+  return s;
 }
 
-export function buildUnsubscribeUrl(email: string): string {
-  const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.getverixa.com";
-  const token = signUnsubscribeToken(email);
-  return `${BASE_URL}/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`;
+function baseUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL || "https://www.getverixa.com";
+}
+
+export function signUnsubscribeToken(email: string): string {
+  return crypto.createHmac("sha256", secret()).update(email.toLowerCase()).digest("hex").slice(0, 24);
 }
 
 export function verifyUnsubscribeToken(email: string, token: string): boolean {
-  const expected = signUnsubscribeToken(email);
-  return expected === token;
+  let expected: string;
+  try {
+    expected = signUnsubscribeToken(email);
+  } catch {
+    return false;
+  }
+  const a = Buffer.from(expected);
+  const b = Buffer.from(token);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+export function buildUnsubscribeUrl(email: string): string {
+  return `${baseUrl()}/unsubscribe?email=${encodeURIComponent(email)}&token=${signUnsubscribeToken(email)}`;
+}
+
+/** RFC 8058 target: mail clients POST here for one-click unsubscribe. */
+export function buildOneClickUnsubscribeUrl(email: string): string {
+  return `${baseUrl()}/api/unsubscribe?email=${encodeURIComponent(email)}&token=${signUnsubscribeToken(email)}`;
 }

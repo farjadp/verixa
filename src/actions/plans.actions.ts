@@ -24,8 +24,10 @@ async function requireAdmin() {
 // ─── PLAN CRUD ───────────────────────────────────────────────────────────────
 
 export async function getPlans() {
+  await requireAdmin();
   return prisma.plan.findMany({
     orderBy: { sortOrder: "asc" },
+    take: 100,
     include: {
       planFeatures: {
         include: { feature: true },
@@ -80,7 +82,9 @@ export async function deletePlan(id: string) {
 // ─── FEATURE CRUD ────────────────────────────────────────────────────────────
 
 export async function getFeatures() {
+  await requireAdmin();
   return prisma.feature.findMany({
+    take: 1000,
     orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
     include: { _count: { select: { planFeatures: true } } },
   });
@@ -229,8 +233,10 @@ export async function cancelSubscription(userId: string) {
 // ─── STATS ───────────────────────────────────────────────────────────────────
 
 export async function getPlanStats() {
+  await requireAdmin();
   const plans = await prisma.plan.findMany({
     orderBy: { sortOrder: "asc" },
+    take: 100,
     include: {
       _count: { select: { subscriptions: { where: { status: "active" } } } },
     },

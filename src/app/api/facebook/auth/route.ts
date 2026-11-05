@@ -1,45 +1,42 @@
 // ============================================================================
-// Hardware Source: src/app/api/facebook/auth/route.ts
 // Route: /api/facebook/auth
-// Version: 1.0.0 — 2026-04-08
 // Why: OAuth initiation route for connecting Facebook publishing credentials.
-// Domain: OAuth Integrations
-// Env / Identity: Next.js Route Handler
-// Owner: Verixa Web
-// Notes: OAuth flows must validate state, handle missing credentials safely, and avoid persisting invalid tokens.
-// Critical Path: Admin social publishing credential bootstrap.
-// Primary Dependencies: OAuth client config, session authorization, logSystemEvent, settings persistence.
-// Risk Notes: Do not persist partial authorizations or stale tokens.
+// Security: admin-only; issues a random `state` bound to an httpOnly cookie
+//           that the callback verifies.
 // ============================================================================
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { logSystemEvent } from "@/lib/logger";
+import { issueOAuthState, oauthRedirectBase } from "@/lib/oauth-state";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") {
+  if (!session || session.user.role !== "ADMIN") {
     await logSystemEvent("FACEBOOK_AUTH_INIT_FAILED", { reason: "Unauthorized user" }, "SYSTEM", session?.user?.id);
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const clientId = process.env.FACEBOOK_CLIENT_ID;
   if (!clientId) {
-    await logSystemEvent("FACEBOOK_AUTH_INIT_FAILED", { reason: "Missing FACEBOOK_CLIENT_ID" }, "ADMIN", (session.user as any).id);
+    await logSystemEvent("FACEBOOK_AUTH_INIT_FAILED", { reason: "Missing FACEBOOK_CLIENT_ID" }, "ADMIN", session.user.id);
     return NextResponse.redirect(new URL("/dashboard/admin/social?facebook_error=Missing+Facebook+Credentials", req.url));
   }
 
   // MUST match the exact callback URI configured in Facebook Login settings
-  const PROD_URL = process.env.NODE_ENV === "production" ? "https://www.getverixa.com" : "http://localhost:3000";
-  const redirectUri = `${PROD_URL}/api/facebook/auth/callback`;
-
-  // Request scopes needed for page posting and fetching page data
+  const redirectUri = `${oauthRedirectBase()}/api/facebook/auth/callback`;
   const scopes = "pages_show_list,pages_manage_posts,pages_read_engagement";
-  const state = Math.random().toString(36).substring(7);
+  const state = await issueOAuthState("facebook");
 
-  const fbAuthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=${scopes}`;
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    state,
+    scope: scopes,
+  });
+  const fbAuthUrl = `https://www.facebook.com/v19.0/dialog/oauth?${params.toString()}`;
 
-  await logSystemEvent("FACEBOOK_AUTH_INIT", { redirectUri, scopes }, "ADMIN", (session.user as any).id);
+  await logSystemEvent("FACEBOOK_AUTH_INIT", { redirectUri, scopes }, "ADMIN", session.user.id);
 
   return NextResponse.redirect(fbAuthUrl);
 }

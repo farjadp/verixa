@@ -621,6 +621,9 @@ export async function publishAll(jobId: string): Promise<PublishResult[]> {
 // Called from /api/linkedin/auth/route.ts after receiving the code
 
 export async function exchangeLinkedInCode(code: string): Promise<{ ok: boolean; error?: string }> {
+  // Exported server actions are directly callable; never exchange a code for
+  // the platform token unless an admin session is present.
+  await verifyAdmin();
   try {
     const PROD_URL = process.env.NODE_ENV === "production" ? "https://www.getverixa.com" : "http://localhost:3000";
     const redirectUri = `${PROD_URL}/api/linkedin/auth/callback`;
@@ -694,11 +697,8 @@ export async function exchangeLinkedInCode(code: string): Promise<{ ok: boolean;
 
 export async function getLinkedInAuthUrl(): Promise<string> {
   await verifyAdmin();
-  const PROD_URL = process.env.NODE_ENV === "production" ? "https://www.getverixa.com" : "http://localhost:3000";
-  const redirectUri = encodeURIComponent(`${PROD_URL}/api/linkedin/auth/callback`);
-  const clientId = process.env.LINKEDIN_CLIENT_ID;
-  const scope = encodeURIComponent("openid profile w_member_social email");
-  return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
+  // The init route issues the CSRF `state` cookie; always go through it.
+  return `/api/linkedin/auth`;
 }
 
 export async function checkLinkedInStatus(): Promise<{ connected: boolean }> {

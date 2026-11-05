@@ -16,10 +16,11 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { logSystemEvent } from "@/lib/logger";
+import { consumeOAuthState, oauthRedirectBase } from "@/lib/oauth-state";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") {
+  if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -27,17 +28,25 @@ export async function GET(req: Request) {
   const code = url.searchParams.get("code");
   const error = url.searchParams.get("error");
   const errorReason = url.searchParams.get("error_reason");
+  const state = url.searchParams.get("state");
 
-  const PROD_URL = process.env.NODE_ENV === "production" ? "https://www.getverixa.com" : "http://localhost:3000";
+  const PROD_URL = oauthRedirectBase();
   const baseUrl = `${PROD_URL}/dashboard/admin/social`;
 
+  // CSRF guard: the state must match the cookie issued by /api/facebook/auth.
+  const stateOk = await consumeOAuthState("facebook", state);
+  if (!stateOk) {
+    await logSystemEvent("FACEBOOK_AUTH_CALLBACK_FAILED", { error: "invalid_state" }, "ADMIN", session.user.id);
+    return NextResponse.redirect(`${baseUrl}?facebook_error=invalid_state`);
+  }
+
   if (error) {
-    await logSystemEvent("FACEBOOK_AUTH_CALLBACK_FAILED", { error, errorReason }, "ADMIN", (session.user as any).id);
+    await logSystemEvent("FACEBOOK_AUTH_CALLBACK_FAILED", { error, errorReason }, "ADMIN", session.user.id);
     return NextResponse.redirect(`${baseUrl}?facebook_error=${encodeURIComponent(errorReason || error)}`);
   }
 
   if (!code) {
-    await logSystemEvent("FACEBOOK_AUTH_CALLBACK_FAILED", { msg: "No code provided" }, "ADMIN", (session.user as any).id);
+    await logSystemEvent("FACEBOOK_AUTH_CALLBACK_FAILED", { msg: "No code provided" }, "ADMIN", session.user.id);
     return NextResponse.redirect(`${baseUrl}?facebook_error=No+code+provided`);
   }
 
@@ -46,24 +55,34 @@ export async function GET(req: Request) {
     const clientSecret = process.env.FACEBOOK_CLIENT_SECRET!;
     const redirectUri = `${PROD_URL}/api/facebook/auth/callback`;
 
-    // 1. Exchange OAuth code for a short-lived User Access Token
-    const tokenRes = await fetch(
-      `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${clientSecret}&code=${code}`
-    );
+    // 1. Exchange OAuth code for a short-lived User Access Token.
+    //    POST body keeps client_secret out of URL/proxy logs.
+    const tokenRes = await fetch("https://graph.facebook.com/v19.0/oauth/access_token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, client_secret: clientSecret, code }),
+    });
     const tokenData = await tokenRes.json();
 
     if (!tokenData.access_token) {
       console.error("[Facebook] Error exchanging code:", tokenData);
-      await logSystemEvent("FACEBOOK_AUTH_TOKEN_EXCHANGE_FAILED", tokenData, "ADMIN", (session.user as any).id);
+      await logSystemEvent("FACEBOOK_AUTH_TOKEN_EXCHANGE_FAILED", tokenData, "ADMIN", session.user.id);
       return NextResponse.redirect(`${baseUrl}?facebook_error=TokenExchnageFailed`);
     }
 
     const shortLivedToken = tokenData.access_token;
 
     // 2. Exchange short-lived token for a long-lived User Access Token
-    const longTokenRes = await fetch(
-      `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${clientId}&client_secret=${clientSecret}&fb_exchange_token=${shortLivedToken}`
-    );
+    const longTokenRes = await fetch("https://graph.facebook.com/v19.0/oauth/access_token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "fb_exchange_token",
+        client_id: clientId,
+        client_secret: clientSecret,
+        fb_exchange_token: shortLivedToken,
+      }),
+    });
     const longTokenData = await longTokenRes.json();
     const longLivedUserToken = longTokenData.access_token || shortLivedToken;
 
@@ -73,7 +92,7 @@ export async function GET(req: Request) {
 
     if (!pagesData.data || pagesData.data.length === 0) {
       console.error("[Facebook] No pages found for user.", pagesData);
-      await logSystemEvent("FACEBOOK_AUTH_NO_PAGES_FOUND", pagesData, "ADMIN", (session.user as any).id);
+      await logSystemEvent("FACEBOOK_AUTH_NO_PAGES_FOUND", pagesData, "ADMIN", session.user.id);
       return NextResponse.redirect(`${baseUrl}?facebook_error=NoPagesUnderAccount`);
     }
 
@@ -102,12 +121,12 @@ export async function GET(req: Request) {
       create: { key: "facebook_page_name", value: pageName },
     });
 
-    await logSystemEvent("FACEBOOK_AUTH_SUCCESS", { pageId, pageName }, "ADMIN", (session.user as any).id);
+    await logSystemEvent("FACEBOOK_AUTH_SUCCESS", { pageId, pageName }, "ADMIN", session.user.id);
 
     return NextResponse.redirect(`${baseUrl}?facebook_connected=true`);
   } catch (err: any) {
     console.error("[Facebook] Callback Exception:", err);
-    await logSystemEvent("FACEBOOK_AUTH_EXCEPTION", err, "ADMIN", (session.user as any).id);
+    await logSystemEvent("FACEBOOK_AUTH_EXCEPTION", err, "ADMIN", session.user.id);
     return NextResponse.redirect(`${baseUrl}?facebook_error=ExceptionOccurred`);
   }
 }

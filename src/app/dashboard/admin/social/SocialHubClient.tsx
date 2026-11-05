@@ -166,8 +166,15 @@ export default function SocialHubClient({
     }
   };
 
+  // Content Pipeline jobs arrive QUEUED; rejected ones are CANCELLED. A link to an
+  // unpublished article would 404, so approval and posting wait for publication.
+  const isCancelled = socialJob?.status === "CANCELLED";
+  const articleLive = !!selectedPost?.isPublished;
+
   const handleApprovePayload = async () => {
     if (!socialJob) return;
+    if (isCancelled) { setError("This social job was cancelled when its article was rejected."); return; }
+    if (!articleLive) { setError("Publish the article first, then approve its social posts."); return; }
     setLoading(true); setError(""); setSuccess("");
     try {
       await updateSocialJob(socialJob.id, {
@@ -203,6 +210,10 @@ export default function SocialHubClient({
     if (!socialJob) return;
     if (socialJob.status !== "APPROVED") {
       setError("Please approve the drafts first before publishing.");
+      return;
+    }
+    if (!articleLive) {
+      setError("The article is not published yet, so its link would not work.");
       return;
     }
     setPublishingPlatform(platform); setError(""); setSuccess("");
@@ -428,6 +439,8 @@ export default function SocialHubClient({
             {posts.map((post) => {
               const job = post.socialJobs?.[0];
               let badge = <span className="text-[10px] bg-gray-100 text-gray-500 font-bold px-2 py-0.5 rounded">NO SOCIALS</span>;
+              if (job?.status === "QUEUED") badge = <span className="text-[10px] bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded">QUEUED</span>;
+              if (job?.status === "CANCELLED") badge = <span className="text-[10px] bg-gray-100 text-gray-500 font-bold px-2 py-0.5 rounded line-through">CANCELLED</span>;
               if (job?.status === "GENERATING") badge = <span className="text-[10px] bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded animate-pulse">GENERATING...</span>;
               if (job?.status === "REVIEW") badge = <span className="text-[10px] bg-yellow-50 text-yellow-600 font-bold px-2 py-0.5 rounded">PENDING REVIEW</span>;
               if (job?.status === "APPROVED") badge = <span className="text-[10px] bg-purple-50 text-purple-600 font-bold px-2 py-0.5 rounded">APPROVED</span>;
@@ -488,6 +501,12 @@ export default function SocialHubClient({
                     className="text-[11px] text-blue-600 font-bold flex items-center gap-1 mt-1 hover:underline">
                     <Link2 className="w-3 h-3" /> getverixa.com/blog/{selectedPost.slug}
                   </a>
+                  {socialJob && isCancelled && (
+                    <p className="mt-1 text-[11px] font-bold text-gray-500">Cancelled: the article was rejected in the Content Pipeline.</p>
+                  )}
+                  {socialJob && !isCancelled && !articleLive && (
+                    <p className="mt-1 text-[11px] font-bold text-amber-700">Article is a draft. Publish it before approving these posts.</p>
+                  )}
                 </div>
 
                 {/* Action Buttons */}
@@ -499,8 +518,9 @@ export default function SocialHubClient({
                       Generate with AI
                     </button>
                   )}
-                  {socialJob && socialJob.status !== "POSTED" && (
-                    <button onClick={handleApprovePayload} disabled={loading}
+                  {socialJob && socialJob.status !== "POSTED" && !isCancelled && (
+                    <button onClick={handleApprovePayload} disabled={loading || !articleLive}
+                      title={articleLive ? undefined : "Publish the article first"}
                       className="bg-[#0F2A44] hover:bg-black text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors disabled:opacity-50 shadow">
                       {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                       Save & Approve

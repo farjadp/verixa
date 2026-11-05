@@ -3,9 +3,11 @@
  *
  *   npx tsx scripts/run-content-source.ts --url <https://...> [--name "IRCC"] [--dry-run]
  *   npx tsx scripts/run-content-source.ts --url <https://...> --regenerate
+ *   npx tsx scripts/run-content-source.ts --url <https://...> --cover
  *
  * --regenerate rewrites the existing UNPUBLISHED draft for that URL in place
- * (same post, same slug) with the current pipeline.
+ * (same post, same slug) with the current pipeline. --cover only generates a
+ * new cover image for that unpublished draft.
  *
  * Uses the live pipeline: OpenAI writer + reviewer, cover image (if
  * content_images_enabled), and the publisher. With content_autopublish_enabled
@@ -16,7 +18,7 @@
 import * as cheerio from "cheerio";
 import { createDefaultDeps } from "@/lib/content-pipeline/default-deps";
 import { extractMainText } from "@/lib/content-pipeline/agents/discovery";
-import { regenerateJob, runSingleSource } from "@/lib/content-pipeline/orchestrator";
+import { refreshCover, regenerateJob, runSingleSource } from "@/lib/content-pipeline/orchestrator";
 import { dedupKeyFor } from "@/lib/content-pipeline/dedup";
 import { assertPublicHttpUrl } from "@/lib/content-pipeline/net-guard";
 import { prisma } from "@/lib/prisma";
@@ -56,11 +58,19 @@ async function main() {
     return;
   }
 
+  const existingJob = () =>
+    prisma.contentPipelineJob.findUnique({ where: { dedupKey: dedupKeyFor({ sourceUrl: url.toString(), title }) }, select: { id: true } });
+
+  if (process.argv.includes("--cover")) {
+    const job = await existingJob();
+    if (!job) throw new Error("No pipeline job exists for this URL yet.");
+    const r = await refreshCover(deps, job.id);
+    console.log(r.ok ? `\nNew cover: ${r.url}` : `\nCover not refreshed: ${r.error}`);
+    return;
+  }
+
   if (process.argv.includes("--regenerate")) {
-    const job = await prisma.contentPipelineJob.findUnique({
-      where: { dedupKey: dedupKeyFor({ sourceUrl: url.toString(), title }) },
-      select: { id: true },
-    });
+    const job = await existingJob();
     if (!job) throw new Error("No pipeline job exists for this URL yet; run without --regenerate first.");
     const r = await regenerateJob(deps, job.id);
     console.log(r.ok ? `\nRegenerated: ${r.outcome} (job ${job.id}).` : `\nNot regenerated: ${r.error}`);

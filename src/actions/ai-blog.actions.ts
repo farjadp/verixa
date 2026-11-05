@@ -7,6 +7,7 @@ import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { prisma } from "@/lib/prisma";
 import { getAIEngines } from "@/actions/settings.actions";
+import { generateStoredOpenAiImage } from "@/lib/content-pipeline/default-deps";
 
 const getOpenAI = () => new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -162,11 +163,13 @@ export async function generateSocials(articleContent: string) {
 export async function generateEditorialImage(imagePrompt: string) {
   await verifyAdmin();
   const aiSettings = await getAIEngines();
+  const safePrompt = `Authentic documentary photojournalism, high quality professional news style photography. Subject: ${imagePrompt}. Natural lighting, realistic textures, serious tone, unposed, in the moment. Clean composition. NO TEXT.`;
 
   try {
-    const safePrompt = `Authentic documentary photojournalism, high quality professional news style photography. Subject: ${imagePrompt}. Natural lighting, realistic textures, serious tone, unposed, in the moment. Clean composition. NO TEXT.`;
-    
-    if (aiSettings.imageModel === "DALL_E_3") {
+    if (aiSettings.imageModel === "GPT_IMAGE_2") {
+      const url = await generateStoredOpenAiImage(safePrompt, imagePrompt);
+      if (url) return url;
+    } else if (aiSettings.imageModel === "DALL_E_3") {
       const response = await getOpenAI().images.generate({ model: "dall-e-3", prompt: safePrompt.substring(0, 1000), n: 1, size: "1024x1024" });
       if (response.data && response.data[0]?.url) return response.data[0].url;
     } else if (aiSettings.imageModel === "DALL_E_2") {
@@ -192,6 +195,15 @@ export async function generateEditorialImage(imagePrompt: string) {
     }
   } catch (e) {
     console.warn("⚠️ AI Image Generation Failed: ", e);
+    // FAL down or out of credit: try OpenAI's image model before the stock placeholder.
+    if (aiSettings.imageModel.startsWith("FAL")) {
+      try {
+        const url = await generateStoredOpenAiImage(safePrompt, imagePrompt);
+        if (url) return url;
+      } catch (fallbackError) {
+        console.warn("⚠️ OpenAI image fallback failed: ", fallbackError);
+      }
+    }
     return `https://images.unsplash.com/photo-1541462608143-67571c6738dd?auto=format&fit=crop&w=1024&q=80`;
   }
   

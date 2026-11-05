@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Prisma, type PrismaClient } from "@prisma/client";
-import { RUN_LOCK_MS, regenerateJob, retryJob, runContentPipeline, runSingleSource } from "@/lib/content-pipeline/orchestrator";
+import { RUN_LOCK_MS, refreshCover, regenerateJob, retryJob, runContentPipeline, runSingleSource } from "@/lib/content-pipeline/orchestrator";
 import { ConfigUpdateSchema, parseConfig } from "@/lib/content-pipeline/config";
 import { computeReviewScore, minWordsFor, runDeterministicChecks } from "@/lib/content-pipeline/review-rules";
 import { assembleArticle, ensureDisclaimer, hasDisclaimer, removeSentences } from "@/lib/content-pipeline/markdown";
@@ -808,5 +808,27 @@ describe("regenerate a draft in place", () => {
     job.stage = "READY";
     const r = await regenerateJob(createDeps(db, createFakeLlm()), str(job.id));
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("refresh cover", () => {
+  it("replaces only the cover of an unpublished draft", async () => {
+    const { db, tables } = createFakeDb({ settings: { content_pieces_per_day: "1", content_images_enabled: "false" } });
+    await runContentPipeline(createDeps(db, createFakeLlm()), { trigger: "CRON" });
+    const job = tables.contentPipelineJob.find((j) => j.stage === "READY")!;
+    const post = tables.blogPost.find((p) => p.id === job.blogPostId)!;
+    const content = post.content;
+    expect(post.coverImage).toBeNull();
+    const r = await refreshCover(createDeps(db, createFakeLlm()), str(job.id));
+    expect(r.ok).toBe(true);
+    expect(str(post.coverImage)).toMatch(/\/api\/content-image\//);
+    expect(post.content).toBe(content);
+  });
+
+  it("refuses a published post", async () => {
+    const { db, tables } = createFakeDb({ settings: { content_pieces_per_day: "1", content_autopublish_enabled: "true" } });
+    await runContentPipeline(createDeps(db, createFakeLlm()), { trigger: "CRON" });
+    const job = tables.contentPipelineJob.find((j) => j.blogPostId)!;
+    expect((await refreshCover(createDeps(db, createFakeLlm()), str(job.id))).ok).toBe(false);
   });
 });

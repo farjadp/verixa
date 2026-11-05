@@ -645,3 +645,24 @@ export async function regenerateJob(deps: PipelineDeps, jobId: string): Promise<
   deps.log(`Regenerating draft /blog/${post.slug} (job ${jobId}).`);
   return { ok: true, outcome: await runStages(deps, jobId, candidate, config, { replacePost: { id: post.id, slug: post.slug } }) };
 }
+
+/**
+ * Generate a new cover for an unpublished pipeline draft (e.g. after the image
+ * engine failed) without rewriting the article. Uses the draft's stored image prompt.
+ */
+export async function refreshCover(deps: PipelineDeps, jobId: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const { db } = deps;
+  const job = await db.contentPipelineJob.findUnique({ where: { id: jobId } });
+  if (!job?.blogPostId) return { ok: false, error: "This job has no draft post." };
+  const post = await db.blogPost.findUnique({
+    where: { id: job.blogPostId },
+    select: { id: true, isPublished: true, imagePrompt: true, imageAlt: true, title: true },
+  });
+  if (!post || post.isPublished) return { ok: false, error: "Covers can only be refreshed on unpublished drafts." };
+  const image = await createCoverImage(deps, { subject: post.imagePrompt || post.title, alt: post.imageAlt || post.title });
+  if (!image.url) return { ok: false, error: image.error || "No image produced." };
+  await db.blogPost.update({ where: { id: post.id }, data: { coverImage: image.url, imageAlt: image.alt } });
+  await db.contentPipelineJob.update({ where: { id: jobId }, data: { coverImage: image.url } });
+  deps.log(`Cover refreshed for job ${jobId}.`);
+  return { ok: true, url: image.url };
+}

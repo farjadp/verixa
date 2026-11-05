@@ -13,7 +13,7 @@ discovery → selection/dedup → writer → SEO → reviewer (fact-check gate) 
 | Writer | `agents/writer.ts` | yes | Structured draft from source text only; citations restricted to the source URL and the official pages it was given. Length follows the source (never padded). A thin source (<600 words) pulls in up to 4 same-section official pages it links to. The written title/keyword get a second dedup check before review. |
 | SEO | `agents/seo-agent.ts` + `seo.ts` | no | Slug, meta title/description, heading fixes, internal links (related posts + consultant search), alt text, NewsArticle JSON-LD. |
 | Reviewer | `agents/reviewer.ts` + `review-rules.ts` | yes | Sentence-by-sentence fact-check vs source (body and FAQ) + deterministic checks. Sentences that add purposes, benefits or opinions the source doesn't state are deleted (`removeSentences`). Gate set by `content_review_strictness`; minimum length scales with the source. Guarantees the visible "not legal advice" disclaimer. |
-| Image | `agents/image.ts` | image model | Engine from `aiImageModel` (FAL / `DALL_E_3` / `GPT_IMAGE_1`). OpenAI bytes are stored in `ContentImage` and served from `/api/content-image/[id]`. Failure never blocks a draft. |
+| Image | `agents/image.ts` | image model | Engine from `aiImageModel` (FAL / `GPT_IMAGE_2` / `GPT_IMAGE_1` / `DALL_E_3`). A FAL engine that fails (or has no key) falls back to OpenAI `gpt-image-2` (`OPENAI_IMAGE_MODEL` overrides). OpenAI bytes are stored in `ContentImage` and served from `/api/content-image/[id]`. Failure never blocks a draft. |
 | Publisher | `agents/publisher.ts` | no | Creates `BlogPost` + `SocialJob` in one transaction. **Never calls a social API.** |
 
 Orchestration: `orchestrator.ts`, run daily by `/api/cron/content-pipeline` (13:00 UTC, `vercel.json`) or **Run now** in the admin page. Safe to rerun:
@@ -31,6 +31,7 @@ Orchestration: `orchestrator.ts`, run daily by `/api/cron/content-pipeline` (13:
 npx tsx scripts/run-content-source.ts --url <official page> --dry-run     # show the text the writer gets
 npx tsx scripts/run-content-source.ts --url <official page>               # full pipeline → unpublished draft
 npx tsx scripts/run-content-source.ts --url <official page> --regenerate  # rewrite that draft in place
+npx tsx scripts/run-content-source.ts --url <official page> --cover       # new cover image only
 ```
 
 Uses the same lock, job claim and gates as the cron run, but skips discovery and the daily quota. `--regenerate` only touches an unpublished draft and keeps its cover image if the new image fails.

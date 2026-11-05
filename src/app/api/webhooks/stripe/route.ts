@@ -196,7 +196,8 @@ export async function POST(req: NextRequest) {
             });
             console.log(`[Stripe Webhook] Subscription created/updated for User ${userId}. Plan: ${planId}`);
 
-            // Coupon flow: record the redemption now that payment actually happened.
+            // Coupon flow: the use was reserved (usedCount++) when checkout started;
+            // here we only record the redemption and annotate the subscription.
             if (metadata.couponId) {
               const discountCents = Number(metadata.discountCents) || 0;
               const sub = await prisma.subscription.findUnique({ where: { userId }, select: { id: true } });
@@ -205,14 +206,25 @@ export async function POST(req: NextRequest) {
                   prisma.discountCodeUsage.create({
                     data: { codeId: metadata.couponId, userId, subscriptionId: sub?.id, discountCents },
                   }),
-                  prisma.discountCode.update({
-                    where: { id: metadata.couponId },
-                    data: { usedCount: { increment: 1 } },
+                  prisma.subscription.update({
+                    where: { userId },
+                    data: { notes: `Coupon: ${metadata.couponCode ?? metadata.couponId}` },
+                  }),
+                  prisma.systemLog.create({
+                    data: {
+                      userId,
+                      role: "CONSULTANT",
+                      action: "COUPON_APPLIED",
+                      details: JSON.stringify({ code: metadata.couponCode, planId, discountCents, via: "stripe_checkout" }),
+                    },
                   }),
                 ]);
-              } catch (e: any) {
-                // Unique (codeId, userId) violation on webhook retry: already recorded.
-                console.warn(`[Stripe Webhook] Coupon usage not recorded (likely duplicate):`, e.message);
+              } catch (e) {
+                // Only a duplicate (webhook retry) is a benign no-op; anything else
+                // must surface so Stripe retries instead of silently losing the record.
+                const code = (e as { code?: string })?.code;
+                if (code !== "P2002") throw e;
+                console.warn(`[Stripe Webhook] Coupon usage already recorded for ${userId}.`);
               }
             }
             revalidatePath("/dashboard");
@@ -220,6 +232,22 @@ export async function POST(req: NextRequest) {
           } else {
             console.warn(`[Stripe Webhook] checkout.session.completed missing userId/planId in metadata`);
           }
+        }
+        break;
+      }
+
+      // Checkout abandoned: release the coupon reservation and the Stripe coupon.
+      case "checkout.session.expired": {
+        const metadata = obj.metadata || {};
+        if (metadata.couponId) {
+          await prisma.discountCode.updateMany({
+            where: { id: metadata.couponId, usedCount: { gt: 0 } },
+            data: { usedCount: { decrement: 1 } },
+          });
+          if (metadata.stripeCouponId) {
+            await stripe.coupons.del(metadata.stripeCouponId).catch(() => {});
+          }
+          console.log(`[Stripe Webhook] Released coupon reservation ${metadata.couponId} (session expired).`);
         }
         break;
       }

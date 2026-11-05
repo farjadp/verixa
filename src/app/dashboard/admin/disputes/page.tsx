@@ -41,7 +41,7 @@ export default async function AdminDisputesPage({
       </div>
 
       <div className="flex-1 min-h-0 bg-[#0F2A44] border border-gray-800 rounded-xl overflow-hidden shadow-2xl flex relative">
-        <AdminSupportClient initialTickets={tickets} adminId={(session.user as any).id} />
+        <AdminSupportClient initialTickets={tickets} />
       </div>
     </div>
   );

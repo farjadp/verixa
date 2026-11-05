@@ -13,6 +13,10 @@ const registerSchema = z.object({
   licenseNumber: z.string().trim().max(32).optional(),
 });
 
+export type RegisterResult = { success: true } | { success: false; error: string };
+
+// Returns a result object instead of throwing: Next.js strips thrown error
+// messages from server actions in production, so the user would see nothing.
 export async function registerUser(input: {
   firstName: string;
   lastName: string;
@@ -20,82 +24,72 @@ export async function registerUser(input: {
   password: string;
   role: "client" | "consultant";
   licenseNumber?: string;
-}) {
+}): Promise<RegisterResult> {
   const parsed = registerSchema.safeParse(input);
   if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message || "Invalid registration data");
+    return { success: false, error: parsed.error.issues[0]?.message || "Invalid registration data" };
   }
   const data = parsed.data;
 
-  const existing = await prisma.user.findUnique({
-    where: { email: data.email },
-  });
-
+  const existing = await prisma.user.findUnique({ where: { email: data.email } });
   if (existing) {
-    throw new Error("User with this email already exists");
+    return { success: false, error: "User with this email already exists" };
+  }
+
+  const licenseNumber =
+    data.role === "consultant" && data.licenseNumber ? data.licenseNumber.toUpperCase() : null;
+
+  // Security: registration NEVER links an existing registry profile, claimed or
+  // not. Every registry row (there are ~9,900, seeded from CICC) is only
+  // transferable through the OTP-verified /claim/[license] flow. Linking an
+  // unclaimed row here would let anyone squat a real consultant's bookings.
+  if (licenseNumber) {
+    const profile = await prisma.consultantProfile.findUnique({
+      where: { licenseNumber },
+      select: { id: true },
+    });
+    if (profile) {
+      return {
+        success: false,
+        error:
+          "This license number is already in our registry. Use “Claim your profile” to verify it is yours, or contact support.",
+      };
+    }
   }
 
   const hashedPassword = await bcrypt.hash(data.password, 10);
   const name = `${data.firstName} ${data.lastName}`;
-  const roleEnum = data.role === "consultant" ? "CONSULTANT" : "USER";
-  const licenseNumber =
-    roleEnum === "CONSULTANT" && data.licenseNumber ? data.licenseNumber.toUpperCase() : null;
 
-  // Security: a registry profile that is already linked to a user can never be
-  // re-linked from the public registration form. Claimed profiles are only
-  // transferable through the OTP-verified /claim/[license] flow.
-  if (licenseNumber) {
-    const profile = await prisma.consultantProfile.findUnique({
-      where: { licenseNumber },
-      select: { userId: true },
+  try {
+    await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name,
+          email: data.email,
+          hashedPassword,
+          role: data.role === "consultant" ? "CONSULTANT" : "USER",
+        },
+      });
+
+      if (!licenseNumber) return;
+
+      // A license not in the registry: create a fresh, unverified profile.
+      // The @unique on licenseNumber makes a concurrent claim roll this back.
+      await tx.consultantProfile.create({
+        data: {
+          userId: user.id,
+          fullName: name,
+          slug: name.toLowerCase().replace(/\s+/g, "-") + "-" + licenseNumber.toLowerCase(),
+          licenseNumber,
+          status: "Active",
+          verificationLevel: "PENDING_REVIEW",
+        },
+      });
     });
-    if (profile?.userId) {
-      throw new Error(
-        "This license number is already linked to an account. If this is your license, use the Claim Profile flow or contact support."
-      );
-    }
+  } catch (e) {
+    console.error("[registerUser] failed:", e);
+    return { success: false, error: "Registration failed. Please try again." };
   }
-
-  await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: {
-        name,
-        email: data.email,
-        hashedPassword,
-        role: roleEnum,
-      },
-    });
-
-    if (!licenseNumber) return;
-
-    // Link only if the profile is still unclaimed at write time (guards the race
-    // between the check above and this write).
-    const linked = await tx.consultantProfile.updateMany({
-      where: { licenseNumber, userId: null },
-      data: { userId: user.id },
-    });
-
-    if (linked.count === 1) return;
-
-    const exists = await tx.consultantProfile.findUnique({
-      where: { licenseNumber },
-      select: { id: true },
-    });
-    if (exists) {
-      // Claimed between check and write: abort the whole registration.
-      throw new Error("This license number is already linked to an account.");
-    }
-
-    await tx.consultantProfile.create({
-      data: {
-        userId: user.id,
-        fullName: name,
-        slug: name.toLowerCase().replace(/\s+/g, "-") + "-" + licenseNumber.toLowerCase(),
-        licenseNumber,
-        status: "Active",
-      },
-    });
-  });
 
   return { success: true };
 }

@@ -16,7 +16,7 @@ import {
   sendBookingConfirmedEmail, 
   sendClientReceiptEmail
 } from "@/lib/mailer";
-import { capturePaymentAction, cancelPaymentAction, refundPaymentAction, verifyPaymentHold } from "@/actions/stripe.actions";
+import { capturePayment, cancelPayment, refundPayment, verifyPaymentHold } from "@/lib/stripe-payments";
 import { trackEvent } from "@/actions/analytics.actions";
 import { getPlanCommission } from "@/lib/subscription";
 
@@ -129,7 +129,7 @@ export async function createBookingRequest(data: {
   licenseNumber: string;
   consultationTypeId: string;
   scheduledStart: string; // ISO string
-  scheduledEnd: string; // ISO string
+  scheduledEnd?: string; // ignored: derived server-side from the consultation duration
   userFirstName: string;
   userLastName: string;
   userEmail: string;
@@ -194,6 +194,11 @@ export async function createBookingRequest(data: {
     if (!verified.ok) {
       throw new Error("Payment verification failed: " + verified.error);
     }
+    const reused = await prisma.booking.findFirst({
+      where: { stripePaymentIntentId: data.stripePaymentIntentId },
+      select: { id: true },
+    });
+    if (reused) throw new Error("This payment is already attached to a booking.");
   } else if (type.priceCents > 0) {
     throw new Error("A payment authorisation is required for this consultation.");
   }
@@ -289,68 +294,88 @@ export async function createBookingRequest(data: {
   return booking;
 }
 
+export type ConsultantBookingStatus =
+  | "CONFIRMED" | "DECLINED" | "COMPLETED" | "NO_SHOW"
+  | "CANCELLED" | "CANCELLED_BY_CONSULTANT";
+
+export type UpdateBookingResult =
+  | { ok: true; booking: { id: string; status: string } }
+  | { ok: false; error: string };
+
+// Consultant-side transitions. CANCELLED_BY_USER is owned by cancelBookingRequest.
+const ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
+  PENDING: ["CONFIRMED", "DECLINED", "CANCELLED", "CANCELLED_BY_CONSULTANT"],
+  CONFIRMED: ["COMPLETED", "NO_SHOW", "CANCELLED", "CANCELLED_BY_CONSULTANT"],
+};
+
+// Returns a result object (never throws for validation): Next.js hides thrown
+// error messages from server actions in production, so the UI would go silent.
 export async function updateBookingStatus(
   bookingId: string,
-  newStatus: "CONFIRMED" | "DECLINED" | "COMPLETED" | "CANCELLED" | "CANCELLED_BY_CONSULTANT" | "CANCELLED_BY_USER",
+  newStatus: ConsultantBookingStatus,
   options?: {
     meetingLink?: string;
     meetingMethod?: string;
     consultantNotes?: string;
   }
-) {
+): Promise<UpdateBookingResult> {
   // Security: only the owning consultant (or an admin) may change a booking.
   // Server actions are callable by anyone, so the check must live here.
   const { userId: actorId, role: actorRole } = await requireAuth();
   if (actorRole !== "CONSULTANT" && actorRole !== "ADMIN") {
-    throw new Error("Forbidden: only consultants can manage bookings.");
+    return { ok: false, error: "Only consultants can manage bookings." };
   }
 
-  // Fix N+1: fetch booking AND consultant profile in a single query
   const existingBooking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { profile: { include: { user: true } } }
+    include: { profile: { select: { userId: true, fullName: true } } },
   });
-  if (!existingBooking) throw new Error("Booking not found");
+  if (!existingBooking) return { ok: false, error: "Booking not found." };
 
-  // Extract consultant from the included relation — no second query needed
   const consultant = existingBooking.profile;
 
-  if (!consultant.userId) {
-    throw new Error("This booking belongs to an unclaimed profile.");
+  // Admins may act on any booking (support cases include unclaimed profiles).
+  if (actorRole !== "ADMIN") {
+    if (!consultant.userId) {
+      return { ok: false, error: "This booking belongs to an unclaimed profile." };
+    }
+    try {
+      assertOwnership(consultant.userId, actorId, actorRole);
+    } catch {
+      return { ok: false, error: "You do not have permission to modify this booking." };
+    }
   }
-  assertOwnership(consultant.userId, actorId, actorRole);
 
-  // State machine: reject transitions that make no business sense
-  // (e.g. re-opening a COMPLETED or CANCELLED booking). Same-status calls are
-  // allowed so the consultant can update meeting details without a transition.
-  const ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
-    PENDING: ["CONFIRMED", "DECLINED", "CANCELLED", "CANCELLED_BY_CONSULTANT"],
-    CONFIRMED: ["COMPLETED", "CANCELLED", "CANCELLED_BY_CONSULTANT", "CANCELLED_BY_USER"],
-  };
+  // State machine. Same-status calls are allowed so the consultant can update
+  // meeting details without a transition (no payment/email side effects then).
   const isSameStatus = existingBooking.status === newStatus;
   const allowed = ALLOWED_TRANSITIONS[existingBooking.status] ?? [];
   if (!isSameStatus && !allowed.includes(newStatus)) {
-    throw new Error(`Cannot change a ${existingBooking.status} booking to ${newStatus}.`);
+    return { ok: false, error: `A ${existingBooking.status.toLowerCase()} booking cannot be changed to ${newStatus.toLowerCase()}.` };
   }
 
-  // Validate the meeting link: it is emailed to the client, so only http(s) URLs.
+  // Meeting link is emailed to the client: only http(s). People paste
+  // "meet.google.com/abc" without a scheme, so default to https://.
   if (options?.meetingLink) {
+    const raw = options.meetingLink.trim();
+    const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`;
     let parsedLink: URL;
     try {
-      parsedLink = new URL(options.meetingLink.trim());
+      parsedLink = new URL(withScheme);
     } catch {
-      throw new Error("Meeting link must be a valid URL.");
+      return { ok: false, error: "Meeting link must be a valid URL." };
     }
     if (parsedLink.protocol !== "http:" && parsedLink.protocol !== "https:") {
-      throw new Error("Meeting link must start with http:// or https://.");
+      return { ok: false, error: "Meeting link must start with http:// or https://." };
     }
     options.meetingLink = parsedLink.toString();
   }
 
   let paymentStatusUpdate = existingBooking.paymentStatus;
-  
-  if (existingBooking.stripePaymentIntentId && existingBooking.paymentStatus === "REQUIRES_CAPTURE") {
-     if (newStatus === "CONFIRMED") {
+
+  // Payment side effects only on a real transition, never on a details update.
+  if (!isSameStatus && existingBooking.stripePaymentIntentId && existingBooking.paymentStatus === "REQUIRES_CAPTURE") {
+     if (newStatus === "CONFIRMED" || newStatus === "COMPLETED") {
          // ── Optimistic lock: atomically claim the "capturing" slot ──────────
          // If two requests arrive simultaneously, only one will see count === 1.
          // The loser gets count === 0 and throws before touching Stripe.
@@ -359,26 +384,27 @@ export async function updateBookingStatus(
            data:  { paymentStatus: "CAPTURING" }, // provisional in-progress marker
          });
          if (guard.count === 0) {
-           throw new Error("Payment capture already in progress for this booking. Please wait.");
+           return { ok: false, error: "Payment capture already in progress for this booking. Please wait." };
          }
 
-         const cap = await capturePaymentAction(existingBooking.stripePaymentIntentId);
+         const cap = await capturePayment(existingBooking.stripePaymentIntentId);
          if (!cap.success) {
            // Roll back the lock so a retry is possible
            await prisma.booking.update({
              where: { id: bookingId },
              data: { paymentStatus: "REQUIRES_CAPTURE" },
            });
-           throw new Error("Failed to capture funds from Escrow: " + cap.error);
+           return { ok: false, error: "Failed to capture funds from escrow: " + cap.error };
          }
          paymentStatusUpdate = "CAPTURED";
-     } else if (["DECLINED", "CANCELLED", "CANCELLED_BY_CONSULTANT", "CANCELLED_BY_USER"].includes(newStatus)) {
-         const cancelled = await cancelPaymentAction(existingBooking.stripePaymentIntentId);
+     } else if (["DECLINED", "CANCELLED", "CANCELLED_BY_CONSULTANT"].includes(newStatus)) {
+         const cancelled = await cancelPayment(existingBooking.stripePaymentIntentId);
          if (!cancelled.success) {
-           throw new Error("Failed to release the payment hold: " + cancelled.error);
+           return { ok: false, error: "Failed to release the payment hold: " + cancelled.error };
          }
          paymentStatusUpdate = "CANCELED";
      }
+     // NO_SHOW deliberately leaves the hold untouched for the consultant to decide.
   }
 
   const booking = await prisma.booking.update({
@@ -395,20 +421,23 @@ export async function updateBookingStatus(
   await prisma.bookingEventLog.create({
     data: {
       bookingId: booking.id,
-      action: `STATUS_CHANGED_TO_${newStatus}`,
-      actorType: "CONSULTANT",
-      notes: "Status updated via dashboard."
+      action: isSameStatus ? "DETAILS_UPDATED" : `STATUS_CHANGED_TO_${newStatus}`,
+      actorType: actorRole === "ADMIN" ? "ADMIN" : "CONSULTANT",
+      notes: isSameStatus ? "Meeting details updated via dashboard." : "Status updated via dashboard."
     }
   });
 
   await logEvent({
     userId: actorId,
     role: actorRole,
-    action: `BOOKING_${newStatus}`,
+    action: isSameStatus ? "BOOKING_DETAILS_UPDATED" : `BOOKING_${newStatus}`,
     details: { bookingId: booking.id }
   });
 
-  // Phase 19: Notifications & Emails (To Client)
+  // A details-only update sends no client emails and no analytics.
+  if (isSameStatus) return { ok: true, booking: { id: booking.id, status: booking.status } };
+
+  // Notifications & emails to the client
   if (newStatus === "CONFIRMED") {
     // Alert Client
     const clientUser = await prisma.user.findUnique({ where: { email: booking.userEmail }});
@@ -437,7 +466,7 @@ export async function updateBookingStatus(
     });
   }
 
-  return booking;
+  return { ok: true, booking: { id: booking.id, status: booking.status } };
 }
 
 export async function cancelBookingRequest(bookingId: string) {
@@ -456,13 +485,14 @@ export async function cancelBookingRequest(bookingId: string) {
 
   // Void Escrow if still pending capture
   if (booking.stripePaymentIntentId && booking.paymentStatus === "REQUIRES_CAPTURE") {
-    await cancelPaymentAction(booking.stripePaymentIntentId);
+    const released = await cancelPayment(booking.stripePaymentIntentId);
+    if (!released.success) throw new Error("Could not release the payment hold. Please try again.");
   }
 
   // Issue 10 fix: Refund if payment was already captured (consultant confirmed, then client cancels)
   let refundedPaymentStatus = booking.paymentStatus;
   if (booking.stripePaymentIntentId && booking.paymentStatus === "CAPTURED") {
-    const refund = await refundPaymentAction(booking.stripePaymentIntentId);
+    const refund = await refundPayment(booking.stripePaymentIntentId);
     if (refund.success) {
       refundedPaymentStatus = "REFUNDED";
       await prisma.bookingEventLog.create({
@@ -520,46 +550,14 @@ export async function cancelBookingRequest(bookingId: string) {
   return updatedBooking;
 }
 
-export async function markBookingNoShow(bookingId: string) {
-  // Issue 12: only a logged-in consultant can mark no-shows
-  await requireConsultant();
-
-  const booking = await prisma.booking.update({
-    where: { id: bookingId },
-    data: { status: "NO_SHOW" } // Enum field
-  });
-
-  await prisma.bookingEventLog.create({
-    data: {
-      bookingId: booking.id,
-      action: "MARKED_NO_SHOW",
-      actorType: "CONSULTANT",
-      notes: "Consultant marked client as no-show."
-    }
-  });
-
-  return booking;
+// Both go through updateBookingStatus so ownership, the CONFIRMED-only
+// transition rule, and escrow capture (for COMPLETED) are enforced in one place.
+export async function markBookingNoShow(bookingId: string): Promise<UpdateBookingResult> {
+  return updateBookingStatus(bookingId, "NO_SHOW");
 }
 
-export async function markBookingCompleted(bookingId: string) {
-  // Issue 12: only a logged-in consultant can complete sessions
-  await requireConsultant();
-
-  const booking = await prisma.booking.update({
-    where: { id: bookingId },
-    data: { status: "COMPLETED" } 
-  });
-
-  await prisma.bookingEventLog.create({
-    data: {
-      bookingId: booking.id,
-      action: "MARKED_COMPLETED",
-      actorType: "CONSULTANT",
-      notes: "Consultant completed the session."
-    }
-  });
-
-  return booking;
+export async function markBookingCompleted(bookingId: string): Promise<UpdateBookingResult> {
+  return updateBookingStatus(bookingId, "COMPLETED");
 }
 
 export async function updateBookingSettings(data: {

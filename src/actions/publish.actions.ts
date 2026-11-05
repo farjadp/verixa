@@ -23,6 +23,7 @@ import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import { logSystemEvent } from "@/lib/logger";
 import { TwitterApi } from "twitter-api-v2";
+import { oauthRedirectBase } from "@/lib/oauth-state";
 
 async function verifyAdmin() {
   const session = await getServerSession(authOptions);
@@ -625,8 +626,7 @@ export async function exchangeLinkedInCode(code: string): Promise<{ ok: boolean;
   // the platform token unless an admin session is present.
   await verifyAdmin();
   try {
-    const PROD_URL = process.env.NODE_ENV === "production" ? "https://www.getverixa.com" : "http://localhost:3000";
-    const redirectUri = `${PROD_URL}/api/linkedin/auth/callback`;
+    const redirectUri = `${oauthRedirectBase()}/api/linkedin/auth/callback`;
 
     const tokenRes = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
       method: "POST",

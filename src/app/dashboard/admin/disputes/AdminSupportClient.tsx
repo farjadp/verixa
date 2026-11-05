@@ -19,10 +19,8 @@ type Ticket = {
 
 export default function AdminSupportClient({ 
   initialTickets, 
-  adminId 
 }: { 
   initialTickets: any[];
-  adminId: string;
 }) {
   const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets);

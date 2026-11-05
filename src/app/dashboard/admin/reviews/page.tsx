@@ -58,7 +58,7 @@ export default async function AdminReviewsPage() {
                   </td>
                   <td className="px-6 py-4 font-bold text-white">{r.profile.fullName}</td>
                   <td className="px-6 py-4">
-                    <div className="text-sm">{r.user.name || "Unknown"}</div>
+                    <div className="text-sm">{r.user?.name || r.guestName || "Guest"}</div>
                     <div className="text-[10px] text-gray-500 flex items-center gap-1">
                       {r.booking ? <span className="bg-green-500/10 text-green-400 px-1 rounded">Verified Trip</span> : null}
                     </div>

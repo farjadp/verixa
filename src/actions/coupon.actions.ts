@@ -277,6 +277,23 @@ export async function applyCouponToSubscription(
   //    coupon usage recorded) by the checkout.session.completed webhook.
   if (finalPriceCents > 0) {
     if (!userEmail) return { ok: false, error: "Your account has no email address." };
+
+    // Reserve one use NOW, atomically, so N users cannot all start checkout on a
+    // maxUses:1 code. The webhook releases it on checkout.session.expired and
+    // records the usage on checkout.session.completed (without a second increment).
+    const claimed = await prisma.discountCode.updateMany({
+      where: {
+        id: couponId,
+        isActive: true,
+        OR: [{ maxUses: null }, { usedCount: { lt: prisma.discountCode.fields.maxUses } }],
+      },
+      data: { usedCount: { increment: 1 } },
+    });
+    if (claimed.count === 0) {
+      return { ok: false, error: "This coupon has just reached its usage limit." };
+    }
+
+    let stripeCouponId: string | null = null;
     try {
       const c = validation.coupon;
       const stripeCoupon = await stripe.coupons.create({
@@ -290,6 +307,7 @@ export async function applyCouponToSubscription(
         max_redemptions: 1,
         metadata: { verixaCouponId: couponId, userId },
       });
+      stripeCouponId = stripeCoupon.id;
 
       const checkout = await createPlanCheckoutSession({
         user: { id: userId, email: userEmail },
@@ -300,14 +318,21 @@ export async function applyCouponToSubscription(
           couponId,
           couponCode: c.code,
           discountCents: String(discountCents),
+          stripeCouponId: stripeCoupon.id,
         },
       });
 
-      if (!checkout.url) return { ok: false, error: "Could not start checkout." };
+      if (!checkout.url) throw new Error("Could not start checkout.");
       return { ok: true, url: checkout.url };
-    } catch (err: any) {
+    } catch (err) {
       console.error("Coupon checkout error:", err);
-      return { ok: false, error: err.message || "Failed to start checkout." };
+      // Release the reservation and the orphaned Stripe coupon.
+      await prisma.discountCode.updateMany({
+        where: { id: couponId, usedCount: { gt: 0 } },
+        data: { usedCount: { decrement: 1 } },
+      }).catch(() => {});
+      if (stripeCouponId) await stripe.coupons.del(stripeCouponId).catch(() => {});
+      return { ok: false, error: err instanceof Error ? err.message : "Failed to start checkout." };
     }
   }
 
@@ -371,7 +396,7 @@ export async function applyCouponToSubscription(
 
     revalidatePath("/dashboard/billing");
     return { ok: true, subscription: result };
-  } catch (err: any) {
-    return { ok: false, error: err.message || "Failed to apply coupon." };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Failed to apply coupon." };
   }
 }

@@ -24,6 +24,7 @@ export const CONFIG_KEYS = {
   piecesPerDay: "content_pieces_per_day",
   autopublish: "content_autopublish_enabled",
   strictness: "content_review_strictness",
+  images: "content_images_enabled",
   channel: (c: Channel) => `content_channel_${c}`,
 } as const;
 
@@ -32,6 +33,7 @@ export const ALL_CONFIG_KEYS: string[] = [
   CONFIG_KEYS.piecesPerDay,
   CONFIG_KEYS.autopublish,
   CONFIG_KEYS.strictness,
+  CONFIG_KEYS.images,
   ...CHANNELS.map(CONFIG_KEYS.channel),
 ];
 
@@ -40,6 +42,7 @@ export const CONFIG_DEFAULTS: Record<string, string> = {
   [CONFIG_KEYS.piecesPerDay]: "2",
   [CONFIG_KEYS.autopublish]: "false",
   [CONFIG_KEYS.strictness]: "standard",
+  [CONFIG_KEYS.images]: "true",
   ...Object.fromEntries(CHANNELS.map((c) => [CONFIG_KEYS.channel(c), "false"])),
 };
 
@@ -51,6 +54,7 @@ export interface PipelineConfig {
   autopublish: boolean;
   strictness: Strictness;
   minQualityScore: number;
+  imagesEnabled: boolean; // off skips cover-image generation (and its cost)
   channels: Record<Channel, boolean>;
 }
 
@@ -77,6 +81,7 @@ export function parseConfig(values: Record<string, string | undefined>): Pipelin
     autopublish: bool(get(CONFIG_KEYS.autopublish)),
     strictness,
     minQualityScore: STRICTNESS_MIN_SCORE[strictness],
+    imagesEnabled: bool(get(CONFIG_KEYS.images)),
     channels,
   };
 }
@@ -107,6 +112,7 @@ export const ConfigUpdateSchema = z
     piecesPerDay: z.number().int().min(0).max(MAX_PIECES_PER_DAY),
     autopublish: z.boolean(),
     strictness: z.enum(STRICTNESS_LEVELS),
+    imagesEnabled: z.boolean(),
     channels: z.object({
       linkedin: z.boolean(),
       twitter: z.boolean(),
@@ -124,6 +130,7 @@ export function configUpdateToSettings(u: ConfigUpdate): { key: string; value: s
     { key: CONFIG_KEYS.piecesPerDay, value: String(u.piecesPerDay) },
     { key: CONFIG_KEYS.autopublish, value: String(u.autopublish) },
     { key: CONFIG_KEYS.strictness, value: u.strictness },
+    { key: CONFIG_KEYS.images, value: String(u.imagesEnabled) },
     ...CHANNELS.map((c) => ({ key: CONFIG_KEYS.channel(c), value: String(u.channels[c]) })),
   ];
 }

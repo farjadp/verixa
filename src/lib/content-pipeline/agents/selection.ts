@@ -5,9 +5,11 @@
 // and returns the top N plus a small backup buffer for rejected drafts.
 // ============================================================================
 import type { PipelineDeps } from "../types";
-import { checkDuplicate, dedupKeyFor, dedupWithinBatch, rankCandidates, type Candidate } from "../dedup";
+import { checkDuplicate, clusterSameEvents, dedupKeyFor, dedupWithinBatch, rankCandidates, type Candidate } from "../dedup";
 
 export const EXISTING_POSTS_WINDOW = 500;
+/** A FAILED job is retried automatically by later runs until it reaches this many attempts. */
+export const MAX_JOB_ATTEMPTS = 3;
 
 export interface SelectionResult {
   selected: Candidate[];
@@ -28,7 +30,7 @@ export async function selectTopics(
   const [jobs, raws, posts] = await Promise.all([
     deps.db.contentPipelineJob.findMany({
       where: { dedupKey: { in: keys } },
-      select: { dedupKey: true },
+      select: { dedupKey: true, stage: true, attempts: true },
       take: keys.length,
     }),
     deps.db.rawArticle.findMany({
@@ -43,7 +45,10 @@ export async function selectTopics(
     }),
   ]);
 
-  const handledKeys = new Set(jobs.map((j) => j.dedupKey));
+  // FAILED jobs (transient errors, timeouts) stay eligible until they run out of attempts.
+  const handledKeys = new Set(
+    jobs.filter((j) => j.stage !== "FAILED" || j.attempts >= MAX_JOB_ATTEMPTS).map((j) => j.dedupKey)
+  );
   const handledUrls = new Set(raws.map((r) => r.sourceUrl));
 
   const fresh: Candidate[] = [];
@@ -61,7 +66,11 @@ export async function selectTopics(
     fresh.push(c);
   }
 
-  const ranked = dedupWithinBatch(rankCandidates(fresh, deps.now()));
+  const clustered = clusterSameEvents(fresh);
+  for (const d of clustered.dropped) {
+    skipped.push({ title: d.candidate.title, reason: `same event as "${d.keptInstead.title}" (${d.keptInstead.sourceName})` });
+  }
+  const ranked = dedupWithinBatch(rankCandidates(clustered.kept, deps.now()));
   const selected = ranked.slice(0, opts.count + (opts.buffer ?? 2));
   deps.log(`Selection: ${fresh.length} fresh, ${selected.length} selected, ${skipped.length} skipped as duplicates.`);
   return { selected, skipped };

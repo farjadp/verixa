@@ -23,7 +23,7 @@ export function getSiteUrl(): string {
 export function slugify(text: string, maxLen = SLUG_MAX): string {
   const base = (text || "")
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/&/g, " and ")
     .replace(/[^a-z0-9]+/g, "-")
@@ -138,13 +138,15 @@ export function buildInternalLinks(opts: {
   paths: { key: string; label: string; consultantQuery: string }[];
   related: { title: string; slug: string }[];
   excludeSlug?: string;
+  consultantLabel?: (pathLabel: string) => string;
 }): InternalLink[] {
+  const consultantLabel = opts.consultantLabel ?? ((l: string) => `Find a licensed consultant for ${l}`);
   const posts = opts.related
     .filter((r) => r.slug && r.slug !== opts.excludeSlug)
     .slice(0, 3)
     .map<InternalLink>((r) => ({ label: r.title, href: `/blog/${r.slug}`, kind: "post" }));
   const consultants = opts.paths.slice(0, 2).map<InternalLink>((p) => ({
-    label: `Find a licensed consultant for ${p.label}`,
+    label: consultantLabel(p.label),
     href: `/search?q=${encodeURIComponent(p.consultantQuery)}`,
     kind: "consultants",
   }));

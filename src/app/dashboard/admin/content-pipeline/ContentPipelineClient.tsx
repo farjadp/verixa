@@ -7,10 +7,10 @@ import { format } from "date-fns";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
-  AlertTriangle, CheckCircle2, ChevronDown, ExternalLink, Loader2, Play, Rss, Save, ShieldCheck, Workflow, XCircle,
+  AlertTriangle, CheckCircle2, ChevronDown, ExternalLink, Loader2, Play, RotateCcw, Rss, Save, ShieldCheck, Workflow, XCircle,
 } from "lucide-react";
 import {
-  approvePipelineJob, overrideRejectedJob, rejectPipelineJob, runContentPipelineNow, setContentSourceEnabled,
+  approvePipelineJob, overrideRejectedJob, rejectPipelineJob, retryPipelineJob, runContentPipelineNow, setContentSourceEnabled,
   updateContentPipelineConfig, type ContentPipelineDashboard,
 } from "@/actions/content-pipeline.actions";
 
@@ -20,8 +20,9 @@ type Settings = ContentPipelineDashboard["settings"];
 const STAGES = ["SELECTED", "WRITING", "SEO", "REVIEW", "IMAGE", "READY", "PUBLISHED"] as const;
 const STAGE_LABEL: Record<string, string> = {
   SELECTED: "Selected", WRITING: "Writer", SEO: "SEO", REVIEW: "Review", IMAGE: "Image", READY: "Awaiting approval",
-  PUBLISHED: "Published", REJECTED: "Rejected", FAILED: "Failed",
+  PUBLISHED: "Published", REJECTED: "Rejected", FAILED: "Failed", SKIPPED_DUPLICATE: "Duplicate",
 };
+const TERMINAL_STAGES = ["REJECTED", "FAILED", "SKIPPED_DUPLICATE"];
 const LANGUAGES = [
   { value: "en", label: "English" },
   { value: "fa", label: "Persian (Farsi)" },
@@ -35,7 +36,7 @@ const FILTERS = [
   { key: "review", label: "Needs approval", match: (j: Job) => j.stage === "READY" },
   { key: "rejected", label: "Rejected", match: (j: Job) => j.stage === "REJECTED" },
   { key: "published", label: "Published", match: (j: Job) => j.stage === "PUBLISHED" },
-  { key: "failed", label: "Failed", match: (j: Job) => j.stage === "FAILED" },
+  { key: "failed", label: "Failed / skipped", match: (j: Job) => j.stage === "FAILED" || j.stage === "SKIPPED_DUPLICATE" },
   { key: "all", label: "All", match: () => true },
 ] as const;
 
@@ -44,6 +45,7 @@ function stageTone(stage: string): string {
   if (stage === "READY") return "bg-amber-50 text-amber-800 border-amber-200";
   if (stage === "REJECTED") return "bg-orange-50 text-orange-800 border-orange-200";
   if (stage === "FAILED") return "bg-red-50 text-red-700 border-red-200";
+  if (stage === "SKIPPED_DUPLICATE") return "bg-gray-100 text-gray-600 border-gray-200";
   return "bg-sky-50 text-sky-700 border-sky-200";
 }
 
@@ -229,6 +231,7 @@ export default function ContentPipelineClient({ data }: { data: ContentPipelineD
                         <div className="mb-2 flex flex-wrap items-center gap-2">
                           <span className={`rounded-md border px-2 py-0.5 text-[11px] font-bold ${stageTone(job.stage)}`}>{STAGE_LABEL[job.stage] ?? job.stage}</span>
                           {job.qualityScore !== null && <span className="text-xs font-bold text-gray-600">Score {job.qualityScore}</span>}
+                          {job.attempts > 1 && <span className="text-xs text-gray-500">Attempt {job.attempts}</span>}
                           {job.immigrationPaths.map((p) => (
                             <span key={p} className="rounded-md bg-[#E5F5F5] px-2 py-0.5 text-[11px] font-semibold text-[#1d6f73]">{p.replace(/_/g, " ")}</span>
                           ))}
@@ -238,7 +241,7 @@ export default function ContentPipelineClient({ data }: { data: ContentPipelineD
                         <p className="mt-0.5 truncate text-xs text-gray-500">{job.sourceName}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-3">
-                        {!["REJECTED", "FAILED"].includes(job.stage) && <StageTrack stage={job.stage} />}
+                        {!TERMINAL_STAGES.includes(job.stage) && <StageTrack stage={job.stage} />}
                         <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
                       </div>
                     </button>
@@ -295,6 +298,13 @@ export default function ContentPipelineClient({ data }: { data: ContentPipelineD
                               }}
                               className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50">
                               <XCircle className="h-4 w-4" aria-hidden /> {job.stage === "PUBLISHED" ? "Unpublish" : "Reject"}
+                            </button>
+                          )}
+                          {["FAILED", "REJECTED"].includes(job.stage) && !job.blogPostId && (
+                            <button type="button" disabled={pending || !data.env.openai} onClick={() => act(`retry-${job.id}`, () => retryPipelineJob(job.id))}
+                              className="inline-flex items-center gap-2 rounded-lg bg-[#0F2A44] px-4 py-2 text-sm font-bold text-white hover:bg-[#173b5e] disabled:opacity-50">
+                              {busy === `retry-${job.id}` ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <RotateCcw className="h-4 w-4" aria-hidden />}
+                              {busy === `retry-${job.id}` ? "Retrying… (up to 2 min)" : "Retry"}
                             </button>
                           )}
                           {job.stage === "REJECTED" && !job.blogPostId && job.draftMarkdown && (
@@ -364,6 +374,14 @@ export default function ContentPipelineClient({ data }: { data: ContentPipelineD
                     <option value="strict">Strict (80+)</option>
                   </select>
                 </label>
+              </div>
+
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-[#1A1F2B]">Generate cover images</p>
+                  <p className="text-xs text-gray-600">Turn off to save image costs; you can add images in the Blog Engine.</p>
+                </div>
+                <Toggle label="Generate cover images" checked={settings.imagesEnabled} onChange={(v) => setSettings({ ...settings, imagesEnabled: v })} />
               </div>
 
               <fieldset>

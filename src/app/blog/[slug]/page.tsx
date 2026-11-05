@@ -23,8 +23,12 @@ import { prisma } from "@/lib/prisma";
 import PrintButton from "@/components/blog/PrintButton";
 import TrackPageView from "@/components/TrackPageView";
 import { buildArticleJsonLd, buildFaqJsonLd, getSiteUrl, serializeJsonLd } from "@/lib/content-pipeline/seo";
+import { FAQ_HEADINGS, profileFor } from "@/lib/content-pipeline/language";
 
-const RTL_SCRIPT = /[؀-ۿ]/;
+const RTL_SCRIPT = /[\u0600-\u06FF]/; // Arabic-script block (Persian)
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Matches the FAQ heading in any content language (pipeline posts localize it).
+const FAQ_HEADING = new RegExp(`## (${FAQ_HEADINGS.map(escapeRe).join("|")})`, "i");
 
 /** Citation URLs saved in a pipeline post's stored JSON-LD, if any. */
 function storedCitations(jsonLd: string | null): string[] {
@@ -119,7 +123,7 @@ export default async function BlogPostPage({
   let faqText = "";
   let disclaimerText = "";
   
-  const faqStartIndex = mainText.search(/## (FAQ|Frequently Asked Questions)/i);
+  const faqStartIndex = mainText.search(FAQ_HEADING);
   if (faqStartIndex !== -1) {
     const afterFaqStart = mainText.substring(faqStartIndex);
     const endMatch = afterFaqStart.match(/(<end-of-faq>|---)/);
@@ -182,13 +186,15 @@ export default async function BlogPostPage({
     secondHalf = secondHalf.replace(regex, `[$1](${link.url})`);
   });
 
-  const articleUrl = `https://verixa.co/blog/${post.slug}`;
+  const articleUrl = `${getSiteUrl()}/blog/${post.slug}`;
   const wordCount = post.content.split(/\s+/).length;
   const readingTime = Math.ceil(wordCount / 200) || 1;
 
   // Structured data for every post (Article + FAQ). Built from current fields so
   // datePublished reflects the real publish time, not draft creation.
-  const isRtl = RTL_SCRIPT.test(post.title);
+  // Pipeline posts store their language; older posts fall back to script detection.
+  const lang = profileFor(post.language || (RTL_SCRIPT.test(post.title) ? "fa" : "en"));
+  const isRtl = lang.dir === "rtl";
   const articleJsonLd = serializeJsonLd(
     buildArticleJsonLd({
       title: post.title,
@@ -199,7 +205,7 @@ export default async function BlogPostPage({
       datePublished: post.publishedAt || post.createdAt,
       dateModified: post.updatedAt,
       keywords: post.targetKeyword ? [post.targetKeyword] : undefined,
-      inLanguage: isRtl ? "fa" : "en",
+      inLanguage: lang.code,
       citations: storedCitations(post.jsonLd),
       section: post.category.replace(/_/g, " "),
     })
@@ -288,7 +294,7 @@ export default async function BlogPostPage({
           <div className="flex flex-col lg:flex-row gap-16">
              
              {/* MAIN ARTICLE BODY */}
-             <div className="flex-1 min-w-0" dir={isRtl ? "rtl" : undefined} lang={isRtl ? "fa" : undefined}>
+             <div className="flex-1 min-w-0" dir={isRtl ? "rtl" : undefined} lang={lang.code}>
                {/* INLINE CTA BEFORE CONTENT */}
                <div className="mb-12">
                   <div className="p-5 bg-white border-l-4 border-[#2FA4A9] rounded-r-2xl shadow-sm flex items-start gap-4">
@@ -353,7 +359,7 @@ export default async function BlogPostPage({
                {/* ACCORDION FAQ */}
                {faqs.length > 0 && (
                  <div className="mt-20 pt-16 border-t border-gray-200">
-                    <h2 className="text-3xl font-serif font-black text-[#0F2A44] mb-8">Frequently Asked Questions</h2>
+                    <h2 className="text-3xl font-serif font-black text-[#0F2A44] mb-8">{lang.labels.faq}</h2>
                     <div className="space-y-4">
                       {faqs.map((faq, i) => (
                         <details key={i} className="group bg-white rounded-2xl border border-gray-200 overflow-hidden [&_summary::-webkit-details-marker]:hidden">

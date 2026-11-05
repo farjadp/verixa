@@ -160,9 +160,9 @@ describe("JSON-LD", () => {
   });
 
   it("serializes safely for a <script> tag", () => {
-    const out = serializeJsonLd({ headline: "</script><script>alert(1)</script>", x: "a b" });
+    const out = serializeJsonLd({ headline: "</script><script>alert(1)</script>", x: "a\u2028b" });
     expect(out).not.toContain("</script>");
-    expect(out).not.toContain(" ");
-    expect(JSON.parse(out)).toEqual({ headline: "</script><script>alert(1)</script>", x: "a b" });
+    expect(out).not.toContain("\u2028");
+    expect(JSON.parse(out)).toEqual({ headline: "</script><script>alert(1)</script>", x: "a\u2028b" });
   });
 });

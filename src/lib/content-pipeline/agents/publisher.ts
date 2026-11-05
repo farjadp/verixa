@@ -10,6 +10,7 @@ import type { PipelineDeps } from "../types";
 import { CHANNELS, type Channel } from "../config";
 import { buildArticleJsonLd, getSiteUrl, serializeJsonLd, truncateAtWord } from "../seo";
 import { pathByKey } from "../paths";
+import { profileFor, type LanguageLabels } from "../language";
 
 export interface PublishInput {
   title: string;
@@ -46,16 +47,19 @@ export function categoryFor(paths: string[]): string {
 }
 
 /** Pure: platform copy for the queued SocialJob. Admins can regenerate richer copy in the Social hub. */
-export function buildSocialCopy(input: { title: string; summary: string; url: string; paths: string[] }) {
-  const tags = ["CanadaImmigration", ...input.paths.map((p) => pathByKey(p)?.label.replace(/[^A-Za-z]/g, "")).filter(Boolean)]
+export function buildSocialCopy(input: { title: string; summary: string; url: string; paths: string[]; labels: LanguageLabels }) {
+  const { labels } = input;
+  // Program hashtags stay in English (that's how people search them); the base tag is localized.
+  const pathTags = input.paths.filter((p) => p !== "general").map((p) => pathByKey(p)?.label.replace(/[^A-Za-z]/g, ""));
+  const tags = [...new Set([labels.hashtag, ...pathTags].filter((t): t is string => !!t))]
     .slice(0, 4)
     .map((t) => `#${t}`)
     .join(" ");
-  const note = "General information, not legal advice.";
+  const note = labels.socialNote;
   // X counts every link as 23 chars.
   const tweetRoom = 280 - 23 - tags.length - 3;
   return {
-    linkedin: `${input.title}\n\n${input.summary}\n\nRead the full update: ${input.url}\n\n${note}\n\n${tags}`,
+    linkedin: `${input.title}\n\n${input.summary}\n\n${labels.readMore} ${input.url}\n\n${note}\n\n${tags}`,
     twitter: `${truncateAtWord(input.title, tweetRoom)}\n${input.url}\n${tags}`,
     facebook: `${input.title}\n\n${input.summary}\n\n${input.url}\n\n${note}`,
     telegram: `*${input.title}*\n\n${input.summary}\n\n${input.url}\n\n_${note}_`,
@@ -77,7 +81,13 @@ export async function publishPiece(deps: PipelineDeps, input: PublishInput): Pro
     citations: input.citations,
     section: pathByKey(input.immigrationPaths[0] ?? "")?.label,
   });
-  const copy = buildSocialCopy({ title: input.title, summary: input.summary, url, paths: input.immigrationPaths });
+  const copy = buildSocialCopy({
+    title: input.title,
+    summary: input.summary,
+    url,
+    paths: input.immigrationPaths,
+    labels: profileFor(input.language).labels,
+  });
   const channelStatus = (c: Channel) => (input.channels[c] ? "PENDING" : "SKIPPED");
 
   const result = await deps.db.$transaction(async (tx) => {
@@ -100,6 +110,7 @@ export async function publishPiece(deps: PipelineDeps, input: PublishInput): Pro
         immigrationPaths: JSON.stringify(input.immigrationPaths),
         imagePrompt: input.imagePrompt,
         source: "PIPELINE",
+        language: input.language,
         reviewScore: input.reviewScore,
       },
       select: { id: true },

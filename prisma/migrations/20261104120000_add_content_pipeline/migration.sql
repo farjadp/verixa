@@ -3,6 +3,7 @@ ALTER TABLE "BlogPost" ADD COLUMN     "canonicalUrl" TEXT,
 ADD COLUMN     "imageAlt" TEXT,
 ADD COLUMN     "immigrationPaths" TEXT,
 ADD COLUMN     "jsonLd" TEXT,
+ADD COLUMN     "language" TEXT DEFAULT 'en',
 ADD COLUMN     "reviewScore" INTEGER,
 ADD COLUMN     "source" TEXT DEFAULT 'MANUAL',
 ADD COLUMN     "targetKeyword" TEXT;
@@ -12,6 +13,7 @@ CREATE TABLE "PipelineRun" (
     "id" TEXT NOT NULL,
     "trigger" TEXT NOT NULL DEFAULT 'CRON',
     "status" TEXT NOT NULL DEFAULT 'RUNNING',
+    "lockKey" TEXT,
     "language" TEXT NOT NULL DEFAULT 'en',
     "targetCount" INTEGER NOT NULL DEFAULT 2,
     "discovered" INTEGER NOT NULL DEFAULT 0,
@@ -34,10 +36,14 @@ CREATE TABLE "ContentPipelineJob" (
     "pipelineRunId" TEXT,
     "stage" TEXT NOT NULL DEFAULT 'DISCOVERED',
     "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+    "attempts" INTEGER NOT NULL DEFAULT 1,
     "dedupKey" TEXT NOT NULL,
     "topic" TEXT NOT NULL,
     "sourceUrl" TEXT,
     "sourceName" TEXT,
+    "sourceId" TEXT,
+    "sourcePublishedAt" TIMESTAMP(3),
+    "snippet" TEXT,
     "immigrationPaths" TEXT,
     "language" TEXT NOT NULL DEFAULT 'en',
     "draftMarkdown" TEXT,
@@ -71,6 +77,9 @@ CREATE TABLE "ContentImage" (
 
     CONSTRAINT "ContentImage_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PipelineRun_lockKey_key" ON "PipelineRun"("lockKey");
 
 -- CreateIndex
 CREATE INDEX "PipelineRun_status_startedAt_idx" ON "PipelineRun"("status", "startedAt");

@@ -60,10 +60,9 @@ export function pickRelatedPosts(
     .map((x) => ({ title: x.p.title, slug: x.p.slug }));
 }
 
-export function provenanceFooter(sourceName: string, sourceUrl: string | null, date: Date): string {
-  const d = date.toISOString().slice(0, 10);
-  const src = sourceUrl ? `[${sourceName}](${sourceUrl})` : sourceName;
-  return `*Prepared by the Verixa editorial team from official information published by ${src}. Last reviewed ${d}. This article is general information, not legal advice.*`;
+export function provenanceFooter(lang: LanguageSetting, sourceName: string, sourceUrl: string | null, date: Date): string {
+  const src = sourceUrl ? `[${sourceName.replace(/[[\]]/g, "")}](${sourceUrl})` : sourceName;
+  return lang.primary.labels.footer(src, date.toISOString().slice(0, 10));
 }
 
 export async function optimizeSeo(
@@ -90,6 +89,7 @@ export async function optimizeSeo(
     paths,
     related: pickRelatedPosts(draft, recent),
     excludeSlug: slug,
+    consultantLabel: language.primary.labels.consultantLink,
   });
 
   const markdown = assembleArticle({
@@ -100,7 +100,8 @@ export async function optimizeSeo(
     internalLinks,
     secondarySummary: language.secondary ? draft.secondarySummary : null,
     secondaryLanguageName: language.secondary?.name ?? null,
-    footer: provenanceFooter(input.sourceName, input.sourceUrl, now),
+    footer: provenanceFooter(language, input.sourceName, input.sourceUrl, now),
+    labels: language.primary.labels,
   });
 
   const metaTitle = buildMetaTitle(draft.title);

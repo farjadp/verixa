@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Prisma, type PrismaClient } from "@prisma/client";
-import { runContentPipeline } from "@/lib/content-pipeline/orchestrator";
+import { RUN_LOCK_MS, retryJob, runContentPipeline } from "@/lib/content-pipeline/orchestrator";
 import { ConfigUpdateSchema, parseConfig } from "@/lib/content-pipeline/config";
 import { computeReviewScore, runDeterministicChecks } from "@/lib/content-pipeline/review-rules";
 import { assembleArticle, ensureDisclaimer, hasDisclaimer } from "@/lib/content-pipeline/markdown";
@@ -12,73 +12,111 @@ import { isAuthorizedCronRequest } from "@/lib/content-pipeline/cron-auth";
 import { sanitizeDraft, type Draft } from "@/lib/content-pipeline/agents/writer";
 import { buildSocialCopy } from "@/lib/content-pipeline/agents/publisher";
 import { extractListingLinks } from "@/lib/content-pipeline/agents/discovery";
-import { parseLanguageSetting } from "@/lib/content-pipeline/language";
-import type { Llm, PipelineDeps } from "@/lib/content-pipeline/types";
+import { FAQ_HEADINGS, LANGUAGE_PROFILES, parseLanguageSetting } from "@/lib/content-pipeline/language";
+import { dedupKeyFor } from "@/lib/content-pipeline/dedup";
+import type { FeedItem, Llm, PipelineDeps } from "@/lib/content-pipeline/types";
 
 const NOW = new Date("2026-11-04T13:00:00Z");
 const SRC = "https://www.canada.ca/en/immigration-refugees-citizenship/news/2026/11";
+const EN = LANGUAGE_PROFILES.en.labels;
 
 // ─── In-memory fake of the Prisma surface the pipeline uses ──────────────────
-type Row = Record<string, any>;
+type Row = Record<string, unknown>;
+type Cond = { in?: unknown[]; startsWith?: string; gte?: unknown; lt?: unknown; increment?: number };
+
+const str = (v: unknown): string => (typeof v === "string" ? v : "");
+
+function isCond(v: unknown): v is Cond {
+  return typeof v === "object" && v !== null && !(v instanceof Date) && !Array.isArray(v);
+}
+
+function compare(a: unknown, b: unknown): number {
+  if (a instanceof Date && b instanceof Date) return a.getTime() - b.getTime();
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return NaN;
+}
 
 function matches(row: Row, where: Row = {}): boolean {
   return Object.entries(where).every(([k, cond]) => {
     const v = row[k];
-    if (cond && typeof cond === "object" && !(cond instanceof Date)) {
-      if ("in" in cond) return cond.in.includes(v);
-      if ("startsWith" in cond) return typeof v === "string" && v.startsWith(cond.startsWith);
-      if ("gte" in cond) return v >= cond.gte;
-      if ("lt" in cond) return v < cond.lt;
+    if (cond === null) return v === null || v === undefined;
+    if (isCond(cond)) {
+      if (cond.in) return cond.in.includes(v);
+      if (cond.startsWith !== undefined) return typeof v === "string" && v.startsWith(cond.startsWith);
+      if (cond.gte !== undefined) return compare(v, cond.gte) >= 0;
+      if (cond.lt !== undefined) return compare(v, cond.lt) < 0;
       return false;
     }
     return v === cond;
   });
 }
 
-function createFakeDb(seed: { settings?: Record<string, string>; posts?: Row[]; runs?: Row[] } = {}) {
+function applyData(row: Row, data: Row): Row {
+  for (const [k, v] of Object.entries(data)) {
+    row[k] = isCond(v) && v.increment !== undefined ? (Number(row[k]) || 0) + v.increment : v;
+  }
+  row.updatedAt = NOW;
+  return row;
+}
+
+const DEFAULTS: Record<string, Row> = {
+  contentPipelineJob: { status: "ACTIVE", attempts: 1 },
+  pipelineRun: { status: "RUNNING", lockKey: null },
+};
+
+interface Seed {
+  settings?: Record<string, string>;
+  posts?: Row[];
+  runs?: Row[];
+  jobs?: Row[];
+  sources?: Row[];
+}
+
+const IRCC_SOURCE = { id: "csrc00000000000000000001", name: "IRCC", url: "https://feed.test/ircc", type: "RSS", enabled: true, trustScore: 100, lastCheckedAt: null };
+
+function createFakeDb(seed: Seed = {}) {
   let n = 0;
   const id = () => `cfake${String(++n).padStart(20, "0")}`;
-  const t = {
+  const t: Record<string, Row[]> = {
     platformSetting: Object.entries(seed.settings ?? {}).map(([key, value]) => ({ key, value })),
-    contentSource: [{ id: "csrc00000000000000000001", name: "IRCC", url: "https://feed.test/ircc", type: "RSS", enabled: true, trustScore: 100, lastCheckedAt: null }] as Row[],
-    rawArticle: [] as Row[],
-    contentJob: [] as Row[],
-    blogPost: (seed.posts ?? []).map((p) => ({ id: id(), isPublished: true, targetKeyword: null, immigrationPaths: null, publishedAt: NOW, createdAt: NOW, ...p })) as Row[],
-    socialJob: [] as Row[],
-    contentPipelineJob: [] as Row[],
-    pipelineRun: (seed.runs ?? []) as Row[],
-    contentImage: [] as Row[],
+    contentSource: seed.sources ?? [IRCC_SOURCE],
+    rawArticle: [],
+    contentJob: [],
+    blogPost: (seed.posts ?? []).map((p) => ({ id: id(), isPublished: true, targetKeyword: null, immigrationPaths: null, publishedAt: NOW, createdAt: NOW, ...p })),
+    socialJob: [],
+    contentPipelineJob: (seed.jobs ?? []).map((j) => ({ id: id(), createdAt: NOW, updatedAt: NOW, ...DEFAULTS.contentPipelineJob, ...j })),
+    pipelineRun: seed.runs ?? [],
+    contentImage: [],
   };
 
-  const table = (name: keyof typeof t, unique?: string) => ({
-    findMany: async ({ where, take }: Row = {}) => t[name].filter((r) => matches(r, where)).slice(0, take ?? Infinity),
-    findFirst: async ({ where }: Row = {}) => t[name].find((r) => matches(r, where)) ?? null,
-    findUnique: async ({ where }: Row) => t[name].find((r) => matches(r, where)) ?? null,
-    count: async ({ where }: Row = {}) => t[name].filter((r) => matches(r, where)).length,
+  const table = (name: string, unique?: string) => ({
+    findMany: async ({ where, take }: Row = {}) => t[name].filter((r) => matches(r, where as Row)).slice(0, (take as number) ?? Infinity),
+    findFirst: async ({ where }: Row = {}) => t[name].find((r) => matches(r, where as Row)) ?? null,
+    findUnique: async ({ where }: Row) => t[name].find((r) => matches(r, where as Row)) ?? null,
+    count: async ({ where }: Row = {}) => t[name].filter((r) => matches(r, where as Row)).length,
     create: async ({ data }: Row) => {
-      if (unique && t[name].some((r) => r[unique] === data[unique])) {
+      const d = data as Row;
+      if (unique && d[unique] != null && t[name].some((r) => r[unique] === d[unique])) {
         throw new Prisma.PrismaClientKnownRequestError("Unique constraint failed", { code: "P2002", clientVersion: "test" });
       }
-      const row = { id: id(), createdAt: NOW, startedAt: NOW, status: undefined, ...data };
-      if (row.status === undefined) delete row.status;
+      const row: Row = { id: id(), createdAt: NOW, updatedAt: NOW, startedAt: NOW, ...DEFAULTS[name], ...d };
       t[name].push(row);
       return row;
     },
     update: async ({ where, data }: Row) => {
-      const row = t[name].find((r) => matches(r, where));
+      const row = t[name].find((r) => matches(r, where as Row));
       if (!row) throw new Error(`${name} not found`);
-      Object.assign(row, data);
-      return row;
+      return applyData(row, data as Row);
     },
     updateMany: async ({ where, data }: Row) => {
-      const rows = t[name].filter((r) => matches(r, where));
-      rows.forEach((r) => Object.assign(r, data));
+      const rows = t[name].filter((r) => matches(r, where as Row));
+      rows.forEach((r) => applyData(r, data as Row));
       return { count: rows.length };
     },
     upsert: async ({ where, create, update }: Row) => {
-      const row = t[name].find((r) => matches(r, where));
-      if (row) return Object.assign(row, update);
-      const created = { id: id(), ...create };
+      const row = t[name].find((r) => matches(r, where as Row));
+      if (row) return applyData(row, update as Row);
+      const created: Row = { id: id(), ...(create as Row) };
       t[name].push(created);
       return created;
     },
@@ -92,7 +130,7 @@ function createFakeDb(seed: { settings?: Record<string, string>; posts?: Row[]; 
     blogPost: table("blogPost", "slug"),
     socialJob: table("socialJob", "blogPostId"),
     contentPipelineJob: table("contentPipelineJob", "dedupKey"),
-    pipelineRun: table("pipelineRun"),
+    pipelineRun: table("pipelineRun", "lockKey"),
     contentImage: table("contentImage"),
   };
   db.$transaction = async (fn: (tx: Row) => Promise<unknown>) => fn(db);
@@ -104,13 +142,13 @@ const PARA =
   "Applicants should read the official IRCC guidance before they submit anything. The department says processing depends on a complete application, " +
   "so people may want to check each document against the published checklist and keep copies of everything they send to the department.";
 
-function fakeDraft(topic: string, sourceUrl: string): Draft {
+function fakeDraft(topic: string, sourceUrl: string, title = topic): Draft {
   return {
-    title: topic,
-    slug: topic.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-    summary: `IRCC announced an update: ${topic}. Here is what changed and who it affects.`,
-    targetKeyword: topic.split(" ").slice(0, 3).join(" "),
-    targetKeywordEn: topic.split(" ").slice(0, 3).join(" "),
+    title,
+    slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    summary: `IRCC announced an update: ${title}. Here is what changed and who it affects.`,
+    targetKeyword: title.split(" ").slice(0, 3).join(" "),
+    targetKeywordEn: title.split(" ").slice(0, 3).join(" "),
     secondaryKeywords: ["IRCC update"],
     outline: ["What changed", "Who is affected", "Key dates", "What to do next"],
     sections: ["What changed", "Who is affected", "Key dates", "What to do next"].map((heading) => ({ heading, body: `${PARA} ${PARA} ${PARA}` })),
@@ -127,46 +165,68 @@ function fakeDraft(topic: string, sourceUrl: string): Draft {
   };
 }
 
-function createFakeLlm(opts: { reviewVerdict?: "supported" | "unsupported" } = {}): Llm & { calls: string[] } {
+interface FakeLlmOptions {
+  verdict?: "supported" | "unsupported";
+  failOnceFor?: string[]; // topics whose first draft call throws
+  titleFor?: (topic: string) => string;
+}
+
+function createFakeLlm(opts: FakeLlmOptions = {}): Llm & { calls: string[]; setVerdict(v: "supported" | "unsupported"): void } {
   const calls: string[] = [];
+  const failing = new Set(opts.failOnceFor ?? []);
+  let verdict = opts.verdict ?? "supported";
   return {
     calls,
-    async json(_schema, name, _system, user) {
+    setVerdict: (v) => {
+      verdict = v;
+    },
+    async json<T>(_schema: unknown, name: string, _system: string, user: string): Promise<T> {
       calls.push(name);
       if (name === "article_draft") {
         const topic = /TOPIC: (.*)/.exec(user)?.[1] ?? "Topic";
         const url = /SOURCE URL: (.*)/.exec(user)?.[1] ?? "";
-        return fakeDraft(topic, url) as never;
+        if (failing.delete(topic)) throw new Error("OpenAI timeout (simulated)");
+        return fakeDraft(topic, url, opts.titleFor?.(topic) ?? topic) as unknown as T;
       }
       return {
         overallScore: 88,
-        claims: [{ claim: "IRCC announced the update.", verdict: opts.reviewVerdict ?? "supported", note: "Stated in the release." }],
+        claims: [{ claim: "IRCC announced the update.", verdict, note: "Stated in the release." }],
         givesLegalAdvice: false,
         summary: "Accurate and clear.",
-      } as never;
+      } as unknown as T;
     },
   };
 }
 
-function createDeps(db: PrismaClient, llm: Llm, revalidated: string[][] = []): PipelineDeps {
+const DEFAULT_FEED: FeedItem[] = [
+  { title: "Express Entry draw invites 5,000 CEC candidates", link: `${SRC}/express-entry-draw.html`, isoDate: NOW.toISOString(), snippet: "Express Entry round" },
+  { title: "Spousal sponsorship processing times improve", link: `${SRC}/spousal-sponsorship.html`, isoDate: NOW.toISOString(), snippet: "Family sponsorship" },
+  { title: "Study permit cap for 2027 announced", link: `${SRC}/study-cap.html`, isoDate: NOW.toISOString(), snippet: "Study permits" },
+  { title: "Minister visits a hockey arena", link: `${SRC}/hockey.html`, isoDate: NOW.toISOString(), snippet: "Sports" },
+];
+
+function createDeps(
+  db: PrismaClient,
+  llm: Llm,
+  extra: { revalidated?: string[][]; feeds?: Record<string, FeedItem[]>; images?: { count: number } } = {}
+): PipelineDeps {
   return {
     db,
     llm,
-    fetchFeed: async () => [
-      { title: "Express Entry draw invites 5,000 CEC candidates", link: `${SRC}/express-entry-draw.html`, isoDate: NOW.toISOString(), snippet: "Express Entry round" },
-      { title: "Spousal sponsorship processing times improve", link: `${SRC}/spousal-sponsorship.html`, isoDate: NOW.toISOString(), snippet: "Family sponsorship" },
-      { title: "Study permit cap for 2027 announced", link: `${SRC}/study-cap.html`, isoDate: NOW.toISOString(), snippet: "Study permits" },
-      { title: "Minister visits a hockey arena", link: `${SRC}/hockey.html`, isoDate: NOW.toISOString(), snippet: "Sports" },
-    ],
+    fetchFeed: async (url) => extra.feeds?.[url] ?? DEFAULT_FEED,
     fetchHtml: async (url) => `<html><body><nav>menu</nav><main><h1>Release</h1><p>${PARA} Source: ${url}</p><p>${PARA}</p></main></body></html>`,
-    generateImage: async () => ({ bytes: Buffer.from([1, 2, 3]), mimeType: "image/png" }),
-    revalidate: (paths) => revalidated.push(paths),
+    generateImage: async () => {
+      if (extra.images) extra.images.count++;
+      return { bytes: Buffer.from([1, 2, 3]), mimeType: "image/png" };
+    },
+    revalidate: (paths) => extra.revalidated?.push(paths),
     now: () => NOW,
     log: () => {},
   };
 }
 
 const EXISTING_POST = { title: "Study permit cap for 2027 announced", slug: "study-permit-cap-2027" };
+const pipelinePosts = (t: Record<string, Row[]>) => t.blogPost.filter((p) => p.source === "PIPELINE");
 
 describe("runContentPipeline — end to end (mocked)", () => {
   beforeEach(() => {
@@ -181,15 +241,16 @@ describe("runContentPipeline — end to end (mocked)", () => {
   it("default config: creates 2 DRAFT posts + QUEUED social jobs, skips duplicates and off-topic items", async () => {
     const { db, tables } = createFakeDb({ posts: [EXISTING_POST] });
     const revalidated: string[][] = [];
-    const summary = await runContentPipeline(createDeps(db, createFakeLlm(), revalidated), { trigger: "MANUAL" });
+    const summary = await runContentPipeline(createDeps(db, createFakeLlm(), { revalidated }), { trigger: "MANUAL" });
 
     expect(summary).toMatchObject({ status: "COMPLETED", produced: 2, rejected: 0, failed: 0, autopublish: false });
 
-    const created = tables.blogPost.filter((p) => p.source === "PIPELINE");
+    const created = pipelinePosts(tables);
     expect(created).toHaveLength(2);
     expect(created.every((p) => p.isPublished === false && p.publishedAt === null)).toBe(true);
-    expect(created.map((p) => p.title)).not.toContain(EXISTING_POST.title); // deduped against existing post
-    expect(created.map((p) => p.title).join(" ")).not.toMatch(/hockey/i); // off-topic dropped
+    expect(created.map((p) => p.title)).not.toContain(EXISTING_POST.title);
+    expect(created.map((p) => str(p.title)).join(" ")).not.toMatch(/hockey/i);
+    expect(created.every((p) => p.language === "en")).toBe(true);
 
     expect(tables.socialJob).toHaveLength(2);
     for (const s of tables.socialJob) {
@@ -198,32 +259,31 @@ describe("runContentPipeline — end to end (mocked)", () => {
     }
 
     expect(tables.contentPipelineJob.map((j) => j.stage)).toEqual(["READY", "READY"]);
-    expect(revalidated).toEqual([]); // nothing went live
-    expect(tables.pipelineRun[0]).toMatchObject({ status: "COMPLETED", published: 2 });
+    expect(revalidated).toEqual([]);
+    expect(tables.pipelineRun[0]).toMatchObject({ status: "COMPLETED", published: 2, lockKey: null });
   });
 
   it("assembles SEO-ready content: disclaimer, real citation only, FAQ marker, JSON-LD, durable image URL", async () => {
     const { db, tables } = createFakeDb();
     await runContentPipeline(createDeps(db, createFakeLlm()), { trigger: "CRON" });
-    const post = tables.blogPost.find((p) => p.source === "PIPELINE")!;
+    const post = pipelinePosts(tables)[0];
+    const content = str(post.content);
 
-    expect(hasDisclaimer(post.content)).toBe(true);
-    expect(post.content.indexOf("not legal advice")).toBeLessThan(post.content.indexOf("## What changed"));
-    expect(post.content).toContain(`](${SRC}/`);
-    expect(post.content).not.toContain("hallucinated.example");
-    expect(post.content).toContain("## Frequently Asked Questions");
-    expect(post.content).toContain("<end-of-faq>");
-    expect(post.content).toMatch(/\]\(\/search\?q=/); // internal consultant link
+    expect(hasDisclaimer(content)).toBe(true);
+    expect(content.indexOf("not legal advice")).toBeLessThan(content.indexOf("## What changed"));
+    expect(content).toContain(`](${SRC}/`);
+    expect(content).not.toContain("hallucinated.example");
+    expect(content).toContain(`## ${EN.faq}`);
+    expect(content).toContain("<end-of-faq>");
+    expect(content).toMatch(/\]\(\/search\?q=/);
 
-    expect(post.seoTitle).not.toMatch(/Verixa/);
-    expect(post.seoDesc.length).toBeLessThanOrEqual(155);
-    expect(post.slug).toMatch(/^[a-z0-9-]+$/);
-    expect(JSON.parse(post.immigrationPaths)).not.toContain("not_a_real_path");
-    expect(JSON.parse(post.jsonLd)).toMatchObject({ "@type": "NewsArticle", citation: [{ url: expect.stringContaining(SRC) }] });
-    expect(post.coverImage).toMatch(/\/api\/content-image\/cfake/);
+    expect(str(post.seoTitle)).not.toMatch(/Verixa/);
+    expect(str(post.seoDesc).length).toBeLessThanOrEqual(155);
+    expect(str(post.slug)).toMatch(/^[a-z0-9-]+$/);
+    expect(JSON.parse(str(post.immigrationPaths))).not.toContain("not_a_real_path");
+    expect(JSON.parse(str(post.jsonLd))).toMatchObject({ "@type": "NewsArticle", citation: [{ url: expect.stringContaining(SRC) }] });
+    expect(str(post.coverImage)).toMatch(/\/api\/content-image\/cfake/);
     expect(post.imageAlt).toBe("People waiting at a Canadian immigration office");
-
-    // Registered in the aggregator registry so the older auto-pilot won't duplicate it.
     expect(tables.rawArticle.every((r) => r.status === "PROCESSED")).toBe(true);
   });
 
@@ -236,19 +296,18 @@ describe("runContentPipeline — end to end (mocked)", () => {
     expect(again).toMatchObject({ status: "SKIPPED" });
     expect(again.reason).toMatch(/quota/i);
 
-    // Raise the quota: remaining feed items are new, already-processed ones are not redone.
     tables.platformSetting.push({ key: "content_pieces_per_day", value: "10" });
     const third = await runContentPipeline(createDeps(db, llm), { trigger: "CRON" });
     const slugs = tables.blogPost.map((p) => p.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
-    expect(tables.blogPost).toHaveLength(3); // 2 + the study-permit item; hockey stays off-topic
+    expect(tables.blogPost).toHaveLength(3);
     expect(third.produced).toBe(1);
   });
 
   it("autopublish ON: post goes live, social job is still only QUEUED (never sent)", async () => {
     const { db, tables } = createFakeDb({ settings: { content_autopublish_enabled: "true", content_channel_linkedin: "true", content_pieces_per_day: "1" } });
     const revalidated: string[][] = [];
-    const summary = await runContentPipeline(createDeps(db, createFakeLlm(), revalidated), { trigger: "CRON" });
+    const summary = await runContentPipeline(createDeps(db, createFakeLlm(), { revalidated }), { trigger: "CRON" });
 
     expect(summary).toMatchObject({ produced: 1, autopublish: true });
     expect(tables.blogPost[0]).toMatchObject({ isPublished: true, publishedAt: NOW });
@@ -259,7 +318,7 @@ describe("runContentPipeline — end to end (mocked)", () => {
 
   it("reviewer gate: unsupported claims are rejected and no post is created", async () => {
     const { db, tables } = createFakeDb();
-    const summary = await runContentPipeline(createDeps(db, createFakeLlm({ reviewVerdict: "unsupported" })), { trigger: "CRON" });
+    const summary = await runContentPipeline(createDeps(db, createFakeLlm({ verdict: "unsupported" })), { trigger: "CRON" });
 
     expect(summary.produced).toBe(0);
     expect(summary.rejected).toBeGreaterThan(0);
@@ -267,29 +326,171 @@ describe("runContentPipeline — end to end (mocked)", () => {
     expect(tables.socialJob).toHaveLength(0);
     const job = tables.contentPipelineJob[0];
     expect(job.stage).toBe("REJECTED");
-    expect(job.rejectionReason).toMatch(/Unsupported by sources/);
-    expect(job.draftMarkdown).toBeTruthy(); // kept for the admin to inspect
+    expect(str(job.rejectionReason)).toMatch(/Unsupported by sources/);
+    expect(job.draftMarkdown).toBeTruthy();
   });
 
-  it("run lock: skips while another run is in progress", async () => {
-    const { db, tables } = createFakeDb({ runs: [{ id: "crun", status: "RUNNING", startedAt: new Date(NOW.getTime() - 60_000) }] });
+  it("images off: skips image generation entirely", async () => {
+    const { db, tables } = createFakeDb({ settings: { content_images_enabled: "false" } });
+    const images = { count: 0 };
+    const summary = await runContentPipeline(createDeps(db, createFakeLlm(), { images }), { trigger: "CRON" });
+    expect(summary.produced).toBe(2);
+    expect(images.count).toBe(0);
+    expect(tables.contentImage).toHaveLength(0);
+    expect(pipelinePosts(tables).every((p) => p.coverImage === null)).toBe(true);
+  });
+
+  it("Persian config localizes headings, footer, social copy, and stores the language", async () => {
+    const { db, tables } = createFakeDb({ settings: { content_language: "fa", content_pieces_per_day: "1" } });
+    await runContentPipeline(createDeps(db, createFakeLlm()), { trigger: "CRON" });
+    const fa = LANGUAGE_PROFILES.fa.labels;
+    const post = pipelinePosts(tables)[0];
+    const content = str(post.content);
+    expect(post.language).toBe("fa");
+    expect(content).toContain(`## ${fa.faq}`);
+    expect(content).toContain(`## ${fa.sources}`);
+    expect(content).toContain(`## ${fa.related}`);
+    expect(content).toContain("تیم تحریریه وریکسا");
+    expect(content).not.toContain("Find a licensed consultant");
+    expect(content).not.toContain("Prepared by the Verixa editorial team");
+    expect(str(tables.socialJob[0].linkedinCopy)).toContain(fa.readMore);
+    expect(str(tables.socialJob[0].linkedinCopy)).toContain(`#${fa.hashtag}`);
+    expect(JSON.parse(str(post.jsonLd)).inLanguage).toBe("fa");
+  });
+});
+
+describe("dedup across sources and drafts", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", () => {
+      throw new Error("Network access is disabled in tests");
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("the same event from IRCC and CIC News becomes one post, from the higher-trust source", async () => {
+    const CIC = { id: "csrc00000000000000000002", name: "CIC News", url: "https://feed.test/cic", type: "RSS", enabled: true, trustScore: 70, lastCheckedAt: null };
+    const { db, tables } = createFakeDb({ sources: [IRCC_SOURCE, CIC], settings: { content_pieces_per_day: "5" } });
+    const feeds = {
+      [IRCC_SOURCE.url]: [{ title: "Canada modernizes the asylum system to support timely decisions", link: `${SRC}/asylum.html`, isoDate: NOW.toISOString(), snippet: "" }],
+      [CIC.url]: [
+        { title: "IRCC changes asylum system to speed up decisions", link: "https://www.cicnews.com/2026/11/asylum-1.html", isoDate: new Date(NOW.getTime() + 6 * 3600_000).toISOString(), snippet: "" },
+      ],
+    };
+    const summary = await runContentPipeline(createDeps(db, createFakeLlm(), { feeds }), { trigger: "CRON" });
+    expect(summary.produced).toBe(1);
+    expect(pipelinePosts(tables)).toHaveLength(1);
+    expect(tables.contentPipelineJob[0].sourceUrl).toBe(`${SRC}/asylum.html`);
+    expect(summary.log.join("\n")).toMatch(/same event as "Canada modernizes/);
+  });
+
+  it("re-checks the written draft: a reworded headline that becomes an existing post is skipped", async () => {
+    const existing = { title: "Spousal sponsorship processing times improve", slug: "spousal-sponsorship-processing-times-improve" };
+    const feeds = { [IRCC_SOURCE.url]: [{ title: "Family class backlog update for partners", link: `${SRC}/partners.html`, isoDate: NOW.toISOString(), snippet: "sponsorship" }] };
+    const { db, tables } = createFakeDb({ posts: [existing] });
+    const llm = createFakeLlm({ titleFor: () => "Spousal sponsorship processing times improve" });
+    const summary = await runContentPipeline(createDeps(db, llm, { feeds }), { trigger: "CRON" });
+
+    expect(summary.produced).toBe(0);
+    expect(pipelinePosts(tables)).toHaveLength(0);
+    expect(tables.contentPipelineJob[0]).toMatchObject({ stage: "SKIPPED_DUPLICATE", status: "DONE" });
+    expect(str(tables.contentPipelineJob[0].rejectionReason)).toContain(existing.slug);
+    expect(llm.calls).not.toContain("editorial_review"); // stopped before spending on review/image
+  });
+});
+
+describe("recovery, retries and locking", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", () => {
+      throw new Error("Network access is disabled in tests");
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("a FAILED job is retried automatically by the next run", async () => {
+    const { db, tables } = createFakeDb();
+    const llm = createFakeLlm({ failOnceFor: [DEFAULT_FEED[0].title] });
+    const first = await runContentPipeline(createDeps(db, llm), { trigger: "CRON" });
+    expect(first).toMatchObject({ produced: 2, failed: 1 });
+    const failedJob = tables.contentPipelineJob.find((j) => j.topic === DEFAULT_FEED[0].title)!;
+    expect(failedJob).toMatchObject({ stage: "FAILED", status: "ERROR", attempts: 1 });
+
+    tables.platformSetting.push({ key: "content_pieces_per_day", value: "10" });
+    const second = await runContentPipeline(createDeps(db, llm), { trigger: "CRON" });
+    expect(second.produced).toBe(1);
+    expect(failedJob).toMatchObject({ stage: "READY", status: "DONE", attempts: 2, rejectionReason: null });
+    expect(tables.contentPipelineJob).toHaveLength(3); // the row was reused, not duplicated
+  });
+
+  it("stops auto-retrying after MAX_JOB_ATTEMPTS", async () => {
+    const item = DEFAULT_FEED[0];
+    const { db, tables } = createFakeDb({
+      jobs: [{ dedupKey: dedupKeyFor({ sourceUrl: item.link, title: item.title }), topic: item.title, stage: "FAILED", status: "ERROR", attempts: 3 }],
+    });
+    await runContentPipeline(createDeps(db, createFakeLlm()), { trigger: "CRON" });
+    expect(tables.contentPipelineJob[0]).toMatchObject({ stage: "FAILED", attempts: 3 });
+    expect(pipelinePosts(tables).map((p) => p.title)).not.toContain(item.title);
+  });
+
+  it("closes out a timed-out run and its ACTIVE jobs, plus orphaned ACTIVE jobs", async () => {
+    const old = new Date(NOW.getTime() - 4 * RUN_LOCK_MS);
+    const { db, tables } = createFakeDb({
+      runs: [{ id: "cstale", status: "RUNNING", lockKey: "RUNNING", startedAt: old }],
+      jobs: [
+        { dedupKey: "topic:mid-flight", topic: "Mid-flight", stage: "WRITING", status: "ACTIVE", pipelineRunId: "cstale", updatedAt: old },
+        { dedupKey: "topic:orphan", topic: "Orphan", stage: "IMAGE", status: "ACTIVE", pipelineRunId: null, updatedAt: old },
+        { dedupKey: "topic:done", topic: "Done", stage: "READY", status: "DONE", pipelineRunId: "cstale", updatedAt: old },
+      ],
+    });
     const summary = await runContentPipeline(createDeps(db, createFakeLlm()), { trigger: "CRON" });
-    expect(summary).toMatchObject({ status: "SKIPPED" });
+
+    expect(summary.status).toBe("COMPLETED"); // lock was freed, so this run proceeded
+    expect(tables.pipelineRun.find((r) => r.id === "cstale")).toMatchObject({ status: "FAILED", lockKey: null });
+    for (const topic of ["Mid-flight", "Orphan"]) {
+      expect(tables.contentPipelineJob.find((j) => j.topic === topic)).toMatchObject({ stage: "FAILED", status: "ERROR", rejectionReason: "Run timed out" });
+    }
+    expect(tables.contentPipelineJob.find((j) => j.topic === "Done")).toMatchObject({ stage: "READY", status: "DONE" });
+  });
+
+  it("run lock: skips while another run holds the lock", async () => {
+    const { db, tables } = createFakeDb({ runs: [{ id: "crun", status: "RUNNING", lockKey: "RUNNING", startedAt: new Date(NOW.getTime() - 60_000) }] });
+    const summary = await runContentPipeline(createDeps(db, createFakeLlm()), { trigger: "CRON" });
+    expect(summary).toMatchObject({ status: "SKIPPED", reason: "Another pipeline run is in progress." });
     expect(tables.blogPost).toHaveLength(0);
   });
 
-  it("closes out a stale RUNNING run and proceeds", async () => {
-    const { db, tables } = createFakeDb({ runs: [{ id: "cstale", status: "RUNNING", startedAt: new Date(NOW.getTime() - 60 * 60_000) }] });
-    const summary = await runContentPipeline(createDeps(db, createFakeLlm()), { trigger: "CRON" });
-    expect(summary.status).toBe("COMPLETED");
-    expect(tables.pipelineRun.find((r) => r.id === "cstale")?.status).toBe("FAILED");
+  it("run lock is atomic: two simultaneous runs → one runs, one skips", async () => {
+    const { db, tables } = createFakeDb();
+    const results = await Promise.all([
+      runContentPipeline(createDeps(db, createFakeLlm()), { trigger: "CRON" }),
+      runContentPipeline(createDeps(db, createFakeLlm()), { trigger: "MANUAL" }),
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual(["COMPLETED", "SKIPPED"]);
+    expect(pipelinePosts(tables)).toHaveLength(2);
+    expect(tables.pipelineRun).toHaveLength(1);
+  });
+
+  it("admin retry re-runs a rejected draft and refuses jobs that already have a post", async () => {
+    const { db, tables } = createFakeDb({ settings: { content_pieces_per_day: "1" } });
+    const llm = createFakeLlm({ verdict: "unsupported" });
+    const deps = createDeps(db, llm);
+    await runContentPipeline(deps, { trigger: "CRON" });
+    const rejected = tables.contentPipelineJob.find((j) => j.stage === "REJECTED")!;
+    expect(rejected).toBeDefined();
+
+    llm.setVerdict("supported");
+    const retried = await retryJob(deps, str(rejected.id));
+    expect(retried).toEqual({ ok: true, outcome: "produced" });
+    expect(rejected).toMatchObject({ stage: "READY", attempts: 2, blogPostId: expect.any(String) });
+    expect(pipelinePosts(tables)).toHaveLength(1);
+
+    expect(await retryJob(deps, str(rejected.id))).toMatchObject({ ok: false });
   });
 });
 
 describe("config", () => {
-  it("defaults to English, 2/day, auto-publish OFF, all channels OFF", () => {
+  it("defaults to English, 2/day, auto-publish OFF, images ON, all channels OFF", () => {
     const c = parseConfig({});
-    expect(c).toMatchObject({ piecesPerDay: 2, autopublish: false, strictness: "standard", minQualityScore: 70 });
+    expect(c).toMatchObject({ piecesPerDay: 2, autopublish: false, imagesEnabled: true, strictness: "standard", minQualityScore: 70 });
     expect(c.language.primary.code).toBe("en");
     expect(Object.values(c.channels).every((v) => v === false)).toBe(true);
   });
@@ -312,8 +513,12 @@ describe("config", () => {
     expect(parseLanguageSetting("xx").primary.code).toBe("en");
   });
 
+  it("every language's FAQ heading is recognised by the blog page", () => {
+    for (const p of Object.values(LANGUAGE_PROFILES)) expect(FAQ_HEADINGS).toContain(p.labels.faq);
+  });
+
   it("validates admin input", () => {
-    const ok = { language: "en+fa", piecesPerDay: 2, autopublish: false, strictness: "strict", channels: { linkedin: true, twitter: false, facebook: false, telegram: false } };
+    const ok = { language: "en+fa", piecesPerDay: 2, autopublish: false, strictness: "strict", imagesEnabled: false, channels: { linkedin: true, twitter: false, facebook: false, telegram: false } };
     expect(ConfigUpdateSchema.safeParse(ok).success).toBe(true);
     expect(ConfigUpdateSchema.safeParse({ ...ok, language: "english" }).success).toBe(false);
     expect(ConfigUpdateSchema.safeParse({ ...ok, piecesPerDay: 50 }).success).toBe(false);
@@ -358,12 +563,12 @@ describe("markdown assembly", () => {
       citations: [{ title: "IRCC", url: "https://canada.ca/x" }],
       internalLinks: [{ label: "Find a consultant", href: "/search?q=x", kind: "consultants" }],
       footer: "*footer*",
+      labels: EN,
     });
     expect(md.startsWith("<!-- verixa:disclaimer -->\n> General information only")).toBe(true);
     expect(md).toContain("## What changed");
     expect(md).not.toContain("# # What");
     expect(md.match(/<end-of-faq>/g)).toHaveLength(1);
-    // The only horizontal rule is the one after the FAQ (the blog page splits on it).
     expect(md.match(/^---$/gm)).toHaveLength(1);
     expect(md.indexOf("<end-of-faq>")).toBeLessThan(md.indexOf("---"));
   });
@@ -399,10 +604,11 @@ describe("discovery link extraction", () => {
 
 describe("social copy", () => {
   it("keeps the X post within 280 chars (links count as 23)", () => {
-    const c = buildSocialCopy({ title: "A".repeat(400), summary: "s", url: "https://www.getverixa.com/blog/x", paths: ["express_entry"] });
+    const c = buildSocialCopy({ title: "A".repeat(400), summary: "s", url: "https://www.getverixa.com/blog/x", paths: ["express_entry"], labels: EN });
     const counted = c.twitter.replace("https://www.getverixa.com/blog/x", "x".repeat(23));
     expect(counted.length).toBeLessThanOrEqual(280);
     expect(c.linkedin).toContain("not legal advice");
+    expect(c.linkedin).toContain("#CanadaImmigration #ExpressEntry");
   });
 });
 

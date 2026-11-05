@@ -18,7 +18,7 @@ import {
   loadConfig,
   type ConfigUpdate,
 } from "@/lib/content-pipeline/config";
-import { runContentPipeline, startOfUtcDay, PRODUCED_STAGES, type RunSummary } from "@/lib/content-pipeline/orchestrator";
+import { retryJob, runContentPipeline, startOfUtcDay, PRODUCED_STAGES, type RunSummary } from "@/lib/content-pipeline/orchestrator";
 import { createDefaultDeps } from "@/lib/content-pipeline/default-deps";
 import { publishPiece } from "@/lib/content-pipeline/agents/publisher";
 import { uniqueSlug } from "@/lib/content-pipeline/seo";
@@ -60,7 +60,7 @@ export async function getContentPipelineDashboard() {
       orderBy: { createdAt: "desc" },
       take: 60,
       select: {
-        id: true, stage: true, status: true, topic: true, sourceUrl: true, sourceName: true,
+        id: true, stage: true, status: true, attempts: true, topic: true, sourceUrl: true, sourceName: true,
         immigrationPaths: true, language: true, summary: true, slug: true, targetKeyword: true,
         metaTitle: true, metaDesc: true, qualityScore: true, reviewNotes: true, rejectionReason: true,
         coverImage: true, imageAlt: true, blogPostId: true, draftMarkdown: true, createdAt: true,
@@ -79,6 +79,7 @@ export async function getContentPipelineDashboard() {
     piecesPerDay: config.piecesPerDay,
     autopublish: config.autopublish,
     strictness: config.strictness,
+    imagesEnabled: config.imagesEnabled,
     channels: config.channels,
   };
 
@@ -151,6 +152,29 @@ export async function runContentPipelineNow(): Promise<{ ok: true; summary: RunS
   }
 }
 
+/** Re-run every stage for one FAILED or reviewer-REJECTED job (no post yet). */
+export async function retryPipelineJob(jobId: unknown): Promise<ActionResult> {
+  try {
+    const { userId } = await requireAdmin();
+    const id = IdSchema.parse(jobId);
+    if (!process.env.OPENAI_API_KEY) return { ok: false, error: "OPENAI_API_KEY is not configured on the server." };
+    const result = await retryJob(await createDefaultDeps(), id);
+    await logEvent({ userId, role: "ADMIN", action: "CONTENT_PIPELINE_RETRY", details: { jobId: id, ...(result.ok ? { outcome: result.outcome } : { error: result.error }) } });
+    refresh();
+    if (!result.ok) return result;
+    const messages: Record<string, string> = {
+      produced: "Retry succeeded: the draft is ready for review.",
+      rejected: "Retry finished, but the reviewer rejected the new draft. See its flags.",
+      failed: "Retry failed again. See the error on the job.",
+      skipped: "Retry stopped: the new draft duplicates an existing post.",
+    };
+    const text = messages[result.outcome];
+    return result.outcome === "failed" ? { ok: false, error: text } : { ok: true, message: text };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 // ─── Review decisions ─────────────────────────────────────────────────────────
 
 /** Publish a READY draft. The social job is left QUEUED (not sent). */
@@ -184,7 +208,8 @@ export async function rejectPipelineJob(jobId: unknown, reason?: unknown): Promi
     const why = ReasonSchema.parse(reason) || "Rejected by admin.";
     const job = await prisma.contentPipelineJob.findUnique({ where: { id }, select: { stage: true, blogPostId: true, slug: true } });
     if (!job) return { ok: false, error: "Job not found." };
-    if (!["READY", "PUBLISHED", "REVIEW"].includes(job.stage)) return { ok: false, error: `Can't reject a ${job.stage} job.` };
+    // Not REVIEW or earlier: those are still being processed by a run.
+    if (!["READY", "PUBLISHED"].includes(job.stage)) return { ok: false, error: `Only drafts awaiting approval or published posts can be rejected (this one is ${job.stage}).` };
 
     await prisma.$transaction(async (tx) => {
       if (job.blogPostId) {
@@ -212,7 +237,7 @@ export async function overrideRejectedJob(jobId: unknown): Promise<ActionResult>
     if (job.stage !== "REJECTED" || job.blogPostId) return { ok: false, error: "Only reviewer-rejected drafts without a post can be overridden." };
     if (!job.draftMarkdown || !job.slug || !job.metaTitle || !job.metaDesc) return { ok: false, error: "This job has no complete draft to keep." };
 
-    const notes = parseJson<{ title?: string; keywords?: string[]; citations?: string[]; imagePrompt?: string; sourceId?: string | null }>(job.reviewNotes, {});
+    const notes = parseJson<{ title?: string; keywords?: string[]; citations?: string[]; imagePrompt?: string }>(job.reviewNotes, {});
     const taken = await prisma.blogPost.findMany({ where: { slug: { startsWith: job.slug } }, select: { slug: true }, take: 100 });
     const slug = uniqueSlug(job.slug, new Set(taken.map((t) => t.slug)));
     const config = await loadConfig(prisma);
@@ -234,7 +259,7 @@ export async function overrideRejectedJob(jobId: unknown): Promise<ActionResult>
       citations: notes.citations || [],
       reviewScore: job.qualityScore ?? 0,
       language: config.language.primary.code,
-      sourceId: notes.sourceId || undefined,
+      sourceId: job.sourceId || undefined,
       sourceUrl: job.sourceUrl,
       sourceTitle: job.topic,
       publishLive: false, // always a draft — an editor must fix and publish it

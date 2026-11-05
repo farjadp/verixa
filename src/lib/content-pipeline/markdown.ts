@@ -1,8 +1,9 @@
 // ============================================================================
 // Content Pipeline — article assembly (pure; unit tested)
 // Produces markdown in the shape /blog/[slug] already understands:
-//   visible disclaimer → body → related links → sources → "## Frequently Asked
-//   Questions" → <end-of-faq> → provenance footer (rendered in the disclaimer box).
+//   visible disclaimer → body → related links → sources → "## <localized FAQ
+//   heading>" → <end-of-faq> → provenance footer (rendered in the disclaimer box).
+// The blog page recognises every FAQ heading in language.ts FAQ_HEADINGS.
 // ============================================================================
 import type { InternalLink } from "./seo";
 import { fixHeadingStructure } from "./seo";
@@ -16,7 +17,7 @@ export interface ArticleParts {
   secondarySummary?: string | null;
   secondaryLanguageName?: string | null;
   footer: string;
-  labels?: { related?: string; sources?: string };
+  labels: { related: string; sources: string; faq: string };
 }
 
 /** Lines that are only "---"/"***" would end the FAQ block early on the blog page. */
@@ -59,21 +60,21 @@ export function assembleArticle(p: ArticleParts): string {
   }
 
   if (p.internalLinks.length) {
-    out.push(`## ${p.labels?.related || "Related resources"}`, "");
+    out.push(`## ${p.labels.related}`, "");
     for (const l of p.internalLinks) out.push(`- [${l.label.replace(/[[\]]/g, "")}](${l.href})`);
     out.push("");
   }
 
   if (p.citations.length) {
-    out.push(`## ${p.labels?.sources || "Sources"}`, "");
+    out.push(`## ${p.labels.sources}`, "");
     for (const c of p.citations) out.push(`- [${(c.title || c.url).replace(/[[\]]/g, "")}](${c.url})`);
     out.push("");
   }
 
   const faqs = p.faq.filter((f) => f.question?.trim() && f.answer?.trim());
   if (faqs.length) {
-    // The blog page detects this exact English marker and renders its own FAQ accordion.
-    out.push("## Frequently Asked Questions", "");
+    // The blog page detects this heading (see FAQ_HEADINGS) and renders its own FAQ accordion.
+    out.push(`## ${p.labels.faq}`, "");
     for (const f of faqs) out.push(`### ${cleanHeading(f.question)}`, sanitizeBlock(f.answer), "");
     out.push("<end-of-faq>", "");
   }

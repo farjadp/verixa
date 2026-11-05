@@ -15,7 +15,7 @@ const STOPWORDS = new Set(
 export function normalizeText(s: string): string {
   return (s || "")
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
@@ -165,4 +165,45 @@ export function rankCandidates<T extends Candidate>(candidates: T[], now: Date):
     }
   }
   return [...firstPass, ...rest];
+}
+
+// ─── Same-event clustering ────────────────────────────────────────────────────
+// Different sources word the same announcement differently ("Canada modernizes
+// the asylum system" vs "IRCC changes asylum rules"), so the headline rule above
+// misses them. Treat two candidates as one event when they share an immigration
+// path, were published on the same or adjacent UTC day, and overlap ≥ 0.3.
+
+export const SAME_EVENT_THRESHOLD = 0.3;
+const DAY_MS = 86_400_000;
+
+function utcDayNumber(d: Date | null): number | null {
+  return d && !isNaN(d.getTime()) ? Math.floor(d.getTime() / DAY_MS) : null;
+}
+
+export function isSameEvent(a: Candidate, b: Candidate, threshold = SAME_EVENT_THRESHOLD): boolean {
+  const da = utcDayNumber(a.publishedAt);
+  const db = utcDayNumber(b.publishedAt);
+  if (da === null || db === null || Math.abs(da - db) > 1) return false;
+  if (!a.paths.some((p) => b.paths.includes(p))) return false;
+  return jaccard(tokenize(a.title), tokenize(b.title)) >= threshold;
+}
+
+/**
+ * Collapse same-event candidates, keeping the highest-trust source of each
+ * event (ties keep the earlier one). Returns survivors in their original order
+ * plus what was dropped and why.
+ */
+export function clusterSameEvents<T extends Candidate>(
+  candidates: T[],
+  threshold = SAME_EVENT_THRESHOLD
+): { kept: T[]; dropped: { candidate: T; keptInstead: T }[] } {
+  const order = candidates.map((c, i) => ({ c, i })).sort((x, y) => y.c.sourceTrust - x.c.sourceTrust || x.i - y.i);
+  const kept: { c: T; i: number }[] = [];
+  const dropped: { candidate: T; keptInstead: T }[] = [];
+  for (const x of order) {
+    const match = kept.find((k) => isSameEvent(k.c, x.c, threshold));
+    if (match) dropped.push({ candidate: x.c, keptInstead: match.c });
+    else kept.push(x);
+  }
+  return { kept: kept.sort((a, b) => a.i - b.i).map((k) => k.c), dropped };
 }

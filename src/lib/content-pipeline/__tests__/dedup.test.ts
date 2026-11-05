@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   checkDuplicate,
+  clusterSameEvents,
+  isSameEvent,
   dedupKeyFor,
   dedupWithinBatch,
   jaccard,
@@ -148,5 +150,28 @@ describe("tagImmigrationPaths", () => {
   it("matches acronyms case-sensitively (ITA, PAL, eTA)", () => {
     expect(tagImmigrationPaths("italian food festival")).not.toContain("express_entry");
     expect(tagImmigrationPaths("my pal and I")).not.toContain("study");
+  });
+});
+
+describe("isSameEvent / clusterSameEvents", () => {
+  const ircc = cand({ title: "Canada modernizes the asylum system to support timely decisions", sourceName: "IRCC", sourceTrust: 100 });
+  const cic = cand({ title: "IRCC changes asylum system to speed up decisions", sourceName: "CIC News", sourceTrust: 70, publishedAt: new Date(NOW.getTime() + 6 * 3600_000) });
+
+  it("matches differently-worded coverage of one event (shared path, adjacent day, ≥0.3 overlap)", () => {
+    expect(ircc.paths).toContain("refugee");
+    expect(isSameEvent(ircc, cic)).toBe(true);
+  });
+
+  it("does not match when published days apart, on different paths, or without dates", () => {
+    expect(isSameEvent(ircc, { ...cic, publishedAt: new Date(NOW.getTime() - 3 * 86_400_000) })).toBe(false);
+    expect(isSameEvent(ircc, { ...cic, paths: ["study"] })).toBe(false);
+    expect(isSameEvent(ircc, { ...cic, publishedAt: null })).toBe(false);
+  });
+
+  it("keeps the higher-trust source and preserves original order", () => {
+    const other = cand({ title: "Express Entry draw results" });
+    const { kept, dropped } = clusterSameEvents([cic, other, ircc]);
+    expect(kept).toEqual([other, ircc]);
+    expect(dropped).toEqual([{ candidate: cic, keptInstead: ircc }]);
   });
 });

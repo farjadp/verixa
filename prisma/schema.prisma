@@ -369,6 +369,7 @@ model BlogPost {
   immigrationPaths String?  // JSON array of immigration path keys this post covers
   source           String?  @default("MANUAL") // MANUAL | PIPELINE | AGGREGATOR
   reviewScore      Int?     // reviewer/editor quality score 0-100
+  language         String?  @default("en") // content language code (en, fa, fr)
 
   authorId    String?
   author      User?    @relation(fields: [authorId], references: [id])
@@ -806,6 +807,9 @@ model PipelineRun {
   id            String   @id @default(cuid())
   trigger       String   @default("CRON") // CRON | MANUAL
   status        String   @default("RUNNING") // RUNNING | COMPLETED | FAILED
+  // Atomic run lock: "RUNNING" while active, null when finished. The unique
+  // index lets only one run hold it (Postgres allows many NULLs).
+  lockKey       String?  @unique
   language      String   @default("en")
   targetCount   Int      @default(2) // how many pieces this run aimed to produce
   discovered    Int      @default(0)
@@ -833,15 +837,19 @@ model ContentPipelineJob {
   // Stage + status
   stage            String   @default("DISCOVERED") // DISCOVERED|SELECTED|WRITING|SEO|REVIEW|IMAGE|READY|PUBLISHED|REJECTED|FAILED|SKIPPED_DUPLICATE
   status           String   @default("ACTIVE") // ACTIVE | DONE | ERROR
+  attempts         Int      @default(1) // processing attempts; FAILED jobs auto-retry while < 3
 
   // Idempotency: normalized source URL (or topic) — a rerun never re-processes the same item
   dedupKey         String   @unique
 
   // Discovery data
   topic            String   // candidate topic / headline
-  sourceUrl        String?
-  sourceName       String?
-  immigrationPaths String?  // JSON array of path keys
+  sourceUrl         String?
+  sourceName        String?
+  sourceId          String?   // ContentSource.id (kept so a job can be retried)
+  sourcePublishedAt DateTime?
+  snippet           String?   // feed snippet, fallback source text
+  immigrationPaths  String?   // JSON array of path keys
   language         String   @default("en")
 
   // Writer output

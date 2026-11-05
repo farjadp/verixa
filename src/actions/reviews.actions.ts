@@ -1,161 +1,144 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
 import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
+import { authOptions } from "@/lib/authOptions";
 import { logEvent } from "@/lib/logger";
 import { trackEvent } from "./analytics.actions";
+import { bookingReviewSchema, canReviewBooking, GUEST_REVIEW_LIMITS, guestReviewSchema, replySchema } from "@/lib/review-rules";
 
-export async function submitReview(data: {
-  bookingId: string;
-  consultantProfileId: string;
-  rating: number;
-  comment?: string;
-}) {
+export type ReviewResult = { ok: true; status: string } | { ok: false; error: string };
+
+// Verified review: tied to a completed booking owned by the signed-in client.
+// The consultant comes from the booking, never from the caller.
+export async function submitReview(input: { bookingId: string; consultantProfileId?: string; rating: number; comment?: string }): Promise<ReviewResult> {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user?.email) {
-    throw new Error("Must be logged in to submit a review");
-  }
+  if (!session?.user?.id || !session.user.email) return { ok: false, error: "Please sign in to leave a review." };
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email }
-  });
+  const parsed = bookingReviewSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message || "Invalid review." };
+  const data = parsed.data;
 
-  if (!user) throw new Error("User not found");
-
-  // Verify the booking belongs to this user and is completed
   const booking = await prisma.booking.findUnique({
-    where: { id: data.bookingId }
+    where: { id: data.bookingId },
+    select: { id: true, status: true, userEmail: true, scheduledEnd: true, consultantProfileId: true, profile: { select: { licenseNumber: true } } },
   });
+  const existing = booking ? await prisma.review.findUnique({ where: { bookingId: booking.id }, select: { id: true } }) : null;
+  const check = canReviewBooking(booking, session.user.email, !!existing);
+  if (!check.ok || !booking) return check.ok ? { ok: false, error: "Booking not found." } : check;
 
-  if (!booking || booking.status !== "COMPLETED" || booking.userEmail !== user.email) {
-    throw new Error("Invalid booking for review");
+  try {
+    await prisma.review.create({
+      data: {
+        userId: session.user.id,
+        consultantProfileId: booking.consultantProfileId,
+        bookingId: booking.id,
+        rating: data.rating,
+        comment: data.comment || null,
+        status: "PUBLISHED",
+      },
+    });
+  } catch (e) {
+    if ((e as { code?: string })?.code === "P2002") return { ok: false, error: "You've already reviewed this consultation." };
+    console.error("[submitReview] failed:", e);
+    return { ok: false, error: "Could not save your review. Please try again." };
   }
 
-  // Ensure no duplicate review exists for this booking
-  const existing = await prisma.review.findUnique({
-    where: { bookingId: booking.id }
-  });
+  revalidatePath("/dashboard/client/reviews");
+  revalidatePath(`/consultant/${booking.profile.licenseNumber}`);
 
-  if (existing) {
-    throw new Error("You have already reviewed this consultation");
-  }
-
-  const review = await prisma.review.create({
-    data: {
-      userId: user.id,
-      consultantProfileId: data.consultantProfileId,
-      bookingId: booking.id,
-      rating: data.rating,
-      comment: data.comment,
-      status: "PUBLISHED" // Or PENDING_MODERATION based on business logic
-    }
-  });
-
-  revalidatePath(`/dashboard/client/reviews`);
-  revalidatePath(`/consultant/${booking.consultantProfileId}`); // Refresh public profile rating
-  
   await logEvent({
-    userId: user.id,
-    role: user.role,
+    userId: session.user.id,
+    role: session.user.role,
     action: "REVIEW_SUBMITTED",
-    details: { bookingId: booking.id, consultantProfileId: data.consultantProfileId, rating: data.rating }
+    details: { bookingId: booking.id, consultantProfileId: booking.consultantProfileId, rating: data.rating },
   });
+  await trackEvent({ eventName: "review_submitted", consultantId: booking.consultantProfileId, metadata: { rating: data.rating } });
 
-  // Analytics: track review_submitted
-  await trackEvent({
-    eventName: "review_submitted",
-    consultantId: data.consultantProfileId,
-    metadata: { rating: data.rating }
-  });
-
-  return review;
+  return { ok: true, status: "PUBLISHED" };
 }
 
-import { headers } from "next/headers";
-
-export async function submitGuestReview(data: {
+// Guest review: no booking behind it, so it is held for moderation and shown
+// as unverified once approved. One per email per consultant, a few per IP a day.
+export async function submitGuestReview(input: {
   licenseNumber: string;
   guestName: string;
   guestEmail: string;
   rating: number;
   comment?: string;
-}) {
-  const profile = await prisma.consultantProfile.findUnique({
-    where: { licenseNumber: data.licenseNumber }
-  });
+}): Promise<ReviewResult> {
+  const parsed = guestReviewSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message || "Invalid review." };
+  const data = parsed.data;
 
-  if (!profile) throw new Error("Consultant not found");
+  const profile = await prisma.consultantProfile.findUnique({
+    where: { licenseNumber: data.licenseNumber.toUpperCase() },
+    select: { id: true, licenseNumber: true, userId: true },
+  });
+  if (!profile) return { ok: false, error: "Consultant not found." };
 
   const headersList = await headers();
-  const ip = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "Unknown IP";
-  const userAgent = headersList.get("user-agent") || "Unknown Browser";
-  const secChUa = headersList.get("sec-ch-ua") || "";
-  const secChUaPlatform = headersList.get("sec-ch-ua-platform") || "";
+  const ip = (headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "unknown").split(",")[0].trim();
+  const userAgent = (headersList.get("user-agent") || "unknown").slice(0, 300);
 
-  const review = await prisma.review.create({
+  // Consultants can't review themselves.
+  const session = await getServerSession(authOptions);
+  if (session?.user?.id && session.user.id === profile.userId) {
+    return { ok: false, error: "You can't review your own profile." };
+  }
+
+  const sameEmail = await prisma.review.count({
+    where: { consultantProfileId: profile.id, guestEmail: data.guestEmail },
+  });
+  if (sameEmail >= GUEST_REVIEW_LIMITS.perEmailPerProfile) {
+    return { ok: false, error: "You've already submitted a review for this consultant." };
+  }
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const fromIp = await prisma.review.count({
+    where: { createdAt: { gte: since }, userId: null, metadata: { path: ["ip"], equals: ip } },
+  });
+  if (ip !== "unknown" && fromIp >= GUEST_REVIEW_LIMITS.perIpPerDay) {
+    return { ok: false, error: "Too many reviews from this network today. Please try again tomorrow." };
+  }
+
+  await prisma.review.create({
     data: {
       consultantProfileId: profile.id,
       guestName: data.guestName,
       guestEmail: data.guestEmail,
       rating: data.rating,
-      comment: data.comment,
-      status: "PUBLISHED",
-      metadata: {
-        ip,
-        userAgent,
-        secChUa,
-        secChUaPlatform,
-        timestamp: new Date().toISOString()
-      }
-    }
+      comment: data.comment || null,
+      status: "PENDING_MODERATION",
+      metadata: { ip, userAgent, timestamp: new Date().toISOString() },
+    },
   });
 
-  revalidatePath(`/consultant/${data.licenseNumber}`);
-
-  await trackEvent({
-    eventName: "guest_review_submitted",
-    consultantId: profile.id,
-    metadata: { rating: data.rating }
-  });
-
-  return review;
+  await trackEvent({ eventName: "guest_review_submitted", consultantId: profile.id, metadata: { rating: data.rating } });
+  return { ok: true, status: "PENDING_MODERATION" };
 }
 
-export async function replyToReview(reviewId: string, replyText: string) {
+export async function replyToReview(reviewId: string, replyText: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user?.email || (session.user as any).role !== "CONSULTANT") {
-    throw new Error("Unauthorized");
-  }
+  if (!session?.user?.id || session.user.role !== "CONSULTANT") return { ok: false, error: "Only the consultant can reply." };
+
+  const parsed = replySchema.safeParse(replyText ?? "");
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message || "Invalid reply." };
 
   const consultantProfile = await prisma.consultantProfile.findUnique({
-    where: { userId: (session.user as any).id },
-    select: { id: true, licenseNumber: true }
+    where: { userId: session.user.id },
+    select: { id: true, licenseNumber: true },
   });
+  if (!consultantProfile) return { ok: false, error: "Profile not found." };
 
-  if (!consultantProfile) throw new Error("Profile not found");
-
-  const review = await prisma.review.findUnique({
-    where: { id: reviewId }
+  const res = await prisma.review.updateMany({
+    where: { id: reviewId, consultantProfileId: consultantProfile.id },
+    data: { replyText: parsed.data || null, repliedAt: parsed.data ? new Date() : null },
   });
+  if (res.count === 0) return { ok: false, error: "Review not found." };
 
-  if (!review || review.consultantProfileId !== consultantProfile.id) {
-    throw new Error("Review not found or unauthorized");
-  }
-
-  const updatedValue = replyText.trim() === "" ? null : replyText.trim();
-
-  const updated = await prisma.review.update({
-    where: { id: reviewId },
-    data: {
-      replyText: updatedValue,
-      repliedAt: updatedValue ? new Date() : null
-    }
-  });
-
-  revalidatePath(`/dashboard/reviews`);
+  revalidatePath("/dashboard/reviews");
   revalidatePath(`/consultant/${consultantProfile.licenseNumber}`);
-
-  return updated;
+  return { ok: true };
 }

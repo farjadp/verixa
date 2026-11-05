@@ -64,7 +64,12 @@ export default function ResetPasswordPage() {
 
     setStatus("loading");
     try {
-      await resetPassword(token, newPassword);
+      const res = await resetPassword(token, newPassword);
+      if (!res.success) {
+        setError(res.error);
+        setStatus("idle");
+        return;
+      }
       setStatus("done");
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.");

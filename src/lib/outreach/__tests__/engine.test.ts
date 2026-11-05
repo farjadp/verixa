@@ -1,7 +1,7 @@
 // src/lib/outreach/__tests__/engine.test.ts
 import { describe, expect, it, vi } from "vitest";
 import type { Llm } from "@/lib/content-pipeline/types";
-import { cancelScheduledEmails, planEmailDay, type EngineDeps } from "../engine";
+import { cancelScheduledEmails, handleEmailEvent, planEmailDay, type EngineDeps } from "../engine";
 import type { LeadRow, OutreachRepo } from "../repo";
 import type { LeadSnapshot } from "../types";
 
@@ -173,5 +173,22 @@ describe("post-send failure and dead touches", () => {
     const res = await planEmailDay(d);
     expect(res.scheduled).toBe(0);
     expect(d.email.send).not.toHaveBeenCalled();
+  });
+});
+
+describe("handleEmailEvent", () => {
+  it("suppresses the lead on bounce and marks SENT on delivery", async () => {
+    const lead = { ...backlog("A", 20), state: "TOUCH_1" as const, touchCount: 1 };
+    const { repo } = memoryRepo([lead]);
+    repo.findTouchByExternalId = async (id) => (id === "re_9" ? { id: "t9", leadId: "A", step: 1 } : null);
+    const updates: object[] = [];
+    repo.updateTouch = async (_id, p) => { updates.push(p); };
+    const d = deps(repo);
+    expect(await handleEmailEvent(d, "re_unknown", "BOUNCED")).toBe(false);
+    expect(await handleEmailEvent(d, "re_9", "DELIVERED")).toBe(true);
+    expect(updates[0]).toMatchObject({ status: "SENT" });
+    await handleEmailEvent(d, "re_9", "BOUNCED");
+    expect(lead.state).toBe("OPTED_OUT");
+    expect(d.suppress).toHaveBeenCalledWith("A", "bounced", { email: "A@firm.ca" });
   });
 });

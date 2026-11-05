@@ -389,3 +389,18 @@ export async function applyReport(
       return { ok: true };
   }
 }
+
+export async function handleEmailEvent(deps: EngineDeps, resendId: string, status: "DELIVERED" | "BOUNCED" | "COMPLAINED"): Promise<boolean> {
+  const touch = await deps.repo.findTouchByExternalId(resendId);
+  if (!touch) return false;
+  if (status === "DELIVERED") {
+    await deps.repo.updateTouch(touch.id, { status: "SENT", sentAt: deps.now() });
+    return true;
+  }
+  const lead = await deps.repo.getLead(touch.leadId);
+  if (!lead) return true;
+  const ctx = await deps.repo.getComposeContext(lead.id);
+  await deps.suppress(lead.consultantProfileId, status === "BOUNCED" ? "bounced" : "complained", { email: ctx?.email ?? null });
+  await apply(deps, lead, { type: "SUPPRESSED" });
+  return true;
+}

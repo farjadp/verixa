@@ -14,6 +14,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Webhook } from "svix";
+import { handleEmailEvent } from "@/lib/outreach/engine";
+import { realDeps } from "@/lib/outreach/deps";
 
 // Resend uses Svix to sign all outgoing webhook payloads.
 // The signature is NOT a simple HMAC of the body. It is computed
@@ -76,6 +78,9 @@ export async function POST(req: NextRequest) {
       // Unknown event type — acknowledge but do nothing
       return NextResponse.json({ ok: true, skipped: true });
     }
+
+    const isOutreach = await handleEmailEvent(realDeps(), resendId, newStatus as "DELIVERED" | "BOUNCED" | "COMPLAINED");
+    if (isOutreach) return NextResponse.json({ ok: true, outreach: true });
 
     const updated = await (prisma as any).campaignRecipient.updateMany({
       where: { resendId },

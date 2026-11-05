@@ -8,27 +8,33 @@ import Parser from "rss-parser";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { createOpenAiLlm } from "./llm";
+import { safeFetchText } from "./net-guard";
 import type { FeedItem, GeneratedImage, Llm, PipelineDeps } from "./types";
 
-const USER_AGENT = "VerixaContentBot/1.0 (+https://getverixa.com)";
+const USER_AGENT = "VerixaContentBot/1.0 (+https://www.getverixa.com)";
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_HTML_BYTES = 2_000_000;
+const MAX_FEED_BYTES = 5_000_000;
 
+/** SSRF-guarded GET: public http(s) hosts only, every redirect re-checked, body capped while streaming. */
 async function fetchHtml(url: string): Promise<string> {
-  const res = await fetch(url, {
+  return safeFetchText(url, {
+    maxBytes: MAX_HTML_BYTES,
+    timeoutMs: FETCH_TIMEOUT_MS,
     headers: { "User-Agent": USER_AGENT, Accept: "text/html,application/xhtml+xml" },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    redirect: "follow",
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-  const text = await res.text();
-  return text.slice(0, MAX_HTML_BYTES);
 }
 
-const parser = new Parser({ timeout: FETCH_TIMEOUT_MS, headers: { "User-Agent": USER_AGENT } });
+const parser = new Parser();
 
 async function fetchFeed(url: string): Promise<FeedItem[]> {
-  const feed = await parser.parseURL(url);
+  // Fetch through the guard, then parse; rss-parser's own parseURL would bypass it.
+  const xml = await safeFetchText(url, {
+    maxBytes: MAX_FEED_BYTES,
+    timeoutMs: FETCH_TIMEOUT_MS,
+    headers: { "User-Agent": USER_AGENT, Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml" },
+  });
+  const feed = await parser.parseString(xml);
   return (feed.items || []).map((i) => ({
     title: i.title || "",
     link: i.link || "",

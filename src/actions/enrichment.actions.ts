@@ -122,15 +122,29 @@ export async function updateEnrichmentRecord(id: string, data: {
 }
 
 export async function consultantVerifyEnrichment(id: string) {
-  // Assuming the user is authenticated from middleware
+  // Consultants may only confirm corporate records attached to their own profile.
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id || session.user.role !== "CONSULTANT") {
+    return { success: false, error: "Only the consultant can confirm this record." };
+  }
   try {
-    await prisma.consultantCompanyEnrichment.update({
-      where: { id },
-      data: { matchStatus: "consultant_verified" }
+    const profile = await prisma.consultantProfile.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true, licenseNumber: true },
     });
+    if (!profile) return { success: false, error: "Consultant profile not found." };
+
+    const res = await prisma.consultantCompanyEnrichment.updateMany({
+      where: { id, consultantProfileId: profile.id },
+      data: { matchStatus: "consultant_verified" },
+    });
+    if (res.count === 0) return { success: false, error: "Record not found." };
+
     revalidatePath("/dashboard/profile");
+    revalidatePath(`/consultant/${profile.licenseNumber}`);
     return { success: true };
   } catch (error) {
+    console.error("[consultantVerifyEnrichment] failed:", error);
     return { success: false, error: "Failed to verify record" };
   }
 }

@@ -52,6 +52,21 @@ export function addActiveDays(d: Date, n: number, tz: string): Date {
   return cur;
 }
 
+/**
+ * 00:00 local (in `tz`) of the n-th active day after `now`'s local date.
+ * Used for follow-up due times so a cron that runs earlier in the day than the send still sees them due.
+ */
+export function startOfActiveDayAfter(now: Date, n: number, tz: string): Date {
+  const [y, m, d] = localParts(now, tz).ymd.split("-").map(Number);
+  let cur = Date.UTC(y, m - 1, d);
+  let counted = 0;
+  while (counted < n) {
+    cur += DAY_MS;
+    if (OUTREACH.activeWeekdays.includes(new Date(cur).getUTCDay())) counted++;
+  }
+  return localTimeToUtc(new Date(cur).toISOString().slice(0, 10), 0, 0, tz);
+}
+
 function offsetMs(d: Date, tz: string): number {
   const p = parts(d, tz);
   return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - Math.floor(d.getTime() / 60_000) * 60_000;

@@ -24,6 +24,13 @@ describe("transition", () => {
     expect(transition(l, { type: "COOLDOWN_ENDED" }, thu).state).toBe("ARCHIVED");
   });
 
+  it("a touch sent Thu 10:00 with a 3-active-day wait is due Wed 00:00 local and visible to a Wed 06:00 run", () => {
+    const l = transition(newBacklogLead("EMAIL", TOR, thu), { type: "TOUCH_SENT", step: 1 }, thu);
+    expect(l.nextActionAt?.toISOString()).toBe("2026-11-11T05:00:00.000Z");
+    const wed6am = new Date("2026-11-11T11:00:00Z");
+    expect(l.nextActionAt! <= wed6am).toBe(true);
+  });
+
   it("rejects out-of-order steps", () => {
     const l = newBacklogLead("EMAIL", TOR, thu);
     expect(() => transition(l, { type: "TOUCH_SENT", step: 2 }, thu)).toThrow(InvalidTransitionError);

@@ -1,4 +1,4 @@
-import { addActiveDays, addCalendarDays } from "./calendar";
+import { addCalendarDays, startOfActiveDayAfter } from "./calendar";
 import { OUTREACH } from "./config";
 import type { Channel, LeadEvent, LeadSnapshot, LeadState, Step } from "./types";
 
@@ -35,7 +35,7 @@ export function transition(lead: LeadSnapshot, event: LeadEvent, now: Date): Lea
       if (event.label === "auto_reply") {
         if (s !== "TOUCH_1" && s !== "TOUCH_2" && s !== "TOUCH_3") return lead;
         const base = lead.nextActionAt && lead.nextActionAt > now ? lead.nextActionAt : now;
-        return { ...lead, nextActionAt: addActiveDays(base, OUTREACH.autoReplyDelayActiveDays, lead.timezone) };
+        return { ...lead, nextActionAt: startOfActiveDayAfter(base, OUTREACH.autoReplyDelayActiveDays, lead.timezone) };
       }
       return { ...lead, state: "CONVERSATION", nextActionAt: null };
     }
@@ -46,7 +46,7 @@ export function transition(lead: LeadSnapshot, event: LeadEvent, now: Date): Lea
 
     case "INVITE_ACCEPTED":
       if (s !== "INVITED") return fail();
-      return { ...lead, state: "TOUCH_1", nextActionAt: addActiveDays(now, OUTREACH.inviteAcceptedNextTouchActiveDays, lead.timezone) };
+      return { ...lead, state: "TOUCH_1", nextActionAt: startOfActiveDayAfter(now, OUTREACH.inviteAcceptedNextTouchActiveDays, lead.timezone) };
 
     case "INVITE_EXPIRED":
       if (s !== "INVITED") return fail();
@@ -63,7 +63,7 @@ export function transition(lead: LeadSnapshot, event: LeadEvent, now: Date): Lea
         state: TOUCH_STATE[event.step],
         touchCount: event.step,
         backlogSince: null,
-        nextActionAt: addActiveDays(now, OUTREACH.waitActiveDaysAfterTouch[event.step], lead.timezone),
+        nextActionAt: startOfActiveDayAfter(now, OUTREACH.waitActiveDaysAfterTouch[event.step], lead.timezone),
       };
     }
 

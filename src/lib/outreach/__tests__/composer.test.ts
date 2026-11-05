@@ -55,6 +55,23 @@ describe("composeMessage guards", () => {
   it("allows the exact URL followed by punctuation", async () => {
     await expect(composeMessage(fakeLlm({ subject: "Hi", body: `Hi Sara, see (https://getverixa.com/consultant/R123456).` }), base)).resolves.toBeDefined();
   });
+  const offer3 = { planName: "Pro", freeMonths: 12, priceAfterCents: 4900, currency: "CAD", remainingSlots: null, deadline: null };
+  it("does not mistake prices for URLs", async () => {
+    const body = "12 months free, then $49.00/month. https://getverixa.com/claim/R123456";
+    await expect(composeMessage(fakeLlm({ subject: "Hi", body }), { ...base, step: 3, offer: offer3 })).resolves.toBeDefined();
+    await expect(composeMessage(fakeLlm({ subject: "Hi", body: `${body} evil.example/x` }), { ...base, step: 3, offer: offer3 })).rejects.toThrow(ComposeRejectedError);
+  });
+  it("accepts the URL wrapped in quotes or angle brackets", async () => {
+    for (const w of ['"U"', "<U>", "'U'", "(U)"]) {
+      await expect(composeMessage(fakeLlm({ subject: "Hi", body: `Hi Sara ${w.replace("U", "https://getverixa.com/consultant/R123456")}` }), base)).resolves.toBeDefined();
+    }
+  });
+  it("rejects bare hosts but allows the profile host and emails on it", async () => {
+    await expect(composeMessage(fakeLlm({ subject: "Hi", body: `${ok} visit evil.com` }), base)).rejects.toThrow(ComposeRejectedError);
+    await expect(composeMessage(fakeLlm({ subject: "Hi", body: `${ok} or evil.example today` }), base)).rejects.toThrow(ComposeRejectedError);
+    await expect(composeMessage(fakeLlm({ subject: "Hi", body: `${ok} at getverixa.com` }), base)).resolves.toBeDefined();
+    await expect(composeMessage(fakeLlm({ subject: "Hi", body: `${ok} write farjad@getverixa.com` }), base)).resolves.toBeDefined();
+  });
   it("rejects a body missing the profile link on steps 1-2", async () => {
     await expect(composeMessage(fakeLlm({ subject: "Hi", body: "Hi Sara" }), base)).rejects.toThrow(ComposeRejectedError);
   });

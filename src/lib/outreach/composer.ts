@@ -70,13 +70,31 @@ function allowedNumbers(input: ComposeInput): Set<string> {
   return allowed;
 }
 
-const trimUrl = (u: string) => u.replace(/[.,;:!?)]+$/, "");
+const trimUrl = (u: string) => u.replace(/^[<"'(]+/, "").replace(/[.,;:!?)"'>\]]+$/, "");
+
+const SCHEMED = /https?:\/\/\S+/g;
+const SCHEMELESS = /\b[a-z0-9-]+(\.[a-z][a-z0-9-]*)+\/\S*/gi;
+const EMAIL = /[\w.+-]+@[\w-]+(\.[\w-]+)+/g;
+const BARE_HOST = /\b[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,24}\b/gi;
 
 function extractUrls(text: string): string[] {
-  const schemed = text.match(/https?:\/\/\S+/g) ?? [];
-  const rest = text.replace(/https?:\/\/\S+/g, " ");
-  const bare = rest.match(/\b[\w-]+(\.[\w-]+)+\/\S*/g) ?? [];
+  const schemed = text.match(SCHEMED) ?? [];
+  const rest = text.replace(SCHEMED, " ");
+  const bare = rest.match(SCHEMELESS) ?? [];
   return [...schemed, ...bare].map(trimUrl);
+}
+
+function extractBareHosts(text: string): string[] {
+  const rest = text.replace(SCHEMED, " ").replace(SCHEMELESS, " ").replace(EMAIL, " ");
+  return (rest.match(BARE_HOST) ?? []).map((h) => h.toLowerCase());
+}
+
+function hostOf(url: string): string | null {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
 }
 
 export function extractNumbers(text: string): string[] {
@@ -112,6 +130,9 @@ export async function composeMessage(llm: Llm, input: ComposeInput): Promise<Com
   const urls = extractUrls(`${subject ?? ""} ${body}`);
   const badUrl = urls.find((u) => u !== profile && u !== claim);
   if (badUrl) throw new ComposeRejectedError(`url not allowed: ${badUrl}`);
+  const allowedHosts = new Set([hostOf(profile), hostOf(claim)].filter((h): h is string => h !== null));
+  const badHost = extractBareHosts(`${subject ?? ""} ${body}`).find((h) => !allowedHosts.has(h));
+  if (badHost) throw new ComposeRejectedError(`host not allowed: ${badHost}`);
   if (input.step === 3 ? !urls.some((u) => u === profile || u === claim) : !urls.includes(profile)) {
     throw new ComposeRejectedError("required link missing");
   }

@@ -360,7 +360,16 @@ model BlogPost {
   // Phase 26: AI Factory Metadata
   imagePrompt String?
   socialHooks String?   // JSON object with variants
-  
+
+  // Phase 29: Content Pipeline (agent team) SEO + provenance metadata
+  targetKeyword    String?  // primary target keyword for the post
+  imageAlt         String?  // alt text for coverImage
+  canonicalUrl     String?  // canonical URL override
+  jsonLd           String?  // pre-built Article JSON-LD (stringified)
+  immigrationPaths String?  // JSON array of immigration path keys this post covers
+  source           String?  @default("MANUAL") // MANUAL | PIPELINE | AGGREGATOR
+  reviewScore      Int?     // reviewer/editor quality score 0-100
+
   authorId    String?
   author      User?    @relation(fields: [authorId], references: [id])
 
@@ -786,4 +795,94 @@ model DiscountCodeUsage {
   @@unique([codeId, userId]) // one use per user per code
   @@index([codeId])
   @@index([userId])
+}
+
+// ==========================================
+// PHASE 29: Automated Content Pipeline (Agent Team)
+// ==========================================
+
+// One row per cron/manual orchestration run. Lets the admin see each run's outcome.
+model PipelineRun {
+  id            String   @id @default(cuid())
+  trigger       String   @default("CRON") // CRON | MANUAL
+  status        String   @default("RUNNING") // RUNNING | COMPLETED | FAILED
+  language      String   @default("en")
+  targetCount   Int      @default(2) // how many pieces this run aimed to produce
+  discovered    Int      @default(0)
+  selected      Int      @default(0)
+  published     Int      @default(0)
+  skipped       Int      @default(0)
+  failed        Int      @default(0)
+  autoPublished Boolean  @default(false) // whether posts were published live this run
+  log           String?  // JSON array of stage messages
+  error         String?
+  startedAt     DateTime @default(now())
+  finishedAt    DateTime?
+
+  jobs          ContentPipelineJob[]
+
+  @@index([status, startedAt])
+}
+
+// One row per candidate topic as it moves through the agent stages.
+model ContentPipelineJob {
+  id               String   @id @default(cuid())
+  pipelineRunId    String?
+  pipelineRun      PipelineRun? @relation(fields: [pipelineRunId], references: [id])
+
+  // Stage + status
+  stage            String   @default("DISCOVERED") // DISCOVERED|SELECTED|WRITING|SEO|REVIEW|IMAGE|READY|PUBLISHED|REJECTED|FAILED|SKIPPED_DUPLICATE
+  status           String   @default("ACTIVE") // ACTIVE | DONE | ERROR
+
+  // Idempotency: normalized source URL (or topic) — a rerun never re-processes the same item
+  dedupKey         String   @unique
+
+  // Discovery data
+  topic            String   // candidate topic / headline
+  sourceUrl        String?
+  sourceName       String?
+  immigrationPaths String?  // JSON array of path keys
+  language         String   @default("en")
+
+  // Writer output
+  draftMarkdown    String?
+  summary          String?
+  outline          String?  // JSON array of headings
+
+  // SEO output
+  slug             String?
+  targetKeyword    String?
+  metaTitle        String?
+  metaDesc         String?
+  jsonLd           String?  // Article JSON-LD (stringified)
+  internalLinks    String?  // JSON array of suggested internal links
+
+  // Review output
+  qualityScore     Int?     // 0-100
+  reviewNotes      String?  // JSON { flags: string[], verdict, disclaimerPresent }
+  rejectionReason  String?
+
+  // Image output
+  coverImage       String?
+  imageAlt         String?
+
+  // Final linkage
+  blogPostId       String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([stage, status])
+  @@index([pipelineRunId])
+}
+
+// Durable storage for AI-generated cover images. OpenAI image URLs expire
+// within hours, so the bytes are stored here and served from
+// /api/content-image/[id] with long-lived cache headers.
+model ContentImage {
+  id        String   @id @default(cuid())
+  mimeType  String
+  data      Bytes
+  alt       String?
+  createdAt DateTime @default(now())
 }

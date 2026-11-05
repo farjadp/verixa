@@ -55,7 +55,7 @@ export default function BookingSettingsForm({ initialProfile }: { initialProfile
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await saveBookingConfiguration({
+      const res = await saveBookingConfiguration({
         availability: fullAvailability,
         consultationTypes: types.map(t => ({
           id: t.id,
@@ -67,7 +67,7 @@ export default function BookingSettingsForm({ initialProfile }: { initialProfile
           isActive: t.isActive
         }))
       });
-      alert("Settings saved successfully!");
+      alert(res.success ? "Settings saved." : res.error);
     } catch (e) {
       alert("Failed to save settings.");
       console.error(e);

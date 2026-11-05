@@ -264,16 +264,25 @@ export async function buildSocialTasks(deps: EngineDeps, channel: "LINKEDIN" | "
   const today = localParts(now, OUTREACH.operatorTimezone).ymd;
   const out: WorkerTask[] = [];
   let newlyCreated = 0;
+  // Outstanding QUEUED touches are always re-handed; they are already counted in sentToday and take no new capacity.
+  const queued = new Map((await deps.repo.listQueuedTouches(channel)).map((q) => [`${q.leadId}:${q.step}`, q]));
 
   for (const t of tasks) {
     if (t.kind !== "TOUCH" && t.kind !== "INVITE") continue;
-    // Touches that already exist as QUEUED are counted in sentToday; only new ones consume today's remaining capacity.
-    if (newlyCreated >= capacity) break;
     const lead = leads.find((l) => l.id === t.leadId)!;
+    const existing = queued.get(`${lead.id}:${t.step}`);
+    if (!existing && newlyCreated >= capacity) continue;
+
+    // Kill switch or dry-run flipped while we were working: stop handing out live work.
+    const current = await deps.settings();
+    if (!current.enabled || !current.channels[channel] || (current.dryRun && !settings.dryRun)) break;
+
+    if (existing) {
+      out.push({ touchId: existing.id, leadId: lead.id, kind: t.kind, step: t.step, handle: lead.externalHandle!, body: existing.body, dryRun: false });
+      continue;
+    }
     const msg = await composeWithRetry(deps, lead, t.step, offer);
     if (!msg) continue;
-    const current = await deps.settings();
-    if (!current.enabled || !current.channels[channel]) break;
     const touch = await deps.repo.createTouch({
       leadId: lead.id, channel, step: t.step, cycle: lead.recontactUsed ? 1 : 0, subject: null, body: msg.body,
       status: settings.dryRun ? "DRY_RUN" : "QUEUED", dryRunDay: today,

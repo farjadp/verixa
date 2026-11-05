@@ -40,6 +40,7 @@ function memoryRepo(leads: LeadRow[], opts: MemoryOpts = {}) {
       if (p.status === "SCHEDULED" && opts.failFirstScheduledWrite && scheduledWrites++ === 0) throw new Error("db down");
       Object.assign(touches.find((t) => t.id === id)!, p);
     },
+    listQueuedTouches: async () => [],
     getTouch: async () => null,
     findTouchByExternalId: async () => null,
     listFutureScheduledEmailTouches: async (now) => touches.filter((t) => t.externalMessageId && t.scheduledFor! > now && !["CANCELLED", "SENT"].includes(t.status)).map((t) => ({ id: t.id, leadId: t.leadId, step: t.step as 1, externalMessageId: t.externalMessageId! })),

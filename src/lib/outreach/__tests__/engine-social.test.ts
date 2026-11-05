@@ -33,6 +33,7 @@ function setup(leads: LeadRow[], llmOut: unknown, elig: Elig = OK_ELIG) {
       return { id: row.id, created: true, status: row.status, body: row.body };
     },
     updateTouch: async (id: string, p: object) => { for (const t of touches.values()) if (t.id === id) Object.assign(t, p); },
+    listQueuedTouches: async () => [...touches.values()].filter((t) => t.status === "QUEUED"),
     getTouch: async (id: string) => { for (const t of touches.values()) if (t.id === id) return { id: t.id, leadId: t.leadId, channel: t.channel, step: t.step as 1, status: t.status }; return null; },
     recordReply: async (r: unknown) => { replies.push(r); },
   } as unknown as OutreachRepo;
@@ -138,5 +139,30 @@ describe("buildSocialTasks + applyReport", () => {
   it("requires email or handle on REPLY reports", () => {
     expect(workerReportSchema.safeParse({ type: "REPLY", channel: "X", body: "hi" }).success).toBe(false);
     expect(workerReportSchema.safeParse({ type: "REPLY", channel: "X", handle: "a", body: "hi" }).success).toBe(true);
+  });
+
+  it("re-hands all 5 outstanding queued touches and creates none when the cap is used up", async () => {
+    const leads = Array.from({ length: 9 }, (_, i) => ({ ...xLead(), id: `X${i}`, consultantProfileId: `P${i}`, externalHandle: `h${i}`, score: 30 - i }));
+    const { deps, touches } = setup(leads, {});
+    for (const l of leads.slice(4)) touches.set(`${l.id}:1`, { id: `old-${l.id}`, leadId: l.id, step: 1, status: "QUEUED", body: "old", channel: "X" });
+    const tasks = await buildSocialTasks(deps, "X");
+    expect(tasks.map((t) => t.touchId).sort()).toEqual(leads.slice(4).map((l) => `old-${l.id}`).sort());
+    expect(touches.size).toBe(5);
+  });
+
+  it("re-hands 3 outstanding queued touches plus at most 2 new ones", async () => {
+    const leads = Array.from({ length: 9 }, (_, i) => ({ ...xLead(), id: `X${i}`, consultantProfileId: `P${i}`, externalHandle: `h${i}`, score: 30 - i }));
+    const { deps, touches } = setup(leads, {});
+    for (const l of leads.slice(6)) touches.set(`${l.id}:1`, { id: `old-${l.id}`, leadId: l.id, step: 1, status: "QUEUED", body: "old", channel: "X" });
+    const tasks = await buildSocialTasks(deps, "X");
+    expect(tasks).toHaveLength(5);
+    expect(touches.size).toBe(5);
+  });
+
+  it("stops handing out when dry-run is switched on mid-run", async () => {
+    const { deps } = setup([xLead()], {});
+    let calls = 0;
+    deps.settings = async () => ({ enabled: true, dryRun: ++calls > 1, channels: { LINKEDIN: true, X: true, EMAIL: false } });
+    expect(await buildSocialTasks(deps, "X")).toEqual([]);
   });
 });

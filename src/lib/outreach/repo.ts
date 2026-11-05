@@ -31,6 +31,7 @@ export interface OutreachRepo {
   getComposeContext(leadId: string): Promise<ComposeContext | null>;
   createTouch(t: TouchInput): Promise<{ id: string; created: boolean; status: string; body: string }>;
   updateTouch(id: string, patch: { status: string; externalMessageId?: string; error?: string; sentAt?: Date; scheduledFor?: Date }): Promise<void>;
+  listQueuedTouches(channel: Channel): Promise<{ id: string; leadId: string; step: Step; body: string }[]>;
   getTouch(id: string): Promise<{ id: string; leadId: string; channel: Channel; step: Step; status: string } | null>;
   findTouchByExternalId(externalMessageId: string): Promise<{ id: string; leadId: string; step: Step } | null>;
   listFutureScheduledEmailTouches(now: Date): Promise<{ id: string; leadId: string; step: Step; externalMessageId: string }[]>;
@@ -185,11 +186,13 @@ export const prismaRepo: OutreachRepo = {
     if (existing) {
       const dead = existing.status === "CANCELLED" || (existing.status === "FAILED" && existing.externalMessageId === null);
       if (!dead) return { id: existing.id, created: false, status: existing.status, body: existing.body };
-      const row = await prisma.outreachTouch.update({
-        where: { id: existing.id },
-        data: { status: t.status, subject: t.subject, body: t.body, error: null, externalMessageId: null, scheduledFor: null, sentAt: null },
+      // Compare-and-set: of two overlapping runs only one wins the dead row.
+      const won = await prisma.outreachTouch.updateMany({
+        where: { id: existing.id, status: existing.status, externalMessageId: null },
+        data: { status: t.status, subject: t.subject, body: t.body, error: null, scheduledFor: null, sentAt: null },
       });
-      return { id: row.id, created: true, status: row.status, body: row.body };
+      const row = await prisma.outreachTouch.findUniqueOrThrow({ where: { id: existing.id } });
+      return { id: row.id, created: won.count === 1, status: row.status, body: row.body };
     }
     try {
       const row = await prisma.outreachTouch.create({
@@ -207,6 +210,11 @@ export const prismaRepo: OutreachRepo = {
 
   async updateTouch(id, patch) {
     await prisma.outreachTouch.update({ where: { id }, data: patch });
+  },
+
+  async listQueuedTouches(channel) {
+    const rows = await prisma.outreachTouch.findMany({ where: { channel, status: "QUEUED" }, select: { id: true, leadId: true, step: true, body: true } });
+    return rows.map((r) => ({ ...r, step: r.step as Step }));
   },
 
   async getTouch(id) {

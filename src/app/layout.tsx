@@ -25,6 +25,7 @@ import { prisma } from "@/lib/prisma";
 import { isDatabaseUnavailable, markDatabaseUnavailable } from "@/lib/db-availability";
 import { PlatformProvider } from "@/components/providers/PlatformProvider";
 import { PageViewTracker } from "@/components/analytics/PageViewTracker";
+import { getSiteUrl } from "@/lib/content-pipeline/seo";
 
 // Extracted fetching so we can reuse it
 const getGlobalSettings = cache(async function getGlobalSettings() {
@@ -45,27 +46,40 @@ const getGlobalSettings = cache(async function getGlobalSettings() {
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getGlobalSettings();
-  
+
   const siteName = settings.siteName || "Verixa";
-  const defaultDesc = "Find, verify, and choose licensed immigration consultants (RCICs) in Canada.";
-  const title = settings.seoTitle || "Verixa | Trusted Immigration Consultants";
+  const defaultDesc = "Find and compare licensed Canadian immigration consultants (RCICs). Every profile is checked against the CICC public register.";
+  const title = settings.seoTitle || "Verixa | Find a Licensed Canadian Immigration Consultant (RCIC)";
   const description = settings.seoDescription || defaultDesc;
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.getverixa.com";
+  const baseUrl = getSiteUrl();
+  // Admin-uploaded share image if set, else the generated 1200×630 card (src/app/og-default.png).
+  const shareImage = settings.seoImage ? `${baseUrl}/api/assets/logo?type=seo` : `${baseUrl}/og-default.png`;
 
   return {
     metadataBase: new URL(baseUrl),
+    applicationName: siteName,
     title: {
       default: title,
+      // Page titles must NOT include the brand; this template appends it once.
       template: `%s | ${siteName}`,
     },
     description: description,
     openGraph: {
+      type: "website",
+      locale: "en_CA",
       title: title,
       description: description,
       siteName: siteName,
-      images: settings.seoImage ? [{ url: `${baseUrl}/api/assets/logo?type=seo` }] : [],
+      images: [settings.seoImage ? { url: shareImage, alt: siteName } : { url: shareImage, width: 1200, height: 630, alt: siteName }],
     },
+    twitter: {
+      card: "summary_large_image",
+      title: title,
+      description: description,
+      images: [shareImage],
+    },
+    formatDetection: { telephone: false, email: false, address: false },
     icons: settings.favicon ? {
       icon: `${baseUrl}/api/assets/logo?type=favicon`
     } : {

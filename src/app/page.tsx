@@ -20,8 +20,16 @@ import HeroSearch from "@/components/home/HeroSearch";
 import Pathfinder from "@/components/home/Pathfinder";
 import PolicyTracker from "@/components/home/PolicyTracker";
 import { getHomeData } from "@/lib/home-data";
+import type { Metadata } from "next";
+import { serializeJsonLd } from "@/lib/content-pipeline/seo";
+import { buildOrganizationJsonLd, buildWebSiteJsonLd } from "@/lib/seo/structured-data";
 
 export const revalidate = 600;
+
+// Title/description/OG come from the root layout defaults (admin-editable in settings).
+export const metadata: Metadata = { alternates: { canonical: "/" } };
+
+const SITE_JSON_LD = [buildOrganizationJsonLd(), buildWebSiteJsonLd()].map((ld) => serializeJsonLd(ld));
 
 const FALLBACK_COUNT = 15000;
 
@@ -33,6 +41,7 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-white text-ink">
+      {SITE_JSON_LD.map((ld, i) => <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: ld }} />)}
       <Header />
 
       {/* ───────────── HERO ───────────── */}

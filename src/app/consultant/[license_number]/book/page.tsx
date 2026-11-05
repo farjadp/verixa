@@ -3,6 +3,8 @@
 // Why: Booking funnel. Only claimed, verified, active consultants who have
 //      published consultation types and availability can be booked.
 // ============================================================================
+import type { Metadata } from "next";
+import { noindexMetadata } from "@/lib/seo/metadata";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
@@ -13,6 +15,8 @@ import TrackPageView from "@/components/TrackPageView";
 import ConsultantAvatar, { firstNameOf } from "@/components/consultant/ConsultantAvatar";
 import { describeVerification } from "@/lib/verification";
 import BookingFlow from "./BookingFlow";
+
+export const metadata: Metadata = noindexMetadata("Book a Consultation");
 
 export default async function ClientBookingPage({ params }: { params: Promise<{ license_number: string }> }) {
   const session = await getServerSession(authOptions);

@@ -8,6 +8,7 @@
 // Owner: Verixa Web
 // Notes: Keep route behavior deterministic and aligned with metadata, SEO, and access expectations.
 // ============================================================================
+import { pageMetadata } from "@/lib/seo/metadata";
 import { getBlogPosts } from "@/actions/blog.actions";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -16,10 +17,12 @@ import { BookOpen, Scale, Lightbulb, RefreshCw, Search, ChevronLeft, ChevronRigh
 import ArticleCard from "@/components/blog/ArticleCard";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "Canadian Immigration Blog & Guides | Verixa",
-  description: "Read expert insights, immigration guides, and case-based studies to choose the right licensed RCIC via Verixa.",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "Canadian Immigration News & Guides",
+  description:
+    "Plain-language updates on IRCC policy, Express Entry, study and work permits, with links to the official sources and to licensed RCICs who can help.",
+  path: "/blog",
+});
 
 export const dynamic = "force-dynamic";
 

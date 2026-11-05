@@ -29,6 +29,31 @@ import ConsultantCard, { type LicenceStanding } from "@/components/home/Consulta
 import { prisma } from "@/lib/prisma";
 import { parseList, type HomeConsultant } from "@/lib/home-data";
 import { ALL_SPECIALIZATION_ITEMS, ALL_LANGUAGES } from "@/lib/immigration-paths";
+import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/metadata";
+
+/**
+ * /search is indexable; filtered result sets (thousands of parameter combinations)
+ * are noindex,follow so crawlers still reach the profiles. Pagination stays indexable
+ * with a self-referencing canonical. FILTER_KEYS is declared below with the page filters.
+ */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}): Promise<Metadata> {
+  const sp = await searchParams;
+  const filtered = FILTER_KEYS.some((k) => typeof sp[k] === "string" && sp[k] !== "");
+  const page = typeof sp.page === "string" ? parseInt(sp.page, 10) : 1;
+  const paged = Number.isFinite(page) && page > 1;
+  return pageMetadata({
+    title: paged ? `Find a Licensed Immigration Consultant (RCIC), Page ${page}` : "Find a Licensed Immigration Consultant (RCIC)",
+    description:
+      "Search every Regulated Canadian Immigration Consultant on the CICC public register by name, licence number or company. See who is entitled to practise and book a consultation.",
+    path: paged && !filtered ? `/search?page=${page}` : "/search",
+    noindex: filtered,
+  });
+}
 
 const PAGE_SIZE = 24;
 

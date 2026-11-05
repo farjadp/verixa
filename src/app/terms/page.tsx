@@ -8,13 +8,17 @@
 // Owner: Verixa Web
 // Notes: Policy content page; changes should align with legal requirements and published policy versions.
 // ============================================================================
+import { pageMetadata } from "@/lib/seo/metadata";
+import type { Metadata } from "next";
 import { Scale, CheckCircle, AlertTriangle } from "lucide-react";
 import LegalPage from "@/components/legal/LegalPage";
 
-export const metadata = {
-  title: "Terms of Service | Verixa",
-  description: "Verixa Terms of Service - Platform Operating Agreements and User Obligations",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "Terms of Service",
+  description:
+    "The terms that govern using Verixa to find, compare and book licensed Canadian immigration consultants.",
+  path: "/terms",
+});
 
 export default function TermsPage() {
   return (

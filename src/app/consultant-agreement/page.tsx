@@ -8,13 +8,17 @@
 // Owner: Verixa Web
 // Notes: Policy content page; changes should align with legal requirements and published policy versions.
 // ============================================================================
+import { pageMetadata } from "@/lib/seo/metadata";
+import type { Metadata } from "next";
 import { ShieldAlert, Scale, Ban } from "lucide-react";
 import LegalPage from "@/components/legal/LegalPage";
 
-export const metadata = {
-  title: "Consultant Agreement | Verixa",
-  description: "Verixa Consultant Agreement - Platform Operating Terms and Supply-Side Liability",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "Consultant Agreement",
+  description:
+    "The operating terms for licensed immigration consultants (RCICs) who list and take bookings on Verixa.",
+  path: "/consultant-agreement",
+});
 
 export default function ConsultantAgreementPage() {
   return (

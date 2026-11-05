@@ -8,6 +8,7 @@
 // Owner: Verixa Web
 // Notes: Keep route behavior deterministic and aligned with metadata, SEO, and access expectations.
 // ============================================================================
+import { pageMetadata } from "@/lib/seo/metadata";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -25,10 +26,12 @@ const categoryMap = {
   "updates-policy": { enum: "UPDATES_POLICY", title: "Updates & Policy", desc: "Breaking IRCC news and regulatory changes." }
 };
 
-export async function generateMetadata({ params }: { params: { category: string } }): Promise<Metadata> {
-  const cat = categoryMap[params.category as keyof typeof categoryMap];
-  if (!cat) return { title: "Blog | Verixa", description: "Immigration guides and consultant insights." };
-  return { title: `${cat.title} | Verixa Blog`, description: cat.desc };
+export async function generateMetadata({ params }: { params: Promise<{ category: string }> | { category: string } }): Promise<Metadata> {
+  // Next 16 passes params as a Promise; awaiting a plain object is a no-op.
+  const { category } = await params;
+  const cat = categoryMap[category as keyof typeof categoryMap];
+  if (!cat) return { title: "Category Not Found", robots: { index: false, follow: true } };
+  return pageMetadata({ title: `${cat.title}: Canadian Immigration`, description: cat.desc, path: `/blog/category/${category}` });
 }
 
 export default async function BlogCategoryPage({ params }: { params: Promise<{ category: string }> }) {

@@ -26,6 +26,8 @@ import PrintButton from "@/components/blog/PrintButton";
 import TrackPageView from "@/components/TrackPageView";
 import { buildArticleJsonLd, buildFaqJsonLd, getSiteUrl, serializeJsonLd } from "@/lib/content-pipeline/seo";
 import { FAQ_HEADINGS, profileFor } from "@/lib/content-pipeline/language";
+import { DEFAULT_SHARE_IMAGE, stripBrand } from "@/lib/seo/metadata";
+import { buildBreadcrumbJsonLd } from "@/lib/seo/structured-data";
 
 const RTL_SCRIPT = /[\u0600-\u06FF]/; // Arabic-script block (Persian)
 /** Fisher-Yates copy-shuffle. Per-request randomness for the sidebar and mid-roll picks. */
@@ -74,29 +76,34 @@ export async function generateMetadata({
   const resolvedParams = await params;
   const post = await getBlogPostBySlug(resolvedParams.slug);
   
-  if (!post || !post.isPublished) return { title: 'Article Not Found | Verixa' };
+  if (!post || !post.isPublished) return { title: "Article Not Found", robots: { index: false, follow: true } };
 
   const canonical = post.canonicalUrl || `${getSiteUrl()}/blog/${post.slug}`;
-  // Pipeline posts store a brand-free seoTitle; the root layout template appends " | Verixa".
-  const title = post.source === "PIPELINE" && post.seoTitle ? post.seoTitle : post.seoTitle || `${post.title} | Verixa Insights`;
+  // Titles are brand-free; the root layout template appends " | Verixa" once.
+  const title = stripBrand(post.seoTitle || post.title);
+  const description = post.seoDesc || post.summary;
+  const image = post.coverImage && !post.coverImage.startsWith("data:")
+    ? { url: post.coverImage, alt: post.imageAlt || post.title }
+    : { url: DEFAULT_SHARE_IMAGE, width: 1200, height: 630, alt: post.title };
 
   return {
     title,
-    description: post.seoDesc || post.summary,
+    description,
     keywords: post.targetKeyword ? [post.targetKeyword] : undefined,
     alternates: { canonical },
     openGraph: {
-      title: post.seoTitle || post.title,
-      description: post.seoDesc || post.summary,
+      title,
+      description,
       url: canonical,
-      images: post.coverImage && !post.coverImage.startsWith("data:")
-        ? [{ url: post.coverImage, alt: post.imageAlt || post.title }]
-        : ['/Brand/Vertixa3.png'],
+      siteName: "Verixa",
+      locale: "en_CA",
+      images: [image],
       type: "article",
       publishedTime: post.publishedAt?.toISOString() || post.createdAt.toISOString(),
       modifiedTime: post.updatedAt.toISOString(),
+      section: post.category.replace(/_/g, " "),
     },
-    twitter: { card: "summary_large_image" },
+    twitter: { card: "summary_large_image", title, description, images: [image.url] },
   };
 }
 
@@ -251,6 +258,12 @@ export default async function BlogPostPage({
   );
   const faqLd = buildFaqJsonLd(faqs);
   const faqJsonLd = faqLd ? serializeJsonLd(faqLd) : null;
+  const breadcrumbLd = buildBreadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "Blog", path: "/blog" },
+    { name: stripBrand(post.title), path: `/blog/${post.slug}` },
+  ]);
+  const breadcrumbJsonLd = breadcrumbLd ? serializeJsonLd(breadcrumbLd) : null;
 
   // AST Text Extractor for IDs
   const extractText = (children: any): string => {
@@ -289,6 +302,7 @@ export default async function BlogPostPage({
       {/* JSON-LD is serialized with "<" escaped, so post content can't break out of the script tag. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: articleJsonLd }} />
       {faqJsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd }} />}
+      {breadcrumbJsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd }} />}
       <Header />
 
       <main className="flex-1">

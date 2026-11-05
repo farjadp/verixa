@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import { Search, Home, BookOpen, ArrowRight } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Page Not Found | Verixa",
+  title: "Page Not Found",
   description: "The page you're looking for doesn't exist or has been moved.",
 };
 

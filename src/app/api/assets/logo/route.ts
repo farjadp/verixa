@@ -24,21 +24,21 @@ export async function GET(request: Request) {
   
   if (type === "header") {
     key = "headerLogo";
-    defaultUrl = "/brand/Vertixa2.png";
+    defaultUrl = "/Brand/Vertixa2.png";
   } else if (type === "footer") {
     key = "footerLogo";
-    defaultUrl = "/brand/Vertixa3.png";
+    defaultUrl = "/Brand/Vertixa3.png";
   } else if (type === "favicon") {
     key = "favicon";
     defaultUrl = "/favicon.ico";
   } else if (type === "seo") {
     key = "seoImage";
     // We don't have a default SEO image right now, but we can fallback to Verixa2
-    defaultUrl = "/brand/Vertixa2.png";
+    defaultUrl = "/Brand/Vertixa2.png";
   } else {
     // default to header
     key = "headerLogo";
-    defaultUrl = "/brand/Vertixa2.png";
+    defaultUrl = "/Brand/Vertixa2.png";
   }
 
   if (isDatabaseUnavailable()) {

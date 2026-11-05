@@ -8,13 +8,17 @@
 // Owner: Verixa Web
 // Notes: Policy content page; changes should align with legal requirements and published policy versions.
 // ============================================================================
+import { pageMetadata } from "@/lib/seo/metadata";
+import type { Metadata } from "next";
 import { ShieldAlert, BadgeInfo, Scale, Ban } from "lucide-react";
 import LegalPage from "@/components/legal/LegalPage";
 
-export const metadata = {
-  title: "Booking & Refund Policy | Verixa",
-  description: "Verixa Booking & Refund Policy - Escrow constraints, cancellation rules, and financial resolution standards.",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "Booking & Refund Policy",
+  description:
+    "How consultation payments are held in escrow, and the cancellation and refund rules for clients and consultants on Verixa.",
+  path: "/refund-policy",
+});
 
 export default function RefundPolicyPage() {
   return (

@@ -12,8 +12,8 @@ import { getBlogPosts } from "@/actions/blog.actions";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Link from "next/link";
-import { format } from "date-fns";
-import { BookOpen, Scale, Lightbulb, RefreshCw, ArrowRight, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { BookOpen, Scale, Lightbulb, RefreshCw, Search, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
+import ArticleCard from "@/components/blog/ArticleCard";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -36,12 +36,16 @@ export default async function BlogIndexPage({
 }: {
   searchParams: Promise<{ c?: string, q?: string, page?: string }>
 }) {
-  const posts = await getBlogPosts(true); 
+  // Newest first by the date readers see (publish date, else creation).
+  const posts = (await getBlogPosts(true)).sort(
+    (a, b) => (b.publishedAt ?? b.createdAt).getTime() - (a.publishedAt ?? a.createdAt).getTime()
+  );
   
   const sp = await searchParams;
   const filterCat = sp.c || "ALL";
   const searchQuery = sp.q?.toLowerCase() || "";
-  const currentPage = parseInt(sp.page || "1", 10);
+  const parsedPage = parseInt(sp.page || "1", 10);
+  const currentPage = Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
   const POSTS_PER_PAGE = 9;
 
   // Filter Logic
@@ -65,152 +69,183 @@ export default async function BlogIndexPage({
     currentPage * POSTS_PER_PAGE
   );
 
+  const showFeature = currentPage === 1 && filterCat === "ALL" && !searchQuery && paginatedPosts.length > 0;
+  const [feature, ...rest] = paginatedPosts;
+  const gridPosts = showFeature ? rest : paginatedPosts;
+
+  const pageHref = (n: number) => {
+    const params = new URLSearchParams();
+    if (n > 1) params.set("page", String(n));
+    if (searchQuery) params.set("q", searchQuery);
+    if (filterCat !== "ALL") params.set("c", filterCat);
+    const qs = params.toString();
+    return qs ? `/blog?${qs}` : "/blog";
+  };
+
   return (
-    <div className="min-h-screen bg-[#ffffff] font-sans flex flex-col">
+    <div className="flex min-h-screen flex-col bg-white font-sans text-ink">
       <Header />
-      
-      {/* HERO & SEARCH */}
-      <section className="bg-white border-b border-[#e5e7eb] pt-24 pb-16 px-6">
-        <div className="max-w-6xl mx-auto text-center">
-          <h1 className="text-4xl md:text-6xl font-serif font-black text-[#1A1F2B] tracking-tight mb-6">
-            Immigration <span className="text-[#2FA4A9] italic">Intelligence.</span>
-          </h1>
-          <p className="text-gray-500 text-lg max-w-2xl mx-auto mb-10 leading-relaxed">
-            Master the Canadian immigration process with verified guides, consultant insights, and real-case breakdowns. Exclusively on Verixa.
-          </p>
 
-          {/* SEARCH BAR */}
-          <form action="/blog" method="GET" className="max-w-xl mx-auto mb-10 relative">
-             <input type="hidden" name="c" value={filterCat} />
-             <input 
-               type="text" 
-               name="q" 
-               defaultValue={searchQuery}
-               placeholder="Search articles by topic, keyword, or policy..." 
-               className="w-full bg-[#FAFAFA] border border-[#e5e7eb] rounded-full py-4 pl-14 pr-6 text-[#1A1F2B] placeholder:text-gray-400 focus:outline-none focus:border-[#2FA4A9] focus:ring-4 focus:ring-[#2FA4A9]/10 transition-all font-medium"
-             />
-             <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
-                <Search className="w-5 h-5 text-gray-400" />
-             </div>
-             <button type="submit" className="absolute inset-y-2 right-2 bg-[#0F2A44] hover:bg-black text-white px-6 rounded-full text-sm font-bold transition-colors">
-               Search
-             </button>
-          </form>
-
-          {/* PILLARS / FILTERS */}
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            {CATEGORIES.map(cat => {
-              const isActive = filterCat === cat.value;
-              const Icon = cat.icon;
-              return (
-                <Link 
-                  key={cat.value} 
-                  href={`/blog?c=${cat.value}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}`}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold border transition-all ${
-                    isActive 
-                      ? "bg-[#0F2A44] border-[#0F2A44] text-white shadow-xl shadow-black/5" 
-                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
-                  }`}
+      {/* ───────────── HERO + SEARCH ───────────── */}
+      <section className="border-b border-gray-200 bg-mist pt-28 lg:pt-36">
+        <div className="mx-auto max-w-7xl px-6 pb-10 lg:px-8 lg:pb-12">
+          <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
+            <div className="flex flex-col gap-4 lg:col-span-7">
+              <span className="text-xs font-bold uppercase tracking-wider text-teal">Immigration journal</span>
+              <h1 className="text-4xl font-bold leading-tight tracking-tight text-navy md:text-5xl">
+                Policy moves weekly. Know before you file.
+              </h1>
+              <p className="max-w-2xl text-lg leading-relaxed text-gray-600">
+                Policy updates, pathway guides and draw analysis for people planning a move to Canada.
+              </p>
+            </div>
+            <form action="/blog" method="GET" role="search" className="lg:col-span-5">
+              {filterCat !== "ALL" && <input type="hidden" name="c" value={filterCat} />}
+              <label htmlFor="blog-q" className="sr-only">
+                Search articles
+              </label>
+              <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-2 shadow-sm focus-within:border-teal focus-within:ring-4 focus-within:ring-teal/10 sm:flex-row">
+                <div className="flex min-h-12 flex-1 items-center gap-3 px-3">
+                  <Search className="h-5 w-5 shrink-0 text-gray-400" aria-hidden="true" />
+                  <input
+                    id="blog-q"
+                    type="search"
+                    name="q"
+                    defaultValue={sp.q ?? ""}
+                    placeholder="Topic, program or policy"
+                    className="w-full bg-transparent text-base text-ink outline-none placeholder:text-gray-400"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="inline-flex min-h-12 items-center justify-center rounded-xl bg-teal px-6 font-bold text-white transition-colors hover:bg-navy"
                 >
-                  <Icon className="w-4 h-4" /> {cat.label}
-                </Link>
-              );
-            })}
+                  Search
+                </button>
+              </div>
+            </form>
           </div>
+
+          {/* Category filters */}
+          <nav aria-label="Categories" className="-mx-6 mt-8 overflow-x-auto px-6 lg:mx-0 lg:px-0">
+            <ul className="flex w-max gap-2 lg:w-auto lg:flex-wrap">
+              {CATEGORIES.map((cat) => {
+                const isActive = filterCat === cat.value;
+                const Icon = cat.icon;
+                return (
+                  <li key={cat.value}>
+                    <Link
+                      href={`/blog?c=${cat.value}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ""}`}
+                      aria-current={isActive ? "page" : undefined}
+                      className={`inline-flex min-h-10 items-center gap-2 whitespace-nowrap rounded-full border px-4 text-sm font-bold transition-colors ${
+                        isActive
+                          ? "border-navy bg-navy text-white"
+                          : "border-gray-200 bg-white text-gray-600 hover:border-navy hover:text-navy"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" aria-hidden="true" /> {cat.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
         </div>
       </section>
 
-      {/* GRID */}
-      <section className="py-16 px-6 flex-1 bg-[#ffffff]">
-        <div className="max-w-6xl mx-auto">
+      {/* ───────────── ARTICLES ───────────── */}
+      <section className="flex-1 py-12 lg:py-16">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          {searchQuery && (
+            <p className="mb-6 text-sm text-gray-600">
+              <span className="font-bold text-ink">{filteredPosts.length}</span>{" "}
+              {filteredPosts.length === 1 ? "article matches" : "articles match"} &ldquo;{sp.q}&rdquo;
+            </p>
+          )}
+
           {filteredPosts.length === 0 ? (
-            <div className="text-center py-24 border-2 border-dashed border-[#e5e7eb] rounded-3xl bg-white">
-              <BookOpen className="w-12 h-12 text-[#e5e7eb] mx-auto mb-4" />
-              <h3 className="text-xl font-bold tracking-tight text-[#1A1F2B] mb-2">No intelligence found.</h3>
-              <p className="text-gray-400 font-medium">Check back soon or adjust your search parameters.</p>
-              <Link href="/blog" className="mt-6 inline-block text-sm font-bold text-[#2FA4A9] border-b border-[#2FA4A9] pb-0.5">Clear Filters</Link>
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-mist px-6 py-16 text-center">
+              <BookOpen className="h-10 w-10 text-gray-400" aria-hidden="true" />
+              <h2 className="text-lg font-bold text-navy">No articles match yet.</h2>
+              <p className="text-sm text-gray-600">Try a broader term, or browse every category.</p>
+              <Link
+                href="/blog"
+                className="mt-2 inline-flex min-h-11 items-center rounded-xl border border-navy bg-white px-5 text-sm font-bold text-navy transition-colors hover:bg-navy hover:text-white"
+              >
+                Clear filters
+              </Link>
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {paginatedPosts.map(post => (
-                  <Link 
-                    href={`/blog/${post.slug}`} 
-                    key={post.id}
-                    className="group bg-white border border-[#e5e7eb] rounded-[32px] overflow-hidden hover:shadow-2xl hover:shadow-[#2FA4A9]/10 transition-all duration-300 flex flex-col relative"
-                  >
-                    {/* IMAGES */}
-                    <div className="h-56 bg-gray-100 flex items-center justify-center overflow-hidden border-b border-[#e5e7eb] relative">
-                      {post.coverImage ? (
-                        <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-[#0F2A44] to-[#2A2A2A] relative flex items-center justify-center">
-                          <div className="absolute opacity-10 font-serif text-[#2FA4A9] text-8xl scale-150 tracking-tighter mix-blend-plus-lighter blur-[1px] -rotate-12">
-                            Verixa
-                          </div>
-                        </div>
-                      )}
-                      {/* Gradient Overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-                    </div>
-
-                    <div className="p-8 flex-1 flex flex-col relative z-10 bg-white">
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-[#2FA4A9] bg-[#2FA4A9]/10 px-3 py-1 rounded-full">
-                          {post.category.replace(/_/g, " ")}
-                        </span>
-                        <span className="text-xs font-semibold text-gray-400">
-                          {format(new Date(post.publishedAt || post.createdAt), "MMM d, yyyy")}
-                        </span>
-                      </div>
-
-                      <h2 className="text-2xl font-serif text-[#1A1F2B] font-medium mb-3 leading-snug group-hover:text-[#2FA4A9] transition-colors">{post.title}</h2>
-                      <p className="text-sm text-gray-500 line-clamp-3 leading-relaxed mb-8 flex-1">{post.summary}</p>
-                      
-                      <div className="mt-auto flex justify-end">
-                         <div className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center group-hover:bg-[#2FA4A9] group-hover:border-[#2FA4A9] group-hover:text-white transition-all">
-                           <ArrowRight className="w-4 h-4" />
-                         </div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-
-              {/* PAGINATION ENGINE */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-4 mt-20">
-                   {currentPage > 1 ? (
-                     <Link href={`/blog?page=${currentPage - 1}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}${filterCat !== "ALL" ? `&c=${filterCat}` : ''}`} className="w-12 h-12 flex items-center justify-center rounded-full bg-white border border-[#e5e7eb] text-gray-500 hover:text-[#2FA4A9] hover:border-[#2FA4A9] transition-colors shadow-sm">
-                       <ChevronLeft className="w-5 h-5" />
-                     </Link>
-                   ) : (
-                     <div className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-50 border border-gray-100 text-gray-300 cursor-not-allowed">
-                       <ChevronLeft className="w-5 h-5" />
-                     </div>
-                   )}
-                   
-                   <div className="text-sm font-bold text-gray-500 tracking-widest uppercase">
-                     Page <span className="text-[#1A1F2B]">{currentPage}</span> of {totalPages}
-                   </div>
-
-                   {currentPage < totalPages ? (
-                     <Link href={`/blog?page=${currentPage + 1}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}${filterCat !== "ALL" ? `&c=${filterCat}` : ''}`} className="w-12 h-12 flex items-center justify-center rounded-full bg-white border border-[#e5e7eb] text-gray-500 hover:text-[#2FA4A9] hover:border-[#2FA4A9] transition-colors shadow-sm">
-                       <ChevronRight className="w-5 h-5" />
-                     </Link>
-                   ) : (
-                     <div className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-50 border border-gray-100 text-gray-300 cursor-not-allowed">
-                       <ChevronRight className="w-5 h-5" />
-                     </div>
-                   )}
+              {showFeature && feature && (
+                <div className="mb-10">
+                  <ArticleCard post={feature} variant="feature" />
                 </div>
+              )}
+
+              <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {gridPosts.map((post) => (
+                  <li key={post.id}>
+                    <ArticleCard post={post} />
+                  </li>
+                ))}
+              </ul>
+
+              {totalPages > 1 && (
+                <nav className="mt-12 flex items-center justify-center gap-3" aria-label="Pagination">
+                  {currentPage > 1 ? (
+                    <Link href={pageHref(currentPage - 1)} aria-label="Previous page" className="flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-navy transition-colors hover:border-navy">
+                      <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                    </Link>
+                  ) : (
+                    <span aria-disabled="true" className="flex h-11 w-11 cursor-not-allowed items-center justify-center rounded-xl border border-gray-200 text-gray-300">
+                      <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                  )}
+                  <p className="px-3 text-sm font-semibold text-gray-600">
+                    Page <span className="font-bold text-navy">{currentPage}</span> of {totalPages}
+                  </p>
+                  {currentPage < totalPages ? (
+                    <Link href={pageHref(currentPage + 1)} aria-label="Next page" className="flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-navy transition-colors hover:border-navy">
+                      <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                    </Link>
+                  ) : (
+                    <span aria-disabled="true" className="flex h-11 w-11 cursor-not-allowed items-center justify-center rounded-xl border border-gray-200 text-gray-300">
+                      <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                  )}
+                </nav>
               )}
             </>
           )}
         </div>
       </section>
 
+      <ConsultantBand />
       <Footer />
     </div>
+  );
+}
+
+function ConsultantBand() {
+  return (
+    <section className="mx-auto w-full max-w-7xl px-6 pb-16 lg:px-8">
+      <div className="flex flex-col items-start gap-6 rounded-3xl bg-navy p-8 text-white md:flex-row md:items-center md:justify-between md:p-12">
+        <div className="flex max-w-2xl flex-col gap-3">
+          <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-lightteal">
+            <ShieldCheck className="h-4 w-4" aria-hidden="true" /> Licensed consultants only
+          </span>
+          <h2 className="text-2xl font-bold leading-tight tracking-tight text-white md:text-3xl">
+            Read the policy. Then ask someone licensed to apply it to your file.
+          </h2>
+        </div>
+        <Link
+          href="/search"
+          className="inline-flex min-h-14 shrink-0 items-center justify-center rounded-2xl bg-white px-7 text-lg font-bold text-navy transition-colors hover:bg-teal hover:text-white"
+        >
+          Find a licensed RCIC
+        </Link>
+      </div>
+    </section>
   );
 }

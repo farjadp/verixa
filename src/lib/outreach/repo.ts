@@ -33,7 +33,7 @@ export interface OutreachRepo {
   updateTouch(id: string, patch: { status: string; externalMessageId?: string; error?: string; sentAt?: Date; scheduledFor?: Date }): Promise<void>;
   listQueuedTouches(channel: Channel): Promise<{ id: string; leadId: string; step: Step; body: string }[]>;
   getTouch(id: string): Promise<{ id: string; leadId: string; channel: Channel; step: Step; status: string } | null>;
-  findTouchByExternalId(externalMessageId: string): Promise<{ id: string; leadId: string; step: Step } | null>;
+  findTouchByExternalId(externalMessageId: string): Promise<{ id: string; leadId: string; step: Step; sentAt: Date | null } | null>;
   listFutureScheduledEmailTouches(now: Date): Promise<{ id: string; leadId: string; step: Step; externalMessageId: string }[]>;
   recordReply(r: { leadId: string; body: string; label: string; confidence: number }): Promise<void>;
   negativeStats(since: Date): Promise<{ touches: number; negatives: number }>;
@@ -223,7 +223,7 @@ export const prismaRepo: OutreachRepo = {
   },
 
   async findTouchByExternalId(externalMessageId) {
-    const t = await prisma.outreachTouch.findFirst({ where: { externalMessageId }, select: { id: true, leadId: true, step: true } });
+    const t = await prisma.outreachTouch.findFirst({ where: { externalMessageId }, select: { id: true, leadId: true, step: true, sentAt: true } });
     return t ? { ...t, step: t.step as Step } : null;
   },
 

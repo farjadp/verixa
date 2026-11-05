@@ -5,6 +5,12 @@ import { useState, useTransition } from "react";
 import { toggleOutreachFlag, type OutreachDashboard } from "@/actions/outreach.actions";
 import type { OutreachFlag } from "@/lib/outreach/settings";
 
+const TZ = "America/Toronto";
+const dateTimeFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, dateStyle: "medium", timeStyle: "short" });
+const timeFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, timeStyle: "short" });
+const fmtDateTime = (iso: string) => dateTimeFmt.format(new Date(iso));
+const fmtTime = (iso: string) => timeFmt.format(new Date(iso));
+
 const CHANNELS = ["LINKEDIN", "X", "EMAIL"] as const;
 const STATES = ["BACKLOG", "INVITED", "TOUCH_1", "TOUCH_2", "TOUCH_3", "CONVERSATION", "CLAIMED", "OPTED_OUT", "CLOSED_NO_REPLY", "ARCHIVED"];
 
@@ -40,7 +46,7 @@ export default function OutreachDashboardClient({ initial }: { initial: Outreach
     });
 
   const count = (c: string, s: string) => initial.counts.find((x) => x.channel === c && x.state === s)?.n ?? 0;
-  const heartbeatAge = initial.heartbeat ? Math.round((Date.now() - new Date(initial.heartbeat).getTime()) / 3_600_000) : null;
+  const heartbeatAge = initial.heartbeat ? Math.round((new Date(initial.now).getTime() - new Date(initial.heartbeat).getTime()) / 3_600_000) : null;
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-6">
@@ -90,7 +96,7 @@ export default function OutreachDashboardClient({ initial }: { initial: Outreach
           <article key={c.leadId} className="rounded-lg border border-slate-200 bg-white p-4">
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
               <a href={c.profileUrl} className="font-medium text-slate-900 underline-offset-2 hover:underline">{c.name}</a>
-              <span className="text-xs text-slate-500">{c.channel} · {c.label} · {new Date(c.receivedAt).toLocaleString()}</span>
+              <span className="text-xs text-slate-500">{c.channel} · {c.label} · {fmtDateTime(c.receivedAt)}</span>
             </div>
             <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{c.body}</p>
           </article>
@@ -103,7 +109,7 @@ export default function OutreachDashboardClient({ initial }: { initial: Outreach
           <details key={t.id} className="rounded-lg border border-slate-200 bg-white p-4">
             <summary className="flex cursor-pointer flex-wrap justify-between gap-2 text-sm">
               <span className="font-medium text-slate-900">{t.name} · {t.channel} · touch {t.step}</span>
-              <span className="font-mono text-xs text-slate-500">{t.status}{t.scheduledFor ? ` · ${new Date(t.scheduledFor).toLocaleTimeString()}` : ""}</span>
+              <span className="font-mono text-xs text-slate-500">{t.status}{t.scheduledFor ? ` · ${fmtTime(t.scheduledFor)}` : ""}</span>
             </summary>
             {t.subject && <p className="mt-3 text-sm font-medium text-slate-800">{t.subject}</p>}
             <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{t.body}</p>

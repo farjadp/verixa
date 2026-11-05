@@ -46,13 +46,33 @@ async function alertFounder(subject: string, lines: string[]): Promise<void> {
     console.error(`[outreach] OUTREACH_ALERT_EMAIL unset; alert dropped: ${subject} — ${lines.join(" | ")}`);
     return;
   }
-  await sendEmail({ to, subject: `[Verixa outreach] ${subject}`, html: lines.map((l) => `<p>${l.replace(/</g, "&lt;")}</p>`).join(""), type: "OUTREACH_ALERT" });
+  try {
+    const res = await sendEmail({ to, subject: `[Verixa outreach] ${subject}`, html: lines.map((l) => `<p>${l.replace(/</g, "&lt;")}</p>`).join(""), type: "OUTREACH_ALERT" });
+    if (!res?.success) console.error(`[outreach] ALERT NOT DELIVERED: ${subject} — ${lines.join(" | ")}`);
+  } catch (e) {
+    console.error(`[outreach] ALERT NOT DELIVERED (${(e as Error).message}): ${subject} — ${lines.join(" | ")}`);
+  }
+}
+
+function cancelFailureLine(failed: number): string {
+  return `${failed} scheduled email(s) could not be cancelled at Resend. They may still send; cancel them in the Resend dashboard.`;
 }
 
 export async function haltChannel(c: Channel, reason: string, detail: string): Promise<void> {
-  await setOutreachFlag(c, false);
-  if (c === "EMAIL") await cancelScheduledEmails(realDeps());
-  await alertFounder(`${c} halted: ${reason}`, [`The ${c} channel was turned off automatically.`, detail, "Fix it, then turn the channel back on in /dashboard/admin/outreach."]);
+  const lines = [`The ${c} channel was turned off automatically.`, detail];
+  try {
+    await setOutreachFlag(c, false);
+    if (c === "EMAIL") {
+      const { failed } = await cancelScheduledEmails(realDeps());
+      if (failed > 0) lines.push(cancelFailureLine(failed));
+    }
+  } catch (e) {
+    lines.push(`Halting failed part-way: ${(e as Error).message}. Check the channel flag and scheduled emails manually.`);
+    console.error("[outreach] haltChannel error", e);
+  } finally {
+    lines.push("Fix it, then turn the channel back on in /dashboard/admin/outreach.");
+    await alertFounder(`${c} halted: ${reason}`, lines);
+  }
 }
 
 export async function runHealth(): Promise<{ alerts: string[]; paused: boolean }> {
@@ -61,9 +81,12 @@ export async function runHealth(): Promise<{ alerts: string[]; paused: boolean }
     getOutreachSettings(), getHeartbeat(), prismaRepo.negativeStats(addCalendarDays(now, -OUTREACH.autoPause.windowDays)),
   ]);
   const { alerts, pause } = checkHealth({ now, settings, heartbeat, stats });
-  if (pause) {
-    await setOutreachFlag("enabled", false);
-    await cancelScheduledEmails(realDeps());
+  let stuck = 0;
+  if (pause) await setOutreachFlag("enabled", false);
+  // Backstop, independent of checkHealth: whenever sending is off, retry pulling back anything still scheduled.
+  if (pause || !settings.enabled || !settings.channels.EMAIL) {
+    stuck = (await cancelScheduledEmails(realDeps())).failed;
+    if (stuck > 0) alerts.push(cancelFailureLine(stuck));
   }
   if (alerts.length) await alertFounder(pause ? "Auto-paused" : "Health warning", alerts);
   return { alerts, paused: pause };

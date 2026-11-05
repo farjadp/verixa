@@ -224,9 +224,10 @@ export async function planEmailDay(deps: EngineDeps) {
 }
 
 /** Kill switch: pull back every email that hasn't left Resend yet. */
-export async function cancelScheduledEmails(deps: EngineDeps): Promise<number> {
+export async function cancelScheduledEmails(deps: EngineDeps): Promise<{ cancelled: number; failed: number }> {
   const pending = await deps.repo.listFutureScheduledEmailTouches(deps.now());
   let cancelled = 0;
+  let failed = 0;
   for (const t of pending) {
     try {
       await deps.email.cancel(t.externalMessageId);
@@ -235,10 +236,11 @@ export async function cancelScheduledEmails(deps: EngineDeps): Promise<number> {
       if (lead) await apply(deps, lead, { type: "TOUCH_CANCELLED", step: t.step });
       cancelled++;
     } catch (e) {
+      failed++;
       console.error(`[outreach] cancel failed for touch ${t.id}: ${(e as Error).message}`);
     }
   }
-  return cancelled;
+  return { cancelled, failed };
 }
 
 export interface WorkerTask {
@@ -394,7 +396,7 @@ export async function handleEmailEvent(deps: EngineDeps, resendId: string, statu
   const touch = await deps.repo.findTouchByExternalId(resendId);
   if (!touch) return false;
   if (status === "DELIVERED") {
-    await deps.repo.updateTouch(touch.id, { status: "SENT", sentAt: deps.now() });
+    await deps.repo.updateTouch(touch.id, touch.sentAt ? { status: "SENT" } : { status: "SENT", sentAt: deps.now() });
     return true;
   }
   const lead = await deps.repo.getLead(touch.leadId);

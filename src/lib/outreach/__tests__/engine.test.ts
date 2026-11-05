@@ -118,9 +118,24 @@ describe("cancelScheduledEmails", () => {
     const d = deps(repo);
     await planEmailDay(d);
     expect(leads[0].state).toBe("TOUCH_1");
-    expect(await cancelScheduledEmails(d)).toBe(1);
+    expect(await cancelScheduledEmails(d)).toEqual({ cancelled: 1, failed: 0 });
     expect(d.email.cancel).toHaveBeenCalledWith("re_0");
     expect(leads[0].state).toBe("BACKLOG");
+  });
+});
+
+describe("cancelScheduledEmails failures", () => {
+  it("counts a failed cancel and leaves that touch SCHEDULED", async () => {
+    const leads = [backlog("A", 20), backlog("B", 19)];
+    const { repo, touches } = memoryRepo(leads);
+    const d = deps(repo);
+    await planEmailDay(d);
+    vi.mocked(d.email.cancel).mockImplementation(async (id: string) => { if (id === "re_0") throw new Error("resend 500"); });
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await cancelScheduledEmails(d)).toEqual({ cancelled: 1, failed: 1 });
+    err.mockRestore();
+    expect(touches.filter((x) => x.status === "SCHEDULED")).toHaveLength(1);
+    expect(touches.find((x) => x.externalMessageId === "re_0")!.status).toBe("SCHEDULED");
   });
 });
 
@@ -133,7 +148,7 @@ describe("post-send failure and dead touches", () => {
     expect(await planEmailDay(d)).toEqual({ status: "ok", scheduled: 1, dryRun: 0, failed: 0 });
     err.mockRestore();
     expect(touches[0].status).toBe("SCHEDULED");
-    expect(await cancelScheduledEmails(d)).toBe(1);
+    expect(await cancelScheduledEmails(d)).toEqual({ cancelled: 1, failed: 0 });
     expect(d.email.cancel).toHaveBeenCalledWith("re_0");
   });
 
@@ -180,15 +195,25 @@ describe("handleEmailEvent", () => {
   it("suppresses the lead on bounce and marks SENT on delivery", async () => {
     const lead = { ...backlog("A", 20), state: "TOUCH_1" as const, touchCount: 1 };
     const { repo } = memoryRepo([lead]);
-    repo.findTouchByExternalId = async (id) => (id === "re_9" ? { id: "t9", leadId: "A", step: 1 } : null);
+    repo.findTouchByExternalId = async (id) => (id === "re_9" ? { id: "t9", leadId: "A", step: 1, sentAt: null } : null);
     const updates: object[] = [];
     repo.updateTouch = async (_id, p) => { updates.push(p); };
     const d = deps(repo);
     expect(await handleEmailEvent(d, "re_unknown", "BOUNCED")).toBe(false);
     expect(await handleEmailEvent(d, "re_9", "DELIVERED")).toBe(true);
-    expect(updates[0]).toMatchObject({ status: "SENT" });
+    expect(updates[0]).toMatchObject({ status: "SENT", sentAt: NOW });
     await handleEmailEvent(d, "re_9", "BOUNCED");
     expect(lead.state).toBe("OPTED_OUT");
     expect(d.suppress).toHaveBeenCalledWith("A", "bounced", { email: "A@firm.ca" });
+  });
+
+  it("does not overwrite an existing sentAt on delivery", async () => {
+    const { repo } = memoryRepo([{ ...backlog("A", 20), state: "TOUCH_1" as const, touchCount: 1 }]);
+    const sentAt = new Date("2026-11-05T12:00:00Z");
+    repo.findTouchByExternalId = async () => ({ id: "t9", leadId: "A", step: 1, sentAt });
+    const updates: Record<string, unknown>[] = [];
+    repo.updateTouch = async (_id, p) => { updates.push(p); };
+    await handleEmailEvent(deps(repo), "re_9", "DELIVERED");
+    expect(updates[0]).toEqual({ status: "SENT" });
   });
 });

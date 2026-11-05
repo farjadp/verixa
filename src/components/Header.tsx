@@ -102,9 +102,13 @@ export default function Header() {
   return (
     <header
       className={`fixed top-0 z-50 w-full border-b transition-colors duration-300 ${
-        scrolled || mobileOpen
-          ? "border-gray-200 bg-white/95 shadow-sm backdrop-blur-xl"
-          : "border-transparent bg-white"
+        // No backdrop-filter while the menu is open: it would become the containing
+        // block for the fixed mobile menu and collapse it to the header's height.
+        mobileOpen
+          ? "border-gray-200 bg-white"
+          : scrolled
+            ? "border-gray-200 bg-white/95 shadow-sm backdrop-blur-xl"
+            : "border-transparent bg-white"
       }`}
     >
       <nav

@@ -22,10 +22,15 @@ export default function BookingClientActions({
     if (confirm("Are you sure you want to cancel this booking request?")) {
       setIsCancelling(true);
       try {
-        await cancelBookingRequest(bookingId);
+        const res = await cancelBookingRequest(bookingId);
+        if (!res.ok) {
+          alert(res.error);
+          setIsCancelling(false);
+          return;
+        }
         router.refresh();
-      } catch (e: any) {
-        alert(e.message || "Failed to cancel booking.");
+      } catch {
+        alert("Failed to cancel booking. Please try again.");
         setIsCancelling(false);
       }
     }

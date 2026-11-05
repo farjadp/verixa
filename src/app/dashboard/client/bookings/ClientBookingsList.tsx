@@ -113,10 +113,11 @@ export default function ClientBookingsList({ bookings }: { bookings: PopulatedBo
                          if(confirm("Are you sure you want to cancel this booking request?")) {
                            const { cancelBookingRequest } = await import("@/actions/booking.actions");
                            try {
-                             await cancelBookingRequest(booking.id);
+                             const res = await cancelBookingRequest(booking.id);
+                             if (!res.ok) { alert(res.error); return; }
                              window.location.reload();
-                           } catch(e) {
-                             alert("Failed to cancel booking.");
+                           } catch {
+                             alert("Failed to cancel booking. Please try again.");
                            }
                          }
                        }}

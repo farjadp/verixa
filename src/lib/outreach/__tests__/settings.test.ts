@@ -28,6 +28,23 @@ describe("outreach settings", () => {
     expect(await getOutreachSettings()).toEqual({ enabled: true, dryRun: false, channels: { LINKEDIN: false, X: false, EMAIL: true } });
   });
 
+  it("treats malformed dryRun as dry-run and malformed enabled as off", async () => {
+    for (const bad of ["TRUE", "1", "", " true"]) {
+      store.set("outreach.dryRun", bad);
+      store.set("outreach.enabled", bad);
+      const s = await getOutreachSettings();
+      expect(s.dryRun).toBe(true);
+      expect(s.enabled).toBe(false);
+    }
+    store.set("outreach.dryRun", "false");
+    expect((await getOutreachSettings()).dryRun).toBe(false);
+  });
+
+  it("returns null for an unparseable heartbeat", async () => {
+    store.set("outreach.worker.lastHeartbeat", "garbage");
+    expect(await getHeartbeat()).toBeNull();
+  });
+
   it("stores the heartbeat", async () => {
     const t = new Date("2026-11-05T15:00:00Z");
     await recordHeartbeat(t);

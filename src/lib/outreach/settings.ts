@@ -18,7 +18,8 @@ export async function getOutreachSettings(): Promise<OutreachSettings> {
   const flag = (f: OutreachFlag, fallback: boolean) => (map.has(flagKey(f)) ? map.get(flagKey(f)) === "true" : fallback);
   return {
     enabled: flag("enabled", false),
-    dryRun: flag("dryRun", true),
+    // Fail safe: live sending only when the stored value is exactly "false".
+    dryRun: !map.has(flagKey("dryRun")) || map.get(flagKey("dryRun")) !== "false",
     channels: Object.fromEntries(CHANNELS.map((c) => [c, flag(c, false)])) as Record<Channel, boolean>,
   };
 }
@@ -35,5 +36,7 @@ export async function recordHeartbeat(now: Date): Promise<void> {
 
 export async function getHeartbeat(): Promise<Date | null> {
   const row = await prisma.platformSetting.findUnique({ where: { key: HEARTBEAT } });
-  return row ? new Date(row.value) : null;
+  if (!row) return null;
+  const d = new Date(row.value);
+  return Number.isNaN(d.getTime()) ? null : d;
 }

@@ -258,7 +258,7 @@ Resolved:
   `admin-plans-offers`). Outreach reads them through `getActiveFoundingOffer()`.
 - **LinkedIn:** Premium, so invites carry notes.
 - **Sending subdomain:** `outreach.getverixa.com` on Resend, with DNS on Vercel.
+- **CASL mailing address:** set in `OUTREACH_MAILING_ADDRESS` (in `.env.local` and the
+  Vercel project env). It is deliberately kept out of the repository.
 
-Open:
-1. **Full mailing address for the CASL footer.** Only the postal code (L3Y 2C9) has
-   been given. Either a street address or a PO box works.
+No open questions remain for phase 1.

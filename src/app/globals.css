@@ -1,15 +1,23 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* Verixa brand tokens (Brand Identity v1: palette + Satoshi) */
 @theme {
-  --color-navy: #0F2A44;
+  --color-navy: #0F2A44;        /* Primary Navy */
   --color-primary: #0F2A44;
-  --color-teal: #2FA4A9;
+  --color-teal: #2FA4A9;        /* Secondary Teal */
   --color-accent: #2FA4A9;
+  --color-ink: #1A1F2B;         /* Dark Text */
+  --color-mist: #F5F7FA;        /* Light Background */
   --color-lightgray: #F5F7FA;
-  --font-sans: 'Satoshi', sans-serif;
-  --font-serif: 'Satoshi', serif;
-  --font-heading: 'Satoshi', sans-serif;
+  --color-softblue: #3A6EA5;    /* UI Blue */
+  --color-lightteal: #6FD1D6;   /* UI Light Teal */
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --font-sans: 'Satoshi', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Satoshi', ui-sans-serif, system-ui, sans-serif;
+  --font-heading: 'Satoshi', ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
@@ -26,14 +34,6 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading font-bold text-navy tracking-tight;
   }
-}
-
-@theme {
-  --color-navy: #0F2A44;
-  --color-teal: #2FA4A9;
-  --color-indigo-600: #4F46E5;
-  --font-heading: 'Satoshi', sans-serif;
-  --font-sans: 'Inter', sans-serif;
 }
 
 @keyframes bounce-slow {

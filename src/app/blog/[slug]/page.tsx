@@ -22,6 +22,24 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import PrintButton from "@/components/blog/PrintButton";
 import TrackPageView from "@/components/TrackPageView";
+import { buildArticleJsonLd, buildFaqJsonLd, getSiteUrl, serializeJsonLd } from "@/lib/content-pipeline/seo";
+import { FAQ_HEADINGS, profileFor } from "@/lib/content-pipeline/language";
+
+const RTL_SCRIPT = /[\u0600-\u06FF]/; // Arabic-script block (Persian)
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Matches the FAQ heading in any content language (pipeline posts localize it).
+const FAQ_HEADING = new RegExp(`## (${FAQ_HEADINGS.map(escapeRe).join("|")})`, "i");
+
+/** Citation URLs saved in a pipeline post's stored JSON-LD, if any. */
+function storedCitations(jsonLd: string | null): string[] {
+  if (!jsonLd) return [];
+  try {
+    const parsed = JSON.parse(jsonLd) as { citation?: { url?: unknown }[] };
+    return (parsed.citation ?? []).map((c) => c.url).filter((u): u is string => typeof u === "string");
+  } catch {
+    return [];
+  }
+}
 
 export async function generateStaticParams() {
   try {
@@ -42,17 +60,28 @@ export async function generateMetadata({
   const post = await getBlogPostBySlug(resolvedParams.slug);
   
   if (!post || !post.isPublished) return { title: 'Article Not Found | Verixa' };
-  
+
+  const canonical = post.canonicalUrl || `${getSiteUrl()}/blog/${post.slug}`;
+  // Pipeline posts store a brand-free seoTitle; the root layout template appends " | Verixa".
+  const title = post.source === "PIPELINE" && post.seoTitle ? post.seoTitle : post.seoTitle || `${post.title} | Verixa Insights`;
+
   return {
-    title: post.seoTitle || `${post.title} | Verixa Insights`,
+    title,
     description: post.seoDesc || post.summary,
+    keywords: post.targetKeyword ? [post.targetKeyword] : undefined,
+    alternates: { canonical },
     openGraph: {
       title: post.seoTitle || post.title,
       description: post.seoDesc || post.summary,
-      images: post.coverImage ? [post.coverImage] : ['/Brand/Vertixa3.png'],
+      url: canonical,
+      images: post.coverImage && !post.coverImage.startsWith("data:")
+        ? [{ url: post.coverImage, alt: post.imageAlt || post.title }]
+        : ['/Brand/Vertixa3.png'],
       type: "article",
-      publishedTime: post.publishedAt?.toISOString() || post.createdAt.toISOString()
-    }
+      publishedTime: post.publishedAt?.toISOString() || post.createdAt.toISOString(),
+      modifiedTime: post.updatedAt.toISOString(),
+    },
+    twitter: { card: "summary_large_image" },
   };
 }
 
@@ -94,7 +123,7 @@ export default async function BlogPostPage({
   let faqText = "";
   let disclaimerText = "";
   
-  const faqStartIndex = mainText.search(/## (FAQ|Frequently Asked Questions)/i);
+  const faqStartIndex = mainText.search(FAQ_HEADING);
   if (faqStartIndex !== -1) {
     const afterFaqStart = mainText.substring(faqStartIndex);
     const endMatch = afterFaqStart.match(/(<end-of-faq>|---)/);
@@ -157,9 +186,32 @@ export default async function BlogPostPage({
     secondHalf = secondHalf.replace(regex, `[$1](${link.url})`);
   });
 
-  const articleUrl = `https://verixa.co/blog/${post.slug}`;
+  const articleUrl = `${getSiteUrl()}/blog/${post.slug}`;
   const wordCount = post.content.split(/\s+/).length;
   const readingTime = Math.ceil(wordCount / 200) || 1;
+
+  // Structured data for every post (Article + FAQ). Built from current fields so
+  // datePublished reflects the real publish time, not draft creation.
+  // Pipeline posts store their language; older posts fall back to script detection.
+  const lang = profileFor(post.language || (RTL_SCRIPT.test(post.title) ? "fa" : "en"));
+  const isRtl = lang.dir === "rtl";
+  const articleJsonLd = serializeJsonLd(
+    buildArticleJsonLd({
+      title: post.title,
+      description: post.seoDesc || post.summary,
+      slug: post.slug,
+      image: post.coverImage,
+      imageAlt: post.imageAlt,
+      datePublished: post.publishedAt || post.createdAt,
+      dateModified: post.updatedAt,
+      keywords: post.targetKeyword ? [post.targetKeyword] : undefined,
+      inLanguage: lang.code,
+      citations: storedCitations(post.jsonLd),
+      section: post.category.replace(/_/g, " "),
+    })
+  );
+  const faqLd = buildFaqJsonLd(faqs);
+  const faqJsonLd = faqLd ? serializeJsonLd(faqLd) : null;
 
   // AST Text Extractor for IDs
   const extractText = (children: any): string => {
@@ -191,6 +243,9 @@ export default async function BlogPostPage({
   return (
     <div className="min-h-screen bg-[#F5F7FA] font-sans flex flex-col">
       <TrackPageView eventName="article_view" articleId={post.id} />
+      {/* JSON-LD is serialized with "<" escaped, so post content can't break out of the script tag. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: articleJsonLd }} />
+      {faqJsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd }} />}
       <Header />
       
       <main className="flex-1">
@@ -229,7 +284,7 @@ export default async function BlogPostPage({
         {post.coverImage && (
           <section className="max-w-5xl mx-auto px-6 -mt-12 relative z-20">
             <div className="rounded-[32px] overflow-hidden shadow-2xl shadow-black/20 border-4 border-white aspect-[21/9] bg-gray-100">
-              <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover" />
+              <img src={post.coverImage} alt={post.imageAlt || post.title} className="w-full h-full object-cover" />
             </div>
           </section>
         )}
@@ -239,7 +294,7 @@ export default async function BlogPostPage({
           <div className="flex flex-col lg:flex-row gap-16">
              
              {/* MAIN ARTICLE BODY */}
-             <div className="flex-1 min-w-0">
+             <div className="flex-1 min-w-0" dir={isRtl ? "rtl" : undefined} lang={lang.code}>
                {/* INLINE CTA BEFORE CONTENT */}
                <div className="mb-12">
                   <div className="p-5 bg-white border-l-4 border-[#2FA4A9] rounded-r-2xl shadow-sm flex items-start gap-4">
@@ -304,7 +359,7 @@ export default async function BlogPostPage({
                {/* ACCORDION FAQ */}
                {faqs.length > 0 && (
                  <div className="mt-20 pt-16 border-t border-gray-200">
-                    <h2 className="text-3xl font-serif font-black text-[#0F2A44] mb-8">Frequently Asked Questions</h2>
+                    <h2 className="text-3xl font-serif font-black text-[#0F2A44] mb-8">{lang.labels.faq}</h2>
                     <div className="space-y-4">
                       {faqs.map((faq, i) => (
                         <details key={i} className="group bg-white rounded-2xl border border-gray-200 overflow-hidden [&_summary::-webkit-details-marker]:hidden">

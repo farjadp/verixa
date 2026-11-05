@@ -108,6 +108,15 @@ export async function saveBookingConfiguration(input: unknown): Promise<Settings
 
   try {
     await prisma.$transaction(async (tx) => {
+      if (data.timezone !== undefined || data.bookingEnabled !== undefined) {
+        await tx.consultantProfile.update({
+          where: { id: profile.id },
+          data: {
+            ...(data.timezone !== undefined ? { timezone: data.timezone } : {}),
+            ...(data.bookingEnabled !== undefined ? { bookingEnabled: data.bookingEnabled } : {}),
+          },
+        });
+      }
       await tx.weeklyAvailability.deleteMany({ where: { consultantProfileId: profile.id } });
       if (data.availability.length > 0) {
         await tx.weeklyAvailability.createMany({

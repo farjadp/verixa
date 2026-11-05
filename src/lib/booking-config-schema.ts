@@ -28,7 +28,30 @@ export const consultationTypeSchema = z.object({
   isActive: z.boolean(),
 });
 
+export const CANADIAN_TIMEZONES = [
+  "America/St_Johns",
+  "America/Halifax",
+  "America/Toronto",
+  "America/Winnipeg",
+  "America/Regina",
+  "America/Edmonton",
+  "America/Vancouver",
+  "America/Whitehorse",
+] as const;
+
 export const bookingConfigurationSchema = z.object({
+  timezone: z
+    .string()
+    .refine((tz) => {
+      try {
+        new Intl.DateTimeFormat("en-US", { timeZone: tz });
+        return true;
+      } catch {
+        return false;
+      }
+    }, "Choose a valid time zone.")
+    .optional(),
+  bookingEnabled: z.boolean().optional(),
   availability: availabilitySchema,
   consultationTypes: z.array(consultationTypeSchema).max(20, "You can offer up to 20 consultation types."),
 });

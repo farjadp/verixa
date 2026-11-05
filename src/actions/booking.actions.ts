@@ -16,7 +16,7 @@ import {
   sendBookingConfirmedEmail, 
   sendClientReceiptEmail
 } from "@/lib/mailer";
-import { capturePaymentAction, cancelPaymentAction, refundPaymentAction } from "@/actions/stripe.actions";
+import { capturePaymentAction, cancelPaymentAction, refundPaymentAction, verifyPaymentHold } from "@/actions/stripe.actions";
 import { trackEvent } from "@/actions/analytics.actions";
 import { getPlanCommission } from "@/lib/subscription";
 
@@ -182,6 +182,25 @@ export async function createBookingRequest(data: {
     throw new Error("The platform is currently undergoing maintenance. Please try again in a few minutes.");
   }
 
+  // 3. Payment hold verification — never trust the client-supplied PaymentIntent id.
+  //    The hold must exist, be authorised (requires_capture), be for exactly this
+  //    consultation's price, and carry metadata that ties it to this consultant/type.
+  if (data.stripePaymentIntentId) {
+    const verified = await verifyPaymentHold(data.stripePaymentIntentId, {
+      expectedAmountCents: type.priceCents,
+      licenseNumber: profile.licenseNumber,
+      consultationTypeId: type.id,
+    });
+    if (!verified.ok) {
+      throw new Error("Payment verification failed: " + verified.error);
+    }
+  } else if (type.priceCents > 0) {
+    throw new Error("A payment authorisation is required for this consultation.");
+  }
+
+  const scheduledStart = new Date(data.scheduledStart);
+  const scheduledEnd = new Date(scheduledStart.getTime() + type.durationMinutes * 60 * 1000);
+
   // Commission comes from the consultant's active plan subscription (Plan.commission %).
   // Falls back to 21% (Free tier) if no subscription exists.
   const consultantUserId = profile.userId ?? null;
@@ -195,8 +214,8 @@ export async function createBookingRequest(data: {
       consultantProfileId: profile.id,
       consultationTypeId: type.id,
       status: profile.bookingSettings?.autoConfirm ? "CONFIRMED" : "PENDING",
-      scheduledStart: new Date(data.scheduledStart),
-      scheduledEnd: new Date(data.scheduledEnd),
+      scheduledStart,
+      scheduledEnd,
       userFirstName: data.userFirstName,
       userLastName: data.userLastName,
       userEmail: data.userEmail,
@@ -279,6 +298,13 @@ export async function updateBookingStatus(
     consultantNotes?: string;
   }
 ) {
+  // Security: only the owning consultant (or an admin) may change a booking.
+  // Server actions are callable by anyone, so the check must live here.
+  const { userId: actorId, role: actorRole } = await requireAuth();
+  if (actorRole !== "CONSULTANT" && actorRole !== "ADMIN") {
+    throw new Error("Forbidden: only consultants can manage bookings.");
+  }
+
   // Fix N+1: fetch booking AND consultant profile in a single query
   const existingBooking = await prisma.booking.findUnique({
     where: { id: bookingId },
@@ -288,7 +314,38 @@ export async function updateBookingStatus(
 
   // Extract consultant from the included relation — no second query needed
   const consultant = existingBooking.profile;
-  const consultantUser = consultant.user;
+
+  if (!consultant.userId) {
+    throw new Error("This booking belongs to an unclaimed profile.");
+  }
+  assertOwnership(consultant.userId, actorId, actorRole);
+
+  // State machine: reject transitions that make no business sense
+  // (e.g. re-opening a COMPLETED or CANCELLED booking). Same-status calls are
+  // allowed so the consultant can update meeting details without a transition.
+  const ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
+    PENDING: ["CONFIRMED", "DECLINED", "CANCELLED", "CANCELLED_BY_CONSULTANT"],
+    CONFIRMED: ["COMPLETED", "CANCELLED", "CANCELLED_BY_CONSULTANT", "CANCELLED_BY_USER"],
+  };
+  const isSameStatus = existingBooking.status === newStatus;
+  const allowed = ALLOWED_TRANSITIONS[existingBooking.status] ?? [];
+  if (!isSameStatus && !allowed.includes(newStatus)) {
+    throw new Error(`Cannot change a ${existingBooking.status} booking to ${newStatus}.`);
+  }
+
+  // Validate the meeting link: it is emailed to the client, so only http(s) URLs.
+  if (options?.meetingLink) {
+    let parsedLink: URL;
+    try {
+      parsedLink = new URL(options.meetingLink.trim());
+    } catch {
+      throw new Error("Meeting link must be a valid URL.");
+    }
+    if (parsedLink.protocol !== "http:" && parsedLink.protocol !== "https:") {
+      throw new Error("Meeting link must start with http:// or https://.");
+    }
+    options.meetingLink = parsedLink.toString();
+  }
 
   let paymentStatusUpdate = existingBooking.paymentStatus;
   
@@ -316,7 +373,10 @@ export async function updateBookingStatus(
          }
          paymentStatusUpdate = "CAPTURED";
      } else if (["DECLINED", "CANCELLED", "CANCELLED_BY_CONSULTANT", "CANCELLED_BY_USER"].includes(newStatus)) {
-         await cancelPaymentAction(existingBooking.stripePaymentIntentId);
+         const cancelled = await cancelPaymentAction(existingBooking.stripePaymentIntentId);
+         if (!cancelled.success) {
+           throw new Error("Failed to release the payment hold: " + cancelled.error);
+         }
          paymentStatusUpdate = "CANCELED";
      }
   }
@@ -341,10 +401,9 @@ export async function updateBookingStatus(
     }
   });
 
-  // consultant & consultantUser are already available from the initial findUnique include above
   await logEvent({
-    userId: consultantUser?.id || undefined,
-    role: "CONSULTANT",
+    userId: actorId,
+    role: actorRole,
     action: `BOOKING_${newStatus}`,
     details: { bookingId: booking.id }
   });

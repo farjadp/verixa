@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
-  ChevronDown, Menu, X, Shield, ArrowRight,
+  ChevronDown, Menu, X, ArrowRight,
   UserCircle2, Globe, Zap, BookOpen, Calculator,
-  HelpCircle, Briefcase, Star, CreditCard, Users
+  HelpCircle, Briefcase, Star, CreditCard,
 } from "lucide-react";
 
 import { usePlatformSettings } from "@/components/providers/PlatformProvider";
@@ -33,18 +33,20 @@ const FIND_CONSULTANTS = {
   ],
 };
 
-const INTELLIGENCE = [
-  { label: "Immigration Journal", href: "/blog", icon: <BookOpen className="w-4 h-4" />, desc: "News, policy updates & insights" },
-  { label: "Immigration Guides", href: "/blog/category/immigration-guides", icon: <Globe className="w-4 h-4" />, desc: "In-depth how-to resources" },
-  { label: "CRS Score Calculator", href: "/tools/crs-calculator", icon: <Calculator className="w-4 h-4" />, desc: "Estimate your Express Entry score", badge: "Soon" },
-  { label: "Help Center / FAQ", href: "/faq", icon: <HelpCircle className="w-4 h-4" />, desc: "Common questions answered" },
+type NavItem = { label: string; href: string; icon: React.ReactNode; desc: string; badge?: string };
+
+const INTELLIGENCE: NavItem[] = [
+  { label: "Immigration Journal", href: "/blog", icon: <BookOpen className="h-4 w-4" />, desc: "News, policy updates & insights" },
+  { label: "Immigration Guides", href: "/blog/category/immigration-guides", icon: <Globe className="h-4 w-4" />, desc: "In-depth how-to resources" },
+  { label: "CRS Score Calculator", href: "/tools/crs-calculator", icon: <Calculator className="h-4 w-4" />, desc: "Estimate your Express Entry score", badge: "Soon" },
+  { label: "Help Center / FAQ", href: "/faq", icon: <HelpCircle className="h-4 w-4" />, desc: "Common questions answered" },
 ];
 
-const FOR_PROFESSIONALS = [
-  { label: "Claim Your Profile", href: "/claim", icon: <Star className="w-4 h-4" />, desc: "Verify your RCIC listing for free" },
-  { label: "Platform Features", href: "/pricing#features", icon: <Zap className="w-4 h-4" />, desc: "Tools built for modern RCICs" },
-  { label: "Plans & Pricing", href: "/pricing", icon: <CreditCard className="w-4 h-4" />, desc: "Free, Starter, Growth & Pro" },
-  { label: "Partner Portal", href: "/dashboard", icon: <Briefcase className="w-4 h-4" />, desc: "Your consultant dashboard" },
+const FOR_PROFESSIONALS: NavItem[] = [
+  { label: "Claim Your Profile", href: "/claim", icon: <Star className="h-4 w-4" />, desc: "Verify your RCIC listing for free" },
+  { label: "Platform Features", href: "/pricing#features", icon: <Zap className="h-4 w-4" />, desc: "Tools built for modern RCICs" },
+  { label: "Plans & Pricing", href: "/pricing", icon: <CreditCard className="h-4 w-4" />, desc: "Free, Starter, Growth & Pro" },
+  { label: "Partner Portal", href: "/dashboard", icon: <Briefcase className="h-4 w-4" />, desc: "Your consultant dashboard" },
 ];
 
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
@@ -59,7 +61,8 @@ export default function Header() {
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -69,8 +72,18 @@ export default function Header() {
         setOpenDropdown(null);
       }
     };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpenDropdown(null);
+        setMobileOpen(false);
+      }
+    };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, []);
 
   // Lock body scroll when mobile menu is open
@@ -81,83 +94,81 @@ export default function Header() {
 
   const toggle = (key: string) =>
     setOpenDropdown((prev) => (prev === key ? null : key));
+  const close = () => setOpenDropdown(null);
 
   const logoImage = "/api/assets/logo?type=header";
   const siteName = settings?.siteName || "Verixa";
 
   return (
     <header
-      className={`fixed top-0 w-full z-50 transition-all duration-300 ${
-        scrolled
-          ? "py-3 bg-white/90 backdrop-blur-xl border-b border-gray-100 shadow-sm"
-          : "py-5 bg-white border-b border-transparent"
+      className={`fixed top-0 z-50 w-full border-b transition-colors duration-300 ${
+        // No backdrop-filter while the menu is open: it would become the containing
+        // block for the fixed mobile menu and collapse it to the header's height.
+        mobileOpen
+          ? "border-gray-200 bg-white"
+          : scrolled
+            ? "border-gray-200 bg-white/95 shadow-sm backdrop-blur-xl"
+            : "border-transparent bg-white"
       }`}
     >
       <nav
         ref={navRef}
-        className="px-6 lg:px-12 flex justify-between items-center max-w-[1440px] mx-auto font-sans"
+        aria-label="Main"
+        className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 font-sans lg:h-20 lg:px-8"
       >
         {/* ── LOGO ── */}
-        <Link href="/" className="flex items-center gap-2 group shrink-0 z-10">
-          <img src={logoImage} alt={siteName} className="h-9 w-auto object-contain transition-transform group-hover:scale-105" />
+        <Link href="/" className="z-10 flex shrink-0 items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={logoImage} alt={siteName} className="h-9 w-auto object-contain" />
         </Link>
 
         {/* ── DESKTOP NAV ── */}
-        <div className="hidden lg:flex items-center gap-1 xl:gap-0">
-
+        <div className="hidden items-center gap-1 lg:flex">
           {/* 1. Find Consultants */}
           <div className="relative">
-            <DropdownTrigger
-              label="Find Consultants"
-              isOpen={openDropdown === "find"}
-              onClick={() => toggle("find")}
-            />
+            <DropdownTrigger label="Find Consultants" id="find" isOpen={openDropdown === "find"} onClick={() => toggle("find")} />
             {openDropdown === "find" && (
-              <MegaMenuPanel onClose={() => setOpenDropdown(null)} width="w-[680px]" align="left">
-                <div className="grid grid-cols-[1fr_auto_1fr] gap-10">
-                  {/* Specialties */}
+              <MegaMenuPanel id="find" width="w-[680px]" align="left">
+                <div className="grid grid-cols-[1fr_auto_1fr] gap-8">
                   <div>
-                    <PanelHeading label="By Specialty" />
-                    <ul className="space-y-1 mt-4">
+                    <PanelHeading label="By specialty" />
+                    <ul className="mt-3 space-y-1">
                       {FIND_CONSULTANTS.specialties.map((s) => (
-                        <MegaMenuLink key={s.href} {...s} onClose={() => setOpenDropdown(null)} />
+                        <MegaMenuLink key={s.href} {...s} onClose={close} />
                       ))}
                     </ul>
                   </div>
 
-                  <div className="w-px bg-gray-100 mx-2" />
+                  <div className="w-px bg-gray-200" />
 
-                  {/* Regions + CTA */}
                   <div className="flex flex-col gap-6">
                     <div>
-                      <PanelHeading label="By Region" />
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-4">
+                      <PanelHeading label="By region" />
+                      <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2">
                         {FIND_CONSULTANTS.regions.map((r) => (
                           <Link
                             key={r.href}
                             href={r.href}
-                            onClick={() => setOpenDropdown(null)}
-                            className="text-sm font-semibold text-gray-500 hover:text-[#0F2A44] transition-colors"
+                            onClick={close}
+                            className="text-sm font-semibold text-gray-600 transition-colors hover:text-teal"
                           >
                             {r.label}
                           </Link>
                         ))}
                       </div>
                     </div>
-                    <div className="mt-auto bg-[#F5F7FA] rounded-2xl p-5 border border-gray-100">
-                      <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">
-                        Verified Network
-                      </p>
-                      <p className="text-sm font-semibold text-[#0F2A44] mb-4 leading-snug">
-                        Experts in 20+ languages, across every province.
+                    <div className="mt-auto rounded-2xl border border-gray-200 bg-mist p-5">
+                      <p className="mb-1 text-xs font-bold uppercase tracking-wider text-teal">Licensed only</p>
+                      <p className="mb-4 text-sm font-semibold leading-snug text-navy">
+                        Every consultant listed is on the CICC public register.
                       </p>
                       <Link
                         href="/search"
-                        onClick={() => setOpenDropdown(null)}
-                        className="flex items-center justify-center gap-2 bg-[#0F2A44] text-white py-2.5 px-4 rounded-xl text-xs font-bold hover:bg-[#2FA4A9] transition-all group/btn"
+                        onClick={close}
+                        className="group/btn flex min-h-11 items-center justify-center gap-2 rounded-xl bg-navy px-4 text-sm font-bold text-white transition-colors hover:bg-teal"
                       >
-                        Browse All Consultants
-                        <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
+                        Browse all consultants
+                        <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" aria-hidden="true" />
                       </Link>
                     </div>
                   </div>
@@ -168,25 +179,13 @@ export default function Header() {
 
           {/* 2. Intelligence */}
           <div className="relative">
-            <DropdownTrigger
-              label="Intelligence"
-              isOpen={openDropdown === "intel"}
-              onClick={() => toggle("intel")}
-            />
+            <DropdownTrigger label="Intelligence" id="intel" isOpen={openDropdown === "intel"} onClick={() => toggle("intel")} />
             {openDropdown === "intel" && (
-              <MegaMenuPanel onClose={() => setOpenDropdown(null)} width="w-[400px]" align="center">
-                <PanelHeading label="Resources & Tools" />
-                <ul className="space-y-1 mt-4">
+              <MegaMenuPanel id="intel" width="w-[400px]" align="center">
+                <PanelHeading label="Resources & tools" />
+                <ul className="mt-3 space-y-1">
                   {INTELLIGENCE.map((item) => (
-                    <MegaMenuLink
-                      key={item.href}
-                      href={item.href}
-                      label={item.label}
-                      desc={item.desc}
-                      icon={item.icon}
-                      badge={item.badge}
-                      onClose={() => setOpenDropdown(null)}
-                    />
+                    <MegaMenuLink key={item.href} {...item} onClose={close} />
                   ))}
                 </ul>
               </MegaMenuPanel>
@@ -195,24 +194,13 @@ export default function Header() {
 
           {/* 3. For Professionals */}
           <div className="relative">
-            <DropdownTrigger
-              label="For Professionals"
-              isOpen={openDropdown === "pro"}
-              onClick={() => toggle("pro")}
-            />
+            <DropdownTrigger label="For Professionals" id="pro" isOpen={openDropdown === "pro"} onClick={() => toggle("pro")} />
             {openDropdown === "pro" && (
-              <MegaMenuPanel onClose={() => setOpenDropdown(null)} width="w-[400px]" align="right">
-                <PanelHeading label="RCIC Partner Program" />
-                <ul className="space-y-1 mt-4">
+              <MegaMenuPanel id="pro" width="w-[400px]" align="right">
+                <PanelHeading label="RCIC partner program" />
+                <ul className="mt-3 space-y-1">
                   {FOR_PROFESSIONALS.map((item) => (
-                    <MegaMenuLink
-                      key={item.href}
-                      href={item.href}
-                      label={item.label}
-                      desc={item.desc}
-                      icon={item.icon}
-                      onClose={() => setOpenDropdown(null)}
-                    />
+                    <MegaMenuLink key={item.href} {...item} onClose={close} />
                   ))}
                 </ul>
               </MegaMenuPanel>
@@ -221,132 +209,91 @@ export default function Header() {
         </div>
 
         {/* ── AUTH / CTA ── */}
-        <div className="hidden lg:flex items-center gap-5">
+        <div className="hidden items-center gap-5 lg:flex">
           <Link
             href="/login"
-            className="flex items-center gap-2 text-[13px] font-bold text-gray-500 hover:text-[#0F2A44] transition-colors"
+            className="flex items-center gap-2 text-sm font-bold text-gray-600 transition-colors hover:text-navy"
           >
-            <UserCircle2 className="w-5 h-5" />
-            Sign In
+            <UserCircle2 className="h-5 w-5" aria-hidden="true" />
+            Sign in
           </Link>
           <Link
             href="/search"
-            className="bg-[#0F2A44] text-white px-7 py-3 rounded-full text-[13px] font-bold tracking-wide uppercase hover:bg-[#2FA4A9] shadow-xl shadow-[#0F2A44]/10 transition-all active:scale-95"
+            className="inline-flex min-h-11 items-center rounded-xl bg-navy px-5 text-sm font-bold text-white transition-colors hover:bg-teal"
           >
-            Find a Consultant
+            Find a consultant
           </Link>
         </div>
 
         {/* ── MOBILE TOGGLE ── */}
         <button
-          className="lg:hidden p-2 text-[#0F2A44] z-10"
+          type="button"
+          className="z-10 -mr-2 p-2 text-navy lg:hidden"
           onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle menu"
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-menu"
         >
-          {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </nav>
 
       {/* ── MOBILE MENU ── */}
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 top-[64px] bg-white z-40 overflow-y-auto">
-          <div className="px-6 py-8 flex flex-col gap-2">
-            {/* Find Consultants */}
+        <div id="mobile-menu" className="fixed inset-x-0 bottom-0 top-16 z-40 overflow-y-auto bg-white lg:hidden">
+          <div className="flex flex-col px-6 py-6">
             <MobileAccordion
               label="Find Consultants"
               isOpen={mobileSection === "find"}
-              onClick={() =>
-                setMobileSection(mobileSection === "find" ? null : "find")
-              }
+              onClick={() => setMobileSection(mobileSection === "find" ? null : "find")}
             >
-              <p className="text-[11px] font-black uppercase tracking-widest text-[#2FA4A9] mb-3">
-                By Specialty
-              </p>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-teal">By specialty</p>
               {FIND_CONSULTANTS.specialties.map((s) => (
-                <Link
-                  key={s.href}
-                  href={s.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="block py-2 text-sm font-semibold text-gray-600 border-b border-gray-50"
-                >
-                  {s.label}
-                </Link>
+                <MobileLink key={s.href} href={s.href} onClick={() => setMobileOpen(false)}>{s.label}</MobileLink>
               ))}
-              <p className="text-[11px] font-black uppercase tracking-widest text-[#2FA4A9] mb-3 mt-5">
-                By Region
-              </p>
+              <p className="mb-2 mt-5 text-xs font-bold uppercase tracking-wider text-teal">By region</p>
               {FIND_CONSULTANTS.regions.map((r) => (
-                <Link
-                  key={r.href}
-                  href={r.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="block py-2 text-sm font-semibold text-gray-600 border-b border-gray-50"
-                >
-                  {r.label}
-                </Link>
+                <MobileLink key={r.href} href={r.href} onClick={() => setMobileOpen(false)}>{r.label}</MobileLink>
               ))}
             </MobileAccordion>
 
-            {/* Intelligence */}
             <MobileAccordion
               label="Intelligence"
               isOpen={mobileSection === "intel"}
-              onClick={() =>
-                setMobileSection(mobileSection === "intel" ? null : "intel")
-              }
+              onClick={() => setMobileSection(mobileSection === "intel" ? null : "intel")}
             >
               {INTELLIGENCE.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="block py-2 text-sm font-semibold text-gray-600 border-b border-gray-50"
-                >
+                <MobileLink key={item.href} href={item.href} onClick={() => setMobileOpen(false)}>
                   {item.label}
-                  {item.badge && (
-                    <span className="ml-2 text-[9px] font-black uppercase bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded">
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
+                  {item.badge && <SoonBadge label={item.badge} />}
+                </MobileLink>
               ))}
             </MobileAccordion>
 
-            {/* For Professionals */}
             <MobileAccordion
               label="For Professionals"
               isOpen={mobileSection === "pro"}
-              onClick={() =>
-                setMobileSection(mobileSection === "pro" ? null : "pro")
-              }
+              onClick={() => setMobileSection(mobileSection === "pro" ? null : "pro")}
             >
               {FOR_PROFESSIONALS.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="block py-2 text-sm font-semibold text-gray-600 border-b border-gray-50"
-                >
-                  {item.label}
-                </Link>
+                <MobileLink key={item.href} href={item.href} onClick={() => setMobileOpen(false)}>{item.label}</MobileLink>
               ))}
             </MobileAccordion>
 
-            {/* Auth */}
-            <div className="mt-8 space-y-3">
+            <div className="mt-8 flex flex-col gap-3">
               <Link
                 href="/search"
                 onClick={() => setMobileOpen(false)}
-                className="block w-full text-center py-4 font-bold bg-[#0F2A44] text-white rounded-2xl"
+                className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-navy font-bold text-white"
               >
-                Find a Consultant
+                Find a consultant
               </Link>
               <Link
                 href="/login"
                 onClick={() => setMobileOpen(false)}
-                className="flex items-center justify-center gap-2 w-full py-4 font-bold text-gray-600 border border-gray-200 rounded-2xl"
+                className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 font-bold text-navy"
               >
-                <UserCircle2 className="w-5 h-5" /> Sign In
+                <UserCircle2 className="h-5 w-5" aria-hidden="true" /> Sign in
               </Link>
             </div>
           </div>
@@ -360,67 +307,64 @@ export default function Header() {
 
 function DropdownTrigger({
   label,
+  id,
   isOpen,
   onClick,
 }: {
   label: string;
+  id: string;
   isOpen: boolean;
   onClick: () => void;
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`relative flex items-center gap-1 px-4 py-2 text-[13px] font-bold tracking-wide transition-colors rounded-xl ${
-        isOpen
-          ? "text-[#0F2A44] bg-gray-50"
-          : "text-gray-500 hover:text-[#0F2A44] hover:bg-gray-50"
+      aria-expanded={isOpen}
+      aria-controls={`menu-${id}`}
+      className={`flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
+        isOpen ? "bg-mist text-navy" : "text-gray-600 hover:bg-mist hover:text-navy"
       }`}
     >
       {label}
       <ChevronDown
-        className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+        className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+        aria-hidden="true"
       />
     </button>
   );
 }
 
 function MegaMenuPanel({
+  id,
   children,
-  onClose,
   width = "w-[680px]",
   align = "left",
 }: {
+  id: string;
   children: React.ReactNode;
-  onClose: () => void;
   width?: string;
   align?: "left" | "center" | "right";
 }) {
   const alignClass =
-    align === "right"
-      ? "right-0"
-      : align === "center"
-      ? "left-1/2 -translate-x-1/2"
-      : "left-0";
+    align === "right" ? "right-0" : align === "center" ? "left-1/2 -translate-x-1/2" : "left-0";
 
   return (
-    <div className={`absolute top-[calc(100%+12px)] ${alignClass} ${width} z-50`}>
-      {/* Arrow pointer */}
-      <div className="absolute -top-2 left-6 w-4 h-4 bg-white border-l border-t border-gray-100 rotate-45 shadow-[-2px_-2px_3px_rgba(0,0,0,0.03)]" />
-      <div className="bg-white border border-gray-100 rounded-[2rem] shadow-[0_25px_80px_-15px_rgba(0,0,0,0.12)] p-8">
-        {children}
-      </div>
+    <div id={`menu-${id}`} className={`absolute top-[calc(100%+12px)] ${alignClass} ${width} z-50`}>
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl shadow-navy/10">{children}</div>
     </div>
   );
 }
 
 function PanelHeading({ label }: { label: string }) {
+  return <p className="text-xs font-bold uppercase tracking-wider text-teal">{label}</p>;
+}
+
+function SoonBadge({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-1.5 h-1.5 rounded-full bg-[#2FA4A9]" />
-      <span className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
-        {label}
-      </span>
-    </div>
+    <span className="ml-2 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink">
+      {label}
+    </span>
   );
 }
 
@@ -444,32 +388,34 @@ function MegaMenuLink({
       <Link
         href={href}
         onClick={onClose}
-        className="flex items-start gap-3 p-3 rounded-xl hover:bg-[#F5F7FA] transition-colors group/link"
+        className="group/link flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-mist"
       >
         {icon && (
-          <div className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 group-hover/link:bg-[#2FA4A9]/10 group-hover/link:text-[#2FA4A9] transition-colors shrink-0 mt-0.5">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-mist text-navy transition-colors group-hover/link:bg-teal/10 group-hover/link:text-teal">
             {icon}
-          </div>
+          </span>
         )}
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-[#0F2A44] group-hover/link:text-[#2FA4A9] transition-colors">
-              {label}
-            </span>
-            {badge && (
-              <span className="text-[9px] font-black uppercase bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded">
-                {badge}
-              </span>
-            )}
-          </div>
-          {desc && (
-            <p className="text-xs text-gray-400 font-medium leading-snug mt-0.5">
-              {desc}
-            </p>
-          )}
-        </div>
+        <span className="min-w-0">
+          <span className="flex items-center">
+            <span className="text-sm font-bold text-navy transition-colors group-hover/link:text-teal">{label}</span>
+            {badge && <SoonBadge label={badge} />}
+          </span>
+          {desc && <span className="mt-0.5 block text-xs leading-snug text-gray-500">{desc}</span>}
+        </span>
       </Link>
     </li>
+  );
+}
+
+function MobileLink({ href, onClick, children }: { href: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className="flex min-h-11 items-center border-b border-gray-100 text-sm font-semibold text-gray-700"
+    >
+      {children}
+    </Link>
   );
 }
 
@@ -485,19 +431,20 @@ function MobileAccordion({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-b border-gray-100">
+    <div className="border-b border-gray-200">
       <button
+        type="button"
         onClick={onClick}
-        className="w-full flex justify-between items-center py-4 text-base font-bold text-[#0F2A44]"
+        aria-expanded={isOpen}
+        className="flex w-full items-center justify-between py-4 text-base font-bold text-navy"
       >
         {label}
         <ChevronDown
-          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          aria-hidden="true"
         />
       </button>
-      {isOpen && (
-        <div className="pb-4 pl-2 space-y-1">{children}</div>
-      )}
+      {isOpen && <div className="pb-4">{children}</div>}
     </div>
   );
 }

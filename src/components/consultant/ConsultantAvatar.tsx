@@ -1,10 +1,14 @@
+// Register names sometimes carry stray punctuation (". Naritpal Singh").
+function nameWords(name: string): string[] {
+  return name.split(/\s+/).map((w) => w.replace(/^[^\p{L}]+/u, "")).filter(Boolean);
+}
+
 export function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
+  return nameWords(name).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?";
+}
+
+export function firstNameOf(name: string): string {
+  return nameWords(name)[0] ?? name.trim();
 }
 
 const SIZES = {

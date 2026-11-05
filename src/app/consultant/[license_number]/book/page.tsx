@@ -10,7 +10,7 @@ import { ArrowLeft, Lock, ShieldCheck } from "lucide-react";
 import { getConsultantBookingConfig } from "@/actions/booking.actions";
 import { authOptions } from "@/lib/authOptions";
 import TrackPageView from "@/components/TrackPageView";
-import ConsultantAvatar from "@/components/consultant/ConsultantAvatar";
+import ConsultantAvatar, { firstNameOf } from "@/components/consultant/ConsultantAvatar";
 import { describeVerification } from "@/lib/verification";
 import BookingFlow from "./BookingFlow";
 
@@ -40,7 +40,7 @@ export default async function ClientBookingPage({ params }: { params: Promise<{ 
       </header>
 
       <main className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-6 p-4 md:p-8 lg:grid-cols-12 lg:gap-10">
-        <aside className="space-y-4 lg:col-span-4">
+        <aside className="order-last space-y-4 lg:order-none lg:col-span-4">
           <div className="rounded-3xl border border-gray-200 bg-white p-6">
             <div className="flex items-center gap-4">
               <ConsultantAvatar name={data.fullName} src={data.avatarImage} size="md" />
@@ -89,7 +89,7 @@ export default async function ClientBookingPage({ params }: { params: Promise<{ 
                 </Link>
                 {!data.isClaimed && (
                   <Link href={`/claim/${data.licenseNumber}`} className="rounded-xl border border-teal px-6 py-3 text-sm font-bold text-teal hover:bg-teal hover:text-white">
-                    Are you {data.fullName.split(" ")[0]}? Claim this profile
+                    Are you {firstNameOf(data.fullName)}? Claim this profile
                   </Link>
                 )}
               </div>

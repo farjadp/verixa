@@ -1,440 +1,297 @@
 // ============================================================================
-// Hardware Source: src/app/consultant/[license_number]/page.tsx
 // Route: /consultant/[license_number]
-// Version: 1.0.0 — 2026-04-08
-// Why: Public consultant profile route that validates trust signals and drives booking intent.
-// Domain: Consultant Discovery & Booking
-// Env / Identity: React Server Component
-// Owner: Verixa Web
-// Notes: Public trust surface; prioritize resilient rendering and graceful fallback behavior on data-source failure.
-// Critical Path: Last-mile trust route before user commits to booking.
-// Primary Dependencies: Consultant profile data, verification status, social proof, related profile suggestions.
-// Risk Notes: Any incorrect identity/license mapping can damage trust and create legal/support escalation.
+// Why: Public consultant profile — the trust surface a client checks before
+//      booking. Everything shown is real data: CICC register fields, what the
+//      consultant wrote after claiming, and published reviews. Nothing is
+//      filled in with defaults.
 // ============================================================================
-import { getConsultantByLicense, getRelatedConsultants, getFeaturedConsultants } from "@/lib/db";
-import {
-  ShieldCheck, Mail, Building2, MapPin, CheckCircle2, AlertCircle,
-  CalendarDays, User, Star, Clock, MessageSquare, Briefcase,
-  Languages, Phone, Check, Zap, CheckCircle, Info, Shield,
-  ArrowRight, Award, Globe, Sparkles, Lock, BadgeCheck, FileCheck, Users
-} from "lucide-react";
-import { getRelatedArticles } from "@/actions/blog.actions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import {
+  ShieldCheck, Building2, MapPin, CalendarDays, Star, Clock, MessageSquare, Languages,
+  Mail, Phone, Globe, Lock, BadgeCheck, AlertCircle, ArrowRight, ExternalLink, Video, Users,
+} from "lucide-react";
+import { getConsultantByLicense } from "@/lib/db";
+import { getRelatedArticles } from "@/actions/blog.actions";
 import { prisma } from "@/lib/prisma";
-
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SaveProfileButton from "@/components/SaveProfileButton";
 import { checkIsSaved } from "@/actions/savedProfiles.actions";
 import TrackPageView from "@/components/TrackPageView";
 import GuestReviewButton from "@/components/GuestReviewButton";
+import ConsultantAvatar, { firstNameOf } from "@/components/consultant/ConsultantAvatar";
 import { ALL_SPECIALIZATION_ITEMS } from "@/lib/immigration-paths";
-import { Metadata } from "next";
+import { canAcceptBookings, isRegistryActive } from "@/lib/booking-rules";
+import { summarizeRatings } from "@/lib/review-rules";
+import { sanitizeBio } from "@/lib/profile-content";
+import { COMMUNICATION_LABELS, describeVerification, formatPrice } from "@/lib/verification";
 
-export async function generateMetadata({
-  params
-}: {
-  params: Promise<{ license_number: string }>
-}): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ license_number: string }> }): Promise<Metadata> {
   const resolvedParams = await params;
   const data = await getConsultantByLicense(resolvedParams.license_number);
-  if (!data) return { title: 'Consultant Not Found | Verixa' };
+  if (!data) return { title: "Consultant Not Found | Verixa" };
   return {
     title: `${data.Full_Name} - Canadian Immigration Consultant | Verixa`,
-    description: `Book a consultation with ${data.Full_Name}, an active RCIC consultant in ${data.Province || 'Canada'}.`,
+    description: `Book a consultation with ${data.Full_Name}, an active RCIC consultant in ${data.Province || "Canada"}.`,
     openGraph: {
       title: `${data.Full_Name} - Verixa Verified Consultant`,
       description: `Book a secure consultation with ${data.Full_Name} (${data.License_Number}).`,
-      images: ['/Brand/Vertixa3.png']
-    }
+      images: ["/Brand/Vertixa3.png"],
+    },
   };
 }
 
-export default async function ConsultantProfilePage({
-  params
-}: {
-  params: Promise<{ license_number: string }>
-}) {
+function Stars({ rating, size = "h-4 w-4" }: { rating: number; size?: string }) {
+  return (
+    <span className="inline-flex items-center gap-0.5" aria-label={`${rating} out of 5 stars`}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Star key={i} className={`${size} ${i < Math.round(rating) ? "fill-warning text-warning" : "text-gray-200"}`} aria-hidden="true" />
+      ))}
+    </span>
+  );
+}
+
+function CommIcon({ type }: { type: string }) {
+  if (type === "PHONE") return <Phone className="h-3.5 w-3.5" aria-hidden="true" />;
+  if (type === "IN_PERSON") return <Users className="h-3.5 w-3.5" aria-hidden="true" />;
+  return <Video className="h-3.5 w-3.5" aria-hidden="true" />;
+}
+
+function parseSpecializations(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((k): k is string => typeof k === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function maskEmail(email: string) {
+  const [local, domain] = email.split("@");
+  return local && domain ? `${local.slice(0, 2)}***@${domain}` : "***";
+}
+
+export default async function ConsultantProfilePage({ params }: { params: Promise<{ license_number: string }> }) {
   const resolvedParams = await params;
-  const data = await getConsultantByLicense(resolvedParams.license_number);
+  const data = await getConsultantByLicense(resolvedParams.license_number.toUpperCase());
   if (!data) notFound();
 
-  const isActive = data.Status?.toLowerCase()?.includes('active') || data.Status === 'Yes';
-
-  const dbProfile = await (prisma as any).consultantProfile.findUnique({
+  const dbProfile = await prisma.consultantProfile.findUnique({
     where: { licenseNumber: data.License_Number },
-    include: { companyEnrichments: true },
+    include: {
+      companyEnrichments: true,
+      consultationTypes: { where: { isActive: true }, orderBy: { priceCents: "asc" } },
+      weeklyAvailability: { where: { isActive: true }, select: { id: true } },
+    },
   });
 
-  const isClaimed = dbProfile?.userId != null;
-  const verificationLevel: string | null = dbProfile?.verificationLevel ?? null;
+  const isClaimed = !!dbProfile?.userId;
+  const licenceActive = isRegistryActive(data.Status);
+  const trust = describeVerification(isClaimed, dbProfile?.verificationLevel);
+  const gate = dbProfile ? canAcceptBookings(dbProfile) : { ok: false as const, error: "This profile has not been claimed by the consultant yet." };
+  // Seeded consultation types on unclaimed profiles are not the consultant's prices: only show claimed ones.
+  const consultationTypes = isClaimed ? dbProfile?.consultationTypes ?? [] : [];
+  const bookable = gate.ok && consultationTypes.length > 0 && (dbProfile?.weeklyAvailability.length ?? 0) > 0;
 
-  // Derive what's verified
-  const emailVerified = isClaimed && (verificationLevel === 'CICC_EMAIL' || verificationLevel === 'CICC_EMAIL_AND_PHONE');
-  const phoneVerified = isClaimed && verificationLevel === 'CICC_EMAIL_AND_PHONE';
-  const pendingReview = isClaimed && verificationLevel === 'PENDING_REVIEW';
-
-  const reviews = await prisma.review.findMany({
-    where: { consultantProfileId: dbProfile?.id ?? '__none__', status: 'PUBLISHED' },
-    include: { user: { select: { name: true } } },
-    orderBy: { createdAt: 'desc' },
-    take: 5,
-  });
-  const avgRating = reviews.length > 0
-    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-    : null;
-
-  const consultationTypes = dbProfile
-    ? await prisma.consultationType.findMany({
-        where: { consultantProfileId: dbProfile.id, isActive: true },
-        orderBy: { priceCents: 'asc' },
-      })
-    : [];
-
-  const isSaved = await checkIsSaved(data.License_Number);
-
-  const displayEnrichments = dbProfile?.companyEnrichments?.filter((e: any) =>
-    (e.matchStatus === 'ambiguous' || e.matchStatus === 'matched' || e.matchStatus === 'consultant_verified') && e.registryNumber
-  ) || [];
-
-  const languages = dbProfile?.languages
-    ? (Array.isArray(dbProfile.languages)
-        ? dbProfile.languages
-        : String(dbProfile.languages).split(',').map((l: string) => l.trim()))
-    : ['English'];
-
-  const messengers = Array.isArray(dbProfile?.messengers) ? dbProfile.messengers : [];
-
-  let specKeys: string[] = [];
-  if (dbProfile?.specializations) {
-    try {
-      const parsed = JSON.parse(dbProfile.specializations);
-      if (Array.isArray(parsed)) {
-        specKeys = parsed;
-      }
-    } catch(e) {}
-  }
-
-  const specializations = specKeys.length > 0 
-    ? ALL_SPECIALIZATION_ITEMS.filter(item => specKeys.includes(item.key))
-    : [];
-
-  // Fetch count settings
-  const relatedCountSetting = await prisma.platformSetting.findUnique({ where: { key: 'consultantRelatedCount' } });
-  const topCountSetting = await prisma.platformSetting.findUnique({ where: { key: 'consultantTopCount' } });
-  const articlesCountSetting = await prisma.platformSetting.findUnique({ where: { key: 'consultantRelatedArticlesCount' } });
-
-  const limitRelated = parseInt(relatedCountSetting?.value || "3", 10);
-  const limitTop = parseInt(topCountSetting?.value || "3", 10);
-  const limitArticles = parseInt(articlesCountSetting?.value || "3", 10);
-
-  // Fetch sections data
-  const [relatedConsultants, topConsultants] = await Promise.all([
-    getRelatedConsultants(data.Province || '', data.License_Number, limitRelated),
-    getFeaturedConsultants(limitTop),
+  const profileId = dbProfile?.id ?? "__none__";
+  const [reviews, ratingAgg, isSaved] = await Promise.all([
+    prisma.review.findMany({
+      where: { consultantProfileId: profileId, status: "PUBLISHED" },
+      include: { user: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    }),
+    prisma.review.aggregate({
+      where: { consultantProfileId: profileId, status: "PUBLISHED" },
+      _avg: { rating: true },
+      _count: { _all: true },
+    }),
+    checkIsSaved(data.License_Number),
   ]);
-  const relatedArticles = await getRelatedArticles(specializations.map(s => s.label), limitArticles);
+  const rating = summarizeRatings(ratingAgg);
+
+  const specializations = ALL_SPECIALIZATION_ITEMS.filter((item) => parseSpecializations(dbProfile?.specializations).includes(item.key));
+  const languages = isClaimed && dbProfile?.languages ? dbProfile.languages.split(",").map((l) => l.trim()).filter(Boolean) : [];
+  const bioHtml = isClaimed ? sanitizeBio(dbProfile?.bio) : "";
+  const displayEnrichments = (dbProfile?.companyEnrichments ?? []).filter(
+    (e) => ["ambiguous", "matched", "consultant_verified"].includes(e.matchStatus ?? "") && e.registryNumber
+  );
+  const location = [dbProfile?.city, data.Province, data.Country].filter(Boolean).join(", ") || "Canada";
+  const firstName = firstNameOf(data.Full_Name);
+
+  const [relatedCountSetting, articlesCountSetting] = await Promise.all([
+    prisma.platformSetting.findUnique({ where: { key: "consultantRelatedCount" } }),
+    prisma.platformSetting.findUnique({ where: { key: "consultantRelatedArticlesCount" } }),
+  ]);
+  const limitRelated = Math.min(parseInt(relatedCountSetting?.value || "3", 10) || 3, 12);
+  const limitArticles = Math.min(parseInt(articlesCountSetting?.value || "3", 10) || 3, 12);
+
+  const [related, relatedArticles] = await Promise.all([
+    prisma.consultantProfile.findMany({
+      where: {
+        licenseNumber: { not: data.License_Number },
+        status: { in: ["Yes", "Active"] },
+        ...(data.Province ? { province: data.Province } : {}),
+      },
+      select: { licenseNumber: true, fullName: true, company: true, province: true, avatarImage: true, userId: true },
+      orderBy: [{ userId: { sort: "asc", nulls: "last" } }, { fullName: "asc" }],
+      take: limitRelated,
+    }),
+    getRelatedArticles(specializations.map((s) => s.label), limitArticles),
+  ]);
+
+  const trustTone =
+    trust.tone === "verified" || trust.tone === "partial"
+      ? "border-success/30 bg-success/5 text-success"
+      : trust.tone === "pending"
+        ? "border-warning/30 bg-warning/5 text-warning"
+        : "border-gray-200 bg-mist text-gray-600";
 
   return (
-    <div className="min-h-screen bg-[#F4F6F9] font-sans text-[#1A1F2B] pt-[80px] lg:pt-[88px]">
+    <div className="min-h-screen bg-mist pt-[80px] font-sans text-ink lg:pt-[88px]">
       <TrackPageView eventName="profile_view" specialization="Immigration Consulting" />
       <Header />
 
-      {/* ── CLAIM BANNER (unclaimed only) ───────────────────────────────── */}
-      {!isClaimed && (
-        <div className="bg-gradient-to-r from-[#0F2A44] via-[#0F2A44] to-[#163650] border-b border-white/5">
-          <div className="max-w-5xl mx-auto px-6 py-3.5 flex flex-col sm:flex-row justify-between items-center gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-full bg-[#2FA4A9]/20 border border-[#2FA4A9]/30 flex items-center justify-center shrink-0">
-                <Sparkles className="w-3.5 h-3.5 text-[#2FA4A9]" />
-              </div>
-              <p className="text-sm text-white/80">
-                <span className="text-white font-semibold">Is this your profile?</span>{" "}
-                Claim it to enable bookings, add services, and respond to clients.
-              </p>
-            </div>
-            <Link
-              href={`/claim/${data.License_Number}`}
-              className="group inline-flex items-center gap-2 bg-[#2FA4A9] hover:bg-[#258d92] text-white text-sm font-bold px-5 py-2 rounded-xl transition-all shrink-0 shadow-lg shadow-[#2FA4A9]/20"
-            >
-              Claim This Profile
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-          </div>
-        </div>
-      )}
+      {/* ── HERO ─────────────────────────────────────────────────────── */}
+      <section className="border-b border-gray-200 bg-white">
+        {dbProfile?.coverImage && isClaimed ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={dbProfile.coverImage} alt="" className="h-40 w-full object-cover md:h-56" />
+        ) : (
+          <div className="h-24 w-full bg-gradient-to-r from-navy via-navy to-softblue md:h-32" aria-hidden="true" />
+        )}
 
-      {/* ── COVER PHOTO ────────────────────────────────────────────────── */}
-      {dbProfile?.coverImage && (
-        <div className="w-full h-48 md:h-64 lg:h-80 bg-gray-200">
-          <img src={dbProfile.coverImage} alt="Cover" className="w-full h-full object-cover" />
-        </div>
-      )}
-
-      {/* ── HERO ───────────────────────────────────────────────────────── */}
-      <section className="bg-white border-b border-gray-100 shadow-sm relative">
-        <div className="max-w-5xl mx-auto px-6 pt-10 pb-8">
-          <div className="flex flex-col md:flex-row gap-6 items-start">
-
-            {/* Avatar */}
-            <div className={`relative shrink-0 ${dbProfile?.coverImage ? '-mt-20' : ''}`}>
-              <div className="w-28 h-28 bg-gradient-to-br from-[#e8f4f5] to-[#d0ecee] rounded-3xl flex items-center justify-center border-4 border-white shadow-lg shadow-[#2FA4A9]/10 overflow-hidden relative z-10">
-                {dbProfile?.avatarImage ? (
-                  <img src={dbProfile.avatarImage} alt={data.Full_Name} className="w-full h-full object-cover" />
-                ) : (
-                  <User className="w-12 h-12 text-[#2FA4A9]/40" />
-                )}
-              </div>
-              {isActive && (
-                <div className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full bg-white border-2 border-white flex items-center justify-center shadow-md z-20">
-                  <div className="w-4 h-4 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
-                </div>
-              )}
+        <div className="mx-auto max-w-6xl px-4 pb-8 md:px-6">
+          <div className="flex flex-col gap-6 md:flex-row md:items-end">
+            <div className="-mt-14 md:-mt-16">
+              <ConsultantAvatar name={data.Full_Name} src={isClaimed ? dbProfile?.avatarImage : null} size="lg" className="border-4 border-white shadow-lg shadow-navy/10" />
             </div>
 
-            {/* Name + Meta */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-start gap-3 mb-3">
-                <h1 className="text-3xl md:text-4xl font-black font-serif tracking-tight text-[#0F172A] leading-tight">
-                  {data.Full_Name}
-                </h1>
-              </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-3xl font-bold tracking-tight text-navy md:text-4xl">{data.Full_Name}, RCIC</h1>
+              <p className="mt-1 text-sm text-gray-600">Regulated Canadian Immigration Consultant</p>
 
-              {/* Badges */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {/* CICC Registry badge - always shown */}
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold tracking-wide uppercase">
-                  <ShieldCheck className="w-3.5 h-3.5" /> CICC Verified
-                </span>
-
-                {/* Verification level badge */}
-                {emailVerified && phoneVerified && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold tracking-wide uppercase">
-                    <BadgeCheck className="w-3.5 h-3.5" /> Email + Phone Verified
-                  </span>
-                )}
-                {emailVerified && !phoneVerified && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-[11px] font-bold tracking-wide uppercase">
-                    <Mail className="w-3.5 h-3.5" /> Email Verified
-                  </span>
-                )}
-                {pendingReview && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold tracking-wide uppercase">
-                    <Clock className="w-3.5 h-3.5" /> Pending Review
-                  </span>
-                )}
-                {!isClaimed && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-50 text-gray-500 border border-gray-200 text-[11px] font-bold tracking-wide uppercase">
-                    <Lock className="w-3.5 h-3.5" /> Unclaimed
-                  </span>
-                )}
-
-                {avgRating !== null && reviews.length > 5 && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-yellow-200 text-yellow-700 text-[11px] font-bold tracking-wide uppercase">
-                    <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" /> Top Rated
-                  </span>
-                )}
-                <span className={`inline-flex items-center px-3 py-1 rounded-full border text-[11px] font-bold tracking-wide uppercase ${isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>
-                  {data.Status}
-                </span>
-              </div>
-
-              {/* Meta row */}
-              <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-gray-500 mb-4">
+              <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-gray-600">
                 {data.Company && (
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <Building2 className="w-4 h-4 text-gray-300" /> {data.Company}
-                  </span>
+                  <span className="inline-flex items-center gap-1.5"><Building2 className="h-4 w-4 text-gray-400" aria-hidden="true" /> {data.Company}</span>
                 )}
-                <span className="flex items-center gap-1.5 font-medium">
-                  <MapPin className="w-4 h-4 text-gray-300" />
-                  {[data.Province, data.Country].filter(Boolean).join(', ') || 'Canada'}
-                </span>
-                <span className="flex items-center gap-1.5 font-medium font-mono text-xs text-gray-400">
-                  RCIC #{data.License_Number}
-                </span>
+                <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-gray-400" aria-hidden="true" /> {location}</span>
+                {rating.average !== null ? (
+                  <a href="#reviews" className="inline-flex items-center gap-1.5 font-semibold text-ink hover:text-teal">
+                    <Star className="h-4 w-4 fill-warning text-warning" aria-hidden="true" /> {rating.average.toFixed(1)}
+                    <span className="font-normal text-gray-500">({rating.count} review{rating.count === 1 ? "" : "s"})</span>
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-gray-500"><Star className="h-4 w-4" aria-hidden="true" /> No reviews yet</span>
+                )}
               </div>
 
-              {/* Rating + actions row */}
-              <div className="flex flex-wrap items-center gap-3">
-                {avgRating !== null ? (
-                  <div className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-xl text-amber-700 font-bold text-sm">
-                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                    {avgRating.toFixed(1)}
-                    <span className="font-medium text-amber-600 text-xs">({reviews.length} reviews)</span>
-                  </div>
-                ) : (
-                  <div className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-100 px-3 py-1.5 rounded-xl text-gray-400 text-sm">
-                    <Star className="w-4 h-4" /> No reviews yet
-                  </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${licenceActive ? "border-success/30 bg-success/5 text-success" : "border-error/30 bg-error/5 text-error"}`}>
+                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                  CICC licence {data.License_Number} · {licenceActive ? "Active" : "Not active"}
+                </span>
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${trustTone}`}>
+                  {trust.tone === "unclaimed" ? <Lock className="h-3.5 w-3.5" aria-hidden="true" /> : trust.tone === "pending" ? <Clock className="h-3.5 w-3.5" aria-hidden="true" /> : <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />}
+                  {trust.label}
+                </span>
+                {bookable && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-teal/30 bg-teal/5 px-3 py-1 text-xs font-semibold text-teal">
+                    <Lock className="h-3.5 w-3.5" aria-hidden="true" /> Escrow-protected booking
+                  </span>
                 )}
               </div>
             </div>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col gap-2.5 w-full md:w-48 shrink-0">
-              <Link
-                href={`/consultant/${data.License_Number}/book`}
-                className="w-full bg-[#0F2A44] hover:bg-black text-white py-3.5 rounded-2xl font-bold text-center transition-all shadow-lg shadow-black/10 text-sm flex items-center justify-center gap-2"
-              >
-                <CalendarDays className="w-4 h-4" /> Book Consultation
-              </Link>
-              <div className="w-full">
-                <SaveProfileButton licenseNumber={data.License_Number} initialIsSaved={isSaved} />
-              </div>
-              {!isClaimed && (
-                <Link
-                  href={`/claim/${data.License_Number}`}
-                  className="w-full border-2 border-[#2FA4A9] text-[#2FA4A9] hover:bg-[#2FA4A9] hover:text-white py-3 rounded-2xl font-bold text-center transition-all text-sm flex items-center justify-center gap-2 group"
-                >
-                  <Sparkles className="w-4 h-4" /> Claim Profile
+            <div className="flex w-full flex-col gap-2.5 md:w-56">
+              {bookable ? (
+                <Link href={`/consultant/${data.License_Number}/book`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-navy px-5 text-sm font-bold text-white transition hover:bg-ink">
+                  <CalendarDays className="h-4 w-4" aria-hidden="true" /> Book a consultation
                 </Link>
-              )}
+              ) : !isClaimed ? (
+                <Link href={`/claim/${data.License_Number}`} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-teal px-5 text-sm font-bold text-white transition hover:bg-navy">
+                  Is this you? Claim profile
+                </Link>
+              ) : null}
+              <SaveProfileButton licenseNumber={data.License_Number} initialIsSaved={isSaved} />
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── MAIN GRID ──────────────────────────────────────────────────── */}
-      <main className="max-w-5xl mx-auto px-6 py-10 grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-        {/* LEFT (2/3) */}
-        <div className="lg:col-span-2 space-y-8">
-
-          {/* TRUST CARD */}
-          <section className="bg-white rounded-3xl border border-gray-100 p-7 shadow-sm">
-            <h3 className="text-[11px] font-black uppercase tracking-widest text-[#2FA4A9] mb-6 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4" /> Trust & Verification
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-
-              {/* CICC Status — always from registry */}
-              <div className="flex items-start gap-4">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border bg-emerald-50 border-emerald-100">
-                  <Check className="w-4 h-4 text-emerald-600" />
-                </div>
-                <div>
-                  <p className="font-bold text-sm text-gray-900">CICC Status</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{data.Status} • Entitled to Practise</p>
-                </div>
-              </div>
-
-              {/* Email Verification */}
-              <div className="flex items-start gap-4">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${emailVerified ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
-                  <Mail className={`w-4 h-4 ${emailVerified ? 'text-blue-600' : 'text-gray-400'}`} />
-                </div>
-                <div>
-                  <p className="font-bold text-sm text-gray-900">Email Verified</p>
-                  {emailVerified ? (
-                    <p className="text-xs text-blue-600 font-semibold mt-0.5">✓ Matches CICC registry</p>
-                  ) : pendingReview ? (
-                    <p className="text-xs text-amber-600 mt-0.5">Pending admin review</p>
-                  ) : (
-                    <p className="text-xs text-gray-400 mt-0.5">{isClaimed ? 'Not verified' : 'Profile unclaimed'}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Phone Verification */}
-              <div className="flex items-start gap-4">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${phoneVerified ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
-                  <Phone className={`w-4 h-4 ${phoneVerified ? 'text-blue-600' : 'text-gray-400'}`} />
-                </div>
-                <div>
-                  <p className="font-bold text-sm text-gray-900">Phone Verified</p>
-                  {phoneVerified ? (
-                    <p className="text-xs text-blue-600 font-semibold mt-0.5">✓ Matches CICC registry</p>
-                  ) : (
-                    <p className="text-xs text-gray-400 mt-0.5">{isClaimed ? 'Not verified yet' : 'Profile unclaimed'}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Disciplinary record — always clean from CICC */}
-              <div className="flex items-start gap-4">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border bg-gray-50 border-gray-100">
-                  <AlertCircle className="w-4 h-4 text-gray-400" />
-                </div>
-                <div>
-                  <p className="font-bold text-sm text-gray-900">Disciplinary Record</p>
-                  <p className="text-xs text-gray-500 mt-0.5">No public warnings</p>
-                </div>
-              </div>
+      {/* ── BODY ─────────────────────────────────────────────────────── */}
+      <main className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-4 py-10 md:px-6 lg:grid-cols-3">
+        <div className="space-y-8 lg:col-span-2">
+          {/* About */}
+          <section aria-labelledby="about">
+            <h2 id="about" className="mb-3 text-lg font-bold text-navy">About</h2>
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 text-[15px] leading-relaxed text-gray-700">
+              {bioHtml ? (
+                <div className="prose prose-sm max-w-none break-words md:prose-base prose-a:text-teal" dangerouslySetInnerHTML={{ __html: bioHtml }} />
+              ) : (
+                <p>
+                  {data.Full_Name} is listed on the College of Immigration and Citizenship Consultants (CICC) public register under licence{" "}
+                  <span className="font-mono font-semibold text-navy">{data.License_Number}</span>
+                  {data.Company ? <>, practising with {data.Company}</> : null}.{" "}
+                  {isClaimed ? `${firstName} hasn't added a bio yet.` : "The consultant hasn't claimed this profile, so details beyond the register aren't available."}
+                </p>
+              )}
             </div>
-
-            {/* Verification level summary bar */}
-            {isClaimed && (
-              <div className={`mt-5 pt-5 border-t border-gray-50 flex items-center gap-3 text-xs font-bold ${
-                emailVerified && phoneVerified ? 'text-blue-600' : emailVerified ? 'text-blue-500' : 'text-amber-600'
-              }`}>
-                {emailVerified && phoneVerified ? (
-                  <><BadgeCheck className="w-4 h-4" /> Identity verified via CICC email &amp; phone — highest trust level</>
-                ) : emailVerified ? (
-                  <><Mail className="w-4 h-4" /> Identity verified via CICC-registered email</>
-                ) : pendingReview ? (
-                  <><Clock className="w-4 h-4" /> Identity verification pending admin review</>
-                ) : (
-                  <><ShieldCheck className="w-4 h-4" /> Profile claimed — verification in progress</>
-                )}
-              </div>
-            )}
           </section>
 
-          {/* CORPORATE RECORDS */}
+          {/* Practice areas — only what the consultant chose */}
+          {specializations.length > 0 && (
+            <section aria-labelledby="practice">
+              <h2 id="practice" className="mb-3 text-lg font-bold text-navy">Areas of practice</h2>
+              <ul className="flex flex-wrap gap-2">
+                {specializations.map((item) => (
+                  <li key={item.key} className="rounded-full border border-teal/30 bg-white px-3.5 py-1.5 text-sm font-medium text-navy">{item.label}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* Services */}
+          {consultationTypes.length > 0 && (
+            <section aria-labelledby="services">
+              <h2 id="services" className="mb-3 text-lg font-bold text-navy">Consultations</h2>
+              <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                {consultationTypes.map((t) => (
+                  <li key={t.id} className="flex items-start justify-between gap-4 p-5">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-ink">{t.title}</h3>
+                      {t.description && <p className="mt-1 text-sm text-gray-600">{t.description}</p>}
+                      <p className="mt-2 flex flex-wrap gap-x-4 text-xs font-medium text-gray-500">
+                        <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" aria-hidden="true" /> {t.durationMinutes} min</span>
+                        <span className="inline-flex items-center gap-1"><CommIcon type={t.communicationType} /> {COMMUNICATION_LABELS[t.communicationType] ?? t.communicationType}</span>
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-base font-bold text-navy">{formatPrice(t.priceCents)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* Corporate records */}
           {displayEnrichments.length > 0 && (
-            <section>
-              <h2 className="text-lg font-bold font-serif mb-4">Official Corporate Records</h2>
-              <div className="space-y-4">
-                {displayEnrichments.map((enrichment: any) => {
-                  const isAuto = enrichment.matchStatus === 'ambiguous';
-                  const isConsultant = enrichment.matchStatus === 'consultant_verified';
-
-                  const cardClass = isConsultant
-                    ? "from-yellow-50 to-amber-50 border-amber-200"
-                    : isAuto
-                    ? "from-white to-gray-50 border-gray-100"
-                    : "from-[#0F2A44] to-[#163650] border-transparent text-white";
-
-                  const badgeClass = isConsultant
-                    ? "bg-amber-100 text-amber-800 border-amber-200"
-                    : isAuto
-                    ? "bg-orange-50 text-orange-700 border-orange-100"
-                    : "bg-white/10 text-white border-white/10";
-
-                  const label = isConsultant ? "Consultant Verified"
-                    : isAuto ? "Auto-Matched"
-                    : "Government Verified";
-
+            <section aria-labelledby="corporate">
+              <h2 id="corporate" className="mb-3 text-lg font-bold text-navy">Company registration</h2>
+              <div className="space-y-3">
+                {displayEnrichments.map((e) => {
+                  const label = e.matchStatus === "consultant_verified" ? "Confirmed by the consultant" : e.matchStatus === "matched" ? "Matched to government registry" : "Automatic match, not yet reviewed";
                   return (
-                    <div key={enrichment.id} className={`bg-gradient-to-br ${cardClass} rounded-3xl border p-6 shadow-sm relative overflow-hidden`}>
-                      <div className={`absolute top-0 right-0 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-bl-2xl flex items-center gap-1.5 border-b border-l ${badgeClass}`}>
-                        <CheckCircle className="w-3 h-3" /> {label}
-                      </div>
-                      {isAuto && (
-                        <div className="mb-4 text-xs bg-orange-50 border border-orange-100 text-orange-700 px-4 py-3 rounded-xl flex items-start gap-2">
-                          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                          <p><strong>Note:</strong> AI-matched from public registries. Not yet manually reviewed.</p>
-                        </div>
-                      )}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-2">
-                        {[
-                          ['Legal Name', enrichment.matchedLegalName],
-                          ['Jurisdiction', enrichment.jurisdiction],
-                          ['Registry Number', enrichment.registryNumber],
-                          ['Incorporated On', enrichment.incorporationDate ? new Date(enrichment.incorporationDate).toLocaleDateString() : 'N/A'],
-                        ].map(([label, val]) => (
-                          <div key={label}>
-                            <label className="text-xs font-bold uppercase tracking-wide text-gray-400 block mb-1">{label}</label>
-                            <div className="font-semibold">{val}</div>
-                          </div>
-                        ))}
-                        <div className="md:col-span-2">
-                          <label className="text-xs font-bold uppercase tracking-wide text-gray-400 block mb-1">Registered Address</label>
-                          <div className="font-semibold">{enrichment.registeredAddress || 'N/A'}</div>
-                        </div>
-                      </div>
+                    <div key={e.id} className="rounded-2xl border border-gray-200 bg-white p-5">
+                      <p className={`mb-3 text-xs font-semibold ${e.matchStatus === "ambiguous" ? "text-warning" : "text-success"}`}>{label}</p>
+                      <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                        <div><dt className="text-xs text-gray-500">Legal name</dt><dd className="font-semibold text-ink">{e.matchedLegalName || "—"}</dd></div>
+                        <div><dt className="text-xs text-gray-500">Jurisdiction</dt><dd className="font-semibold text-ink">{e.jurisdiction || "—"}</dd></div>
+                        <div><dt className="text-xs text-gray-500">Registry number</dt><dd className="font-mono font-semibold text-ink">{e.registryNumber}</dd></div>
+                        <div><dt className="text-xs text-gray-500">Incorporated</dt><dd className="font-semibold text-ink">{e.incorporationDate ? new Date(e.incorporationDate).toLocaleDateString("en-CA") : "—"}</dd></div>
+                      </dl>
                     </div>
                   );
                 })}
@@ -442,402 +299,237 @@ export default async function ConsultantProfilePage({
             </section>
           )}
 
-          {/* BIO */}
-          <section>
-            <h2 className="text-lg font-bold font-serif mb-4">Professional Bio</h2>
-            <div className="bg-white rounded-3xl border border-gray-100 p-7 shadow-sm text-gray-600 leading-relaxed text-[15px] space-y-4 overflow-hidden">
-              {dbProfile?.bio ? (
-                <div 
-                  className="prose prose-sm md:prose-base prose-[#2FA4A9] max-w-none break-words"
-                  style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
-                  dangerouslySetInnerHTML={{ __html: dbProfile.bio }} 
-                />
-              ) : (
-                <>
-                  <p>
-                    <strong className="text-gray-900">{data.Full_Name}</strong> is a Regulated Canadian Immigration Consultant (RCIC) operating under license{' '}
-                    <strong className="font-mono text-[#2FA4A9]">#{data.License_Number}</strong>.{' '}
-                    Based in {[data.Province, data.Country].filter(Boolean).join(', ') || 'Canada'}, they help clients navigate the Canadian immigration system.
-                  </p>
-                  <p>
-                    As a{isActive ? 'n active' : ''} member of the College of Immigration and Citizenship Consultants (CICC), they are legally authorized to provide advice on all Canadian immigration matters.
-                  </p>
-                </>
-              )}
-              {!isClaimed && (
-                <div className="mt-4 p-4 bg-gradient-to-r from-[#2FA4A9]/5 to-transparent border border-[#2FA4A9]/15 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-700">Are you {data.Full_Name}?</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Add your custom bio, services, and contact info.</p>
-                  </div>
-                  <Link
-                    href={`/claim/${data.License_Number}`}
-                    className="text-sm font-bold text-[#2FA4A9] hover:text-white bg-[#2FA4A9]/10 hover:bg-[#2FA4A9] px-5 py-2.5 rounded-xl transition-all whitespace-nowrap"
-                  >
-                    Customize Profile →
-                  </Link>
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* AREAS OF PRACTICE */}
-          <section>
-            <h2 className="text-lg font-bold font-serif mb-4">Areas of Practice</h2>
-            <div className="flex flex-wrap gap-2.5">
-              {specializations.length > 0 ? (
-                specializations.map(item => (
-                  <span key={item.key} className="px-4 py-2 rounded-xl text-sm font-medium border bg-[#2FA4A9]/5 border-[#2FA4A9]/20 text-[#2FA4A9] hover:bg-[#2FA4A9]/10 transition-colors">
-                    {item.label}
+          {/* Reviews */}
+          <section id="reviews" aria-labelledby="reviews-title" className="scroll-mt-28">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <h2 id="reviews-title" className="flex items-center gap-3 text-lg font-bold text-navy">
+                Client reviews
+                {rating.average !== null && (
+                  <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
+                    <Stars rating={rating.average} /> {rating.average.toFixed(1)} · {rating.count}
                   </span>
-                ))
-              ) : isClaimed ? (
-                <span className="text-sm font-medium text-gray-400 italic">Not specified</span>
-              ) : (
-                ['Express Entry', 'Study Permits', 'Work Permits', 'Family Sponsorship', 'Provincial Nominee Programs', 'Citizenship Applications'].map(tag => (
-                  <span key={tag} className="px-4 py-2 rounded-xl text-sm font-medium border bg-white border-gray-100 text-gray-400 transition-colors">
-                    {tag}
-                  </span>
-                ))
-              )}
-              {specializations.length === 0 && !isClaimed && (
-                <span className="text-xs text-gray-400 italic self-center">Default categories — claim to customize</span>
-              )}
-            </div>
-          </section>
-
-          {/* REVIEWS */}
-          <section>
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-4">
-                <h2 className="text-lg font-bold font-serif flex items-center gap-2">Client Reviews</h2>
-                {avgRating !== null && (
-                  <div className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-100 text-amber-700 px-3 py-1.5 rounded-xl font-bold text-sm">
-                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" /> {avgRating.toFixed(1)}
-                  </div>
                 )}
-              </div>
-              <GuestReviewButton licenseNumber={data.License_Number} consultantName={data.Full_Name.split(' ')[0]} />
+              </h2>
+              <GuestReviewButton licenseNumber={data.License_Number} consultantName={firstName} />
             </div>
 
             {reviews.length > 0 ? (
-              <div className="space-y-4">
+              <ul className="space-y-3">
                 {reviews.map((review) => {
-                  const isUnverifiedGuest = !review.userId;
-                  const reviewerName = isUnverifiedGuest ? (review.guestName || "Unverified Guest") : (review.user?.name || "Verified Client");
-                  
+                  const verified = !!review.userId && !!review.bookingId;
+                  const name = verified ? review.user?.name?.split(" ")[0] || "Verixa client" : review.guestName || "Guest";
                   return (
-                    <div key={review.id} className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star key={i} className={`w-3.5 h-3.5 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`} />
-                          ))}
-                        </div>
-                        <span className="text-xs font-medium text-gray-400">
-                          {new Date(review.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                        </span>
+                    <li key={review.id} className="rounded-2xl border border-gray-200 bg-white p-5">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <Stars rating={review.rating} size="h-3.5 w-3.5" />
+                        <span className="text-xs text-gray-500">{new Date(review.createdAt).toLocaleDateString("en-CA", { month: "short", year: "numeric" })}</span>
                       </div>
-                      {review.comment && <p className="text-[15px] text-gray-600 leading-relaxed mb-4">{review.comment}</p>}
-                      <div className="flex items-center gap-3">
-                        <div className={`inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full ${isUnverifiedGuest ? 'bg-orange-50 text-orange-700 border border-orange-100' : 'bg-gray-50 text-gray-400 border border-gray-100'}`}>
-                          <div className={`w-5 h-5 rounded-full flex items-center justify-center font-black text-[10px] ${isUnverifiedGuest ? 'bg-orange-200 text-orange-800' : 'bg-[#2FA4A9]/10 text-[#2FA4A9]'}`}>
-                            {reviewerName[0]?.toUpperCase() ?? 'U'}
-                          </div>
-                          {reviewerName}
-                        </div>
-                        {isUnverifiedGuest && (
-                          <div className="inline-flex items-center gap-1.5 bg-red-50 border border-red-100 text-red-600 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest" title="This review was submitted by a guest who is not verified by the platform.">
-                            <AlertCircle className="w-3.5 h-3.5" /> Unverified
-                          </div>
+                      {review.comment && <p className="mb-3 text-[15px] leading-relaxed text-gray-700">{review.comment}</p>}
+                      <p className="flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-600">
+                        {name}
+                        {verified ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-success"><BadgeCheck className="h-3 w-3" aria-hidden="true" /> Booked on Verixa</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-mist px-2 py-0.5 text-gray-500" title="Submitted without a Verixa booking; checked by our team before publishing.">
+                            <AlertCircle className="h-3 w-3" aria-hidden="true" /> No Verixa booking
+                          </span>
                         )}
-                      </div>
-
+                      </p>
                       {review.replyText && (
-                        <div className="mt-4 ml-6 p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-start gap-3">
-                           <div className="mt-0.5 bg-white border border-gray-200 p-1 rounded-full text-gray-400">
-                             <CheckCircle2 className="w-3.5 h-3.5" />
-                           </div>
-                           <div className="flex-1">
-                             <div className="flex items-center gap-2 mb-1.5">
-                               <h5 className="text-[13px] font-bold text-gray-900">Response from {data.Full_Name.split(' ')[0]}</h5>
-                               {review.repliedAt && <span className="text-[11px] text-gray-400 font-medium ml-auto">{new Date(review.repliedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
-                             </div>
-                             <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">
-                               {review.replyText}
-                             </p>
-                           </div>
+                        <div className="mt-4 rounded-xl border-l-4 border-teal bg-mist p-4">
+                          <p className="mb-1 text-xs font-bold text-navy">Reply from {firstName}</p>
+                          <p className="whitespace-pre-line text-sm text-gray-700">{review.replyText}</p>
                         </div>
                       )}
-                      
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             ) : (
-              <div className="bg-white rounded-3xl border border-dashed border-gray-200 p-10 text-center">
-                <MessageSquare className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-                <p className="text-sm font-semibold text-gray-400">No reviews yet</p>
-                <p className="text-xs text-gray-300 mt-1">Be the first to review this consultant.</p>
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
+                <MessageSquare className="mx-auto mb-2 h-8 w-8 text-gray-300" aria-hidden="true" />
+                <p className="text-sm font-semibold text-gray-600">No reviews yet</p>
+                <p className="mt-1 text-xs text-gray-500">Reviews from clients who booked through Verixa are marked as such.</p>
               </div>
             )}
           </section>
-
-          {/* FAQ */}
-          <section className="pt-8 border-t border-gray-100">
-            <h2 className="text-lg font-bold font-serif mb-5">Frequently Asked Questions</h2>
-            <div className="space-y-3">
-              {[
-                {
-                  q: 'Is this consultant legally authorized to practice?',
-                  a: `Yes. Status: ${data.Status}. Verified against the CICC registry today.`
-                },
-                {
-                  q: 'Are the reviews verified?',
-                  a: 'Reviews are submitted by real users. Verified Client badges confirm an actual consultation took place.'
-                }
-              ].map(({ q, a }) => (
-                <div key={q} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                  <h4 className="font-bold text-sm text-gray-900 mb-2">{q}</h4>
-                  <p className="text-sm text-gray-500 leading-relaxed">{a}</p>
-                </div>
-              ))}
-            </div>
-          </section>
         </div>
 
-        {/* RIGHT (1/3) — Sticky Sidebar */}
-        <div className="lg:col-span-1">
-          <div className="sticky top-8 space-y-5">
-
-            {/* BOOKING WIDGET */}
-            <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
-              <h3 className="text-sm font-bold text-gray-900 mb-5 flex items-center gap-2 border-b border-gray-50 pb-4">
-                <CalendarDays className="w-4 h-4 text-[#2FA4A9]" /> Request Consultation
-              </h3>
-
-              <div className="space-y-3 mb-5">
-                <div className="bg-[#F8FAFC] hover:bg-[#f0f7f8] p-4 rounded-2xl border border-gray-100 cursor-pointer transition-all group">
-                  <div className="flex justify-between items-center mb-1">
-                    <strong className="text-sm text-gray-900">Virtual Consultation</strong>
-                    <span className="text-sm font-bold text-[#2FA4A9]">$150 CAD</span>
-                  </div>
-                  <p className="text-xs text-gray-500">45 min • Google Meet / Zoom</p>
-                </div>
-
-                {!isClaimed && (
-                  <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3.5 flex items-start gap-2.5">
-                    <div className="w-4 h-4 rounded-full bg-amber-200 flex items-center justify-center shrink-0 mt-0.5">
-                      <Lock className="w-2.5 h-2.5 text-amber-700" />
-                    </div>
-                    <p className="text-xs text-amber-700 leading-relaxed">
-                      Booking disabled. This profile hasn't been claimed yet.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <button
-                  disabled={!isClaimed}
-                  className={`w-full py-3.5 rounded-2xl font-bold text-sm text-center transition-all ${
-                    isClaimed
-                      ? 'bg-[#0F2A44] text-white hover:bg-black shadow-md shadow-black/10'
-                      : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-100'
-                  }`}
-                >
-                  Select Time & Book
-                </button>
-
-                {!isClaimed && (
-                  <Link
-                    href={`/claim/${data.License_Number}`}
-                    className="block w-full py-3.5 rounded-2xl font-bold text-sm text-center border-2 border-[#2FA4A9] text-[#2FA4A9] hover:bg-[#2FA4A9] hover:text-white transition-all"
-                  >
-                    Claim to Enable Booking
+        {/* ── SIDEBAR ─────────────────────────────────────────────────── */}
+        <aside className="lg:col-span-1">
+          <div className="space-y-5 lg:sticky lg:top-28">
+            {/* Booking */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-6">
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-navy">
+                <CalendarDays className="h-4 w-4 text-teal" aria-hidden="true" /> Book a consultation
+              </h2>
+              {bookable ? (
+                <>
+                  <p className="mb-1 text-sm text-gray-600">
+                    {consultationTypes.length} option{consultationTypes.length === 1 ? "" : "s"}, from{" "}
+                    <strong className="text-navy">{formatPrice(consultationTypes[0].priceCents)}</strong>
+                  </p>
+                  <p className="mb-5 text-xs text-gray-500">Pick a time on the next page. Times show in your time zone.</p>
+                  <Link href={`/consultant/${data.License_Number}/book`} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-navy text-sm font-bold text-white hover:bg-ink">
+                    See available times <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
-                )}
-
-                <p className="text-center text-[10px] font-semibold uppercase tracking-widest text-gray-400 flex items-center justify-center gap-1.5 pt-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Secure Verixa Checkout
-                </p>
-              </div>
+                  <ul className="mt-5 space-y-2 border-t border-gray-100 pt-4 text-xs text-gray-600">
+                    <li className="flex gap-2"><Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal" aria-hidden="true" /> Payment held in escrow by Stripe until the consultant accepts.</li>
+                    <li className="flex gap-2"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal" aria-hidden="true" /> Declined or cancelled before the session: released or refunded in full.</li>
+                  </ul>
+                </>
+              ) : (
+                <div className="rounded-xl border border-gray-200 bg-mist p-4 text-sm text-gray-600">
+                  <p className="font-semibold text-ink">Online booking isn&apos;t available</p>
+                  <p className="mt-1">
+                    {!gate.ok
+                      ? gate.error
+                      : consultationTypes.length === 0
+                        ? `${firstName} hasn't published consultation types yet.`
+                        : `${firstName} hasn't set availability yet.`}
+                  </p>
+                  <Link href="/search" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-teal hover:underline">
+                    Find a bookable consultant <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Link>
+                </div>
+              )}
             </div>
 
-            {/* DETAILS & CONTACT */}
-            <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
-              <h3 className="text-[11px] font-black uppercase tracking-widest text-[#2FA4A9] mb-5">
-                Details & Contact
-              </h3>
-              <ul className="space-y-5">
-                <li className="flex gap-3 items-start">
-                  <div className="w-8 h-8 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center shrink-0">
-                    <Languages className="w-4 h-4 text-gray-400" />
-                  </div>
-                  <div>
-                    <strong className="block text-[11px] uppercase tracking-widest text-gray-400 font-bold mb-1">Languages</strong>
-                    <span className="text-sm font-medium text-gray-800">{languages.join(', ')}</span>
-                  </div>
+            {/* Verification */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-6">
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-navy">
+                <ShieldCheck className="h-4 w-4 text-teal" aria-hidden="true" /> Verification
+              </h2>
+              <ul className="space-y-4 text-sm">
+                <li>
+                  <p className="font-semibold text-ink">CICC register</p>
+                  <p className="text-gray-600">
+                    Licence {data.License_Number} is listed as {licenceActive ? "entitled to practise" : `"${data.Status}" (not active)`}.{" "}
+                    <a href="https://register.college-ic.ca/Public-Register-EN/RCIC_Search.aspx" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 font-semibold text-teal hover:underline">
+                      Check the register <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                    </a>
+                  </p>
                 </li>
-
-                {data.Company && (
-                  <li className="flex gap-3 items-start">
-                    <div className="w-8 h-8 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center shrink-0">
-                      <Building2 className="w-4 h-4 text-gray-400" />
-                    </div>
-                    <div>
-                      <strong className="block text-[11px] uppercase tracking-widest text-gray-400 font-bold mb-1">Company</strong>
-                      <span className="text-sm font-medium text-gray-800 line-clamp-2">{data.Company}</span>
-                    </div>
-                  </li>
-                )}
-
-                {(data.Province || data.Country) && (
-                  <li className="flex gap-3 items-start">
-                    <div className="w-8 h-8 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center shrink-0">
-                      <MapPin className="w-4 h-4 text-gray-400" />
-                    </div>
-                    <div>
-                      <strong className="block text-[11px] uppercase tracking-widest text-gray-400 font-bold mb-1">Location</strong>
-                      <span className="text-sm font-medium text-gray-800">{[data.Province, data.Country].filter(Boolean).join(', ')}</span>
-                    </div>
-                  </li>
-                )}
-
-                <li className="flex gap-3 items-start">
-                  <div className="w-8 h-8 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center shrink-0">
-                    <Mail className="w-4 h-4 text-gray-400" />
-                  </div>
-                  <div>
-                    <strong className="block text-[11px] uppercase tracking-widest text-gray-400 font-bold mb-1">Email</strong>
-                    {data.Email ? (
-                      isClaimed ? (
-                        <a href={`mailto:${data.Email}`} className="text-sm font-semibold text-[#2FA4A9] hover:text-[#258d92] underline block max-w-[180px] truncate">
-                          {data.Email}
-                        </a>
-                      ) : (
-                        <span className="text-sm font-semibold text-gray-500 flex items-center gap-1.5" title="Claim profile to reveal">
-                          {data.Email.includes('@') ? `${data.Email.substring(0, 2)}***@${data.Email.split('@')[1]}` : '***'}
-                          <Lock className="w-3 h-3 text-gray-400" />
-                        </span>
-                      )
-                    ) : (
-                      <span className="text-sm text-gray-400 italic">Available upon booking</span>
-                    )}
-                  </div>
+                <li>
+                  <p className="font-semibold text-ink">Identity on Verixa</p>
+                  <p className="text-gray-600">{trust.detail}</p>
+                  {isClaimed && (
+                    <p className="mt-2 flex flex-wrap gap-2 text-xs">
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${trust.emailMatched ? "bg-success/10 text-success" : "bg-mist text-gray-500"}`}>
+                        <Mail className="h-3 w-3" aria-hidden="true" /> Email {trust.emailMatched ? "matches register" : "not matched"}
+                      </span>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${trust.phoneMatched ? "bg-success/10 text-success" : "bg-mist text-gray-500"}`}>
+                        <Phone className="h-3 w-3" aria-hidden="true" /> Phone {trust.phoneMatched ? "matches register" : "not matched"}
+                      </span>
+                    </p>
+                  )}
                 </li>
-
-                {data.Phone && (
-                  <li className="flex gap-3 items-start">
-                    <div className="w-8 h-8 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center shrink-0">
-                      <Phone className="w-4 h-4 text-gray-400" />
-                    </div>
-                    <div>
-                      <strong className="block text-[11px] uppercase tracking-widest text-gray-400 font-bold mb-1">Phone</strong>
-                      {isClaimed ? (
-                        <span className="text-sm font-medium text-gray-800">{data.Phone}</span>
-                      ) : (
-                        <span className="text-sm font-medium text-gray-500 flex items-center gap-1.5" title="Claim profile to reveal">
-                          {data.Phone?.substring(0, 5) ?? '+1 **'}*****
-                          <Lock className="w-3 h-3 text-gray-400" />
-                        </span>
-                      )}
-                    </div>
-                  </li>
-                )}
               </ul>
             </div>
+
+            {/* Contact & details */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-6">
+              <h2 className="mb-4 text-sm font-bold text-navy">Details</h2>
+              <dl className="space-y-4 text-sm">
+                {languages.length > 0 && (
+                  <div className="flex gap-3">
+                    <Languages className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+                    <div><dt className="text-xs text-gray-500">Languages</dt><dd className="font-medium text-ink">{languages.join(", ")}</dd></div>
+                  </div>
+                )}
+                {dbProfile?.offersInPerson && dbProfile.officeAddress && isClaimed && (
+                  <div className="flex gap-3">
+                    <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+                    <div><dt className="text-xs text-gray-500">Office</dt><dd className="font-medium text-ink">{dbProfile.officeAddress}</dd></div>
+                  </div>
+                )}
+                {dbProfile?.website && isClaimed && (
+                  <div className="flex gap-3">
+                    <Globe className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <dt className="text-xs text-gray-500">Website</dt>
+                      <dd><a href={dbProfile.website} target="_blank" rel="noopener noreferrer nofollow" className="block truncate font-medium text-teal hover:underline">{dbProfile.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}</a></dd>
+                    </div>
+                  </div>
+                )}
+                {data.Email && (
+                  <div className="flex gap-3">
+                    <Mail className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <dt className="text-xs text-gray-500">Email (CICC register)</dt>
+                      <dd className="truncate font-medium text-ink">
+                        {isClaimed ? <a href={`mailto:${data.Email}`} className="text-teal hover:underline">{data.Email}</a> : <span title="Shown in full once the consultant claims the profile">{maskEmail(data.Email)}</span>}
+                      </dd>
+                    </div>
+                  </div>
+                )}
+                {data.Phone && isClaimed && (
+                  <div className="flex gap-3">
+                    <Phone className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+                    <div><dt className="text-xs text-gray-500">Phone (CICC register)</dt><dd className="font-medium text-ink">{data.Phone}</dd></div>
+                  </div>
+                )}
+              </dl>
+            </div>
+
+            {!isClaimed && (
+              <div className="rounded-2xl border border-teal/30 bg-white p-6">
+                <p className="text-sm font-semibold text-navy">Are you {data.Full_Name}?</p>
+                <p className="mt-1 text-sm text-gray-600">Claim this profile with your CICC register email to add your photo, services and availability.</p>
+                <Link href={`/claim/${data.License_Number}`} className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-teal hover:underline">
+                  Claim profile <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </Link>
+              </div>
+            )}
           </div>
-        </div>
+        </aside>
       </main>
 
-      {/* ── RELATED & TOP SECTIONS ───────────────────────────────────────── */}
-      <section className="max-w-5xl mx-auto px-6 py-10 border-t border-gray-100">
-        
-        {/* RELATED CONSULTANTS */}
-        {relatedConsultants.length > 0 && (
-          <div className="mb-14">
-            <h2 className="text-2xl font-black font-serif mb-6 text-[#0F2A44] flex items-center gap-2">
-              <Users className="w-6 h-6 text-[#2FA4A9]" /> Related Consultants {data.Province && `in ${data.Province}`}
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              {relatedConsultants.map((c) => (
-                <Link href={`/consultant/${c.License_Number}`} key={c.License_Number} className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-shadow group flex flex-col items-center text-center">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#e8f4f5] to-[#d0ecee] mb-4 flex items-center justify-center border-2 border-white shadow-sm overflow-hidden text-[#2FA4A9]">
-                     <User className="w-8 h-8 opacity-50" />
-                  </div>
-                  <h3 className="font-bold text-gray-900 group-hover:text-[#2FA4A9] transition-colors">{c.Full_Name}</h3>
-                  <p className="text-xs text-gray-500 mt-1">{c.Province || 'Canada'}</p>
-                  <p className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mt-3 border px-3 py-1 rounded-full">{c.Status}</p>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* TOP CONSULTANTS */}
-        {topConsultants.length > 0 && (
-          <div className="mb-14">
-            <h2 className="text-2xl font-black font-serif mb-6 text-[#0F2A44] flex items-center gap-2">
-              <Award className="w-6 h-6 text-amber-500" /> Top Active Consultants
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              {topConsultants.map((c) => (
-                <Link href={`/consultant/${c.License_Number}`} key={c.License_Number} className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm hover:shadow-md hover:border-amber-200 transition-all group flex flex-col items-center text-center relative overflow-hidden">
-                  <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-amber-200 to-amber-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-50 to-amber-100 mb-4 flex items-center justify-center border-2 border-white shadow-sm overflow-hidden text-amber-500">
-                     <Award className="w-8 h-8 opacity-50" />
-                  </div>
-                  <h3 className="font-bold text-gray-900 group-hover:text-amber-600 transition-colors">{c.Full_Name}</h3>
-                  <p className="text-xs text-gray-500 mt-1">{c.Company || c.Province || 'Canada'}</p>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* RELATED ARTICLES */}
-        {relatedArticles.length > 0 && (
-          <div>
-            <h2 className="text-2xl font-black font-serif mb-6 text-[#0F2A44] flex items-center gap-2">
-              <FileCheck className="w-6 h-6 text-[#2FA4A9]" /> Helpful Articles & Guides
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              {relatedArticles.map((article) => (
-                <Link href={`/blog/${article.slug}`} key={article.id} className="bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow group overflow-hidden flex flex-col">
-                  {article.coverImage ? (
-                    <div className="w-full h-40 bg-gray-100 overflow-hidden">
-                      <img src={article.coverImage} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+      {/* ── RELATED ──────────────────────────────────────────────────── */}
+      {(related.length > 0 || relatedArticles.length > 0) && (
+        <section className="mx-auto max-w-6xl border-t border-gray-200 px-4 py-10 md:px-6">
+          {related.length > 0 && (
+            <div className="mb-12">
+              <h2 className="mb-5 text-xl font-bold text-navy">Other consultants{data.Province ? ` in ${data.Province}` : ""}</h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {related.map((c) => (
+                  <Link key={c.licenseNumber} href={`/consultant/${c.licenseNumber}`} className="group flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 transition hover:shadow-lg hover:shadow-navy/5">
+                    <ConsultantAvatar name={c.fullName} src={c.userId ? c.avatarImage : null} size="md" />
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-navy group-hover:text-teal">{c.fullName}, RCIC</p>
+                      <p className="truncate text-xs text-gray-500">{c.company || "Independent practice"}</p>
+                      <p className="mt-1 text-[11px] font-semibold text-gray-500">Licence {c.licenseNumber}{c.userId ? " · On Verixa" : ""}</p>
                     </div>
-                  ) : (
-                    <div className="w-full h-40 bg-gradient-to-br from-[#2FA4A9]/10 to-[#163650]/10 flex items-center justify-center text-[#2FA4A9]">
-                      <FileCheck className="w-10 h-10 opacity-30" />
-                    </div>
-                  )}
-                  <div className="p-5 flex-1 flex flex-col">
-                    <span className="text-[10px] font-bold text-[#2FA4A9] uppercase tracking-widest mb-2">{article.category.replace(/_/g, ' ')}</span>
-                    <h3 className="font-bold text-gray-900 group-hover:text-[#2FA4A9] transition-colors line-clamp-2 mb-2">{article.title}</h3>
-                    <p className="text-xs text-gray-500 line-clamp-3 mb-4 flex-1">{article.summary}</p>
-                    {article.author && (
-                      <div className="flex items-center gap-2 mt-auto pt-4 border-t border-gray-50">
-                        {article.author.image ? (
-                          <img src={article.author.image} alt={article.author.name || ''} className="w-6 h-6 rounded-full" />
-                        ) : (
-                          <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-400">
-                            {article.author.name?.[0]?.toUpperCase() || 'A'}
-                          </div>
-                        )}
-                        <span className="text-[11px] font-medium text-gray-600">{article.author.name}</span>
-                      </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {relatedArticles.length > 0 && (
+            <div>
+              <h2 className="mb-5 text-xl font-bold text-navy">Helpful guides</h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {relatedArticles.map((article) => (
+                  <Link key={article.id} href={`/blog/${article.slug}`} className="group flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:shadow-lg hover:shadow-navy/5">
+                    {article.coverImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={article.coverImage} alt="" className="h-40 w-full object-cover" />
+                    ) : (
+                      <div className="h-40 w-full bg-gradient-to-br from-navy to-teal" aria-hidden="true" />
                     )}
-                  </div>
-                </Link>
-              ))}
+                    <div className="flex flex-1 flex-col p-5">
+                      <span className="mb-2 text-[11px] font-bold uppercase tracking-wide text-teal">{article.category.replace(/_/g, " ")}</span>
+                      <h3 className="mb-2 line-clamp-2 font-semibold text-navy group-hover:text-teal">{article.title}</h3>
+                      <p className="line-clamp-3 text-sm text-gray-600">{article.summary}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-
-      </section>
+          )}
+        </section>
+      )}
 
       <Footer />
     </div>

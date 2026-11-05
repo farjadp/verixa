@@ -8,6 +8,7 @@ import { Elements } from "@stripe/react-stripe-js";
 import { getAvailableSlots, createBookingRequest, type PublicBookingConfig } from "@/actions/booking.actions";
 import { createPaymentIntentAction } from "@/actions/stripe.actions";
 import CountrySelect from "@/components/ui/CountrySelect";
+import { firstNameOf } from "@/components/consultant/ConsultantAvatar";
 import StripePaymentForm from "./StripePaymentForm";
 import { addDaysToDateString, dateStringInTimeZone, dayOfWeekForDate } from "@/lib/timezone";
 import { COMMUNICATION_LABELS, formatPrice } from "@/lib/verification";
@@ -295,7 +296,7 @@ export default function BookingFlow({ profile, sessionUser }: { profile: PublicB
               </div>
               {!sameZone && (
                 <p className="mb-3 text-xs text-gray-500">
-                  Times are shown in your time zone. {profile.fullName.split(" ")[0]} works in {profile.timezone.replace(/_/g, " ")}.
+                  Times are shown in your time zone. {firstNameOf(profile.fullName)} works in {profile.timezone.replace(/_/g, " ")}.
                 </p>
               )}
               {!selectedDate ? (

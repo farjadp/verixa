@@ -92,7 +92,10 @@ and the output is rejected if it contains numbers that are not in the input.
 |---|---|
 | Touch 1 | "Your CICC listing is on Verixa" + link to their public profile. No ask beyond "take a look". |
 | Touch 2 | Real data, if any (profile views or searches in their city or specialization). If there is no data, a useful note about how clients search for consultants. Soft invite to claim. |
-| Touch 3 (last) | Founding offer: free for 1 year, the price from year 2, cancel anytime, deadline or cohort size. Then silence. |
+| Touch 3 (last) | Founding offer, read live from the admin through `getActiveFoundingOffer()`: free months, plan, price afterwards, cancel anytime, remaining slots or deadline. Then silence. If there is no active offer, touch 3 is skipped and the sequence ends after touch 2. |
+
+The offer and its prices are managed by the founder in the admin (plans + offers).
+They are never hardcoded in templates.
 
 ## 5. Lead lifecycle
 
@@ -182,9 +185,12 @@ twice.
 - Recipient: `rawEmail` from the CICC registry. This is a conspicuously published
   business address, so it qualifies for CASL implied consent when the message is
   relevant to their practice.
-- Sent through Resend from a dedicated subdomain (for example
-  `hello@outreach.getverixa.com`), so cold mail cannot damage deliverability of booking
-  and receipt mail.
+- Sent through Resend from the dedicated subdomain `outreach.getverixa.com` (for
+  example `farjad@outreach.getverixa.com`), so cold mail cannot damage deliverability of
+  booking and receipt mail. The sender address comes from `OUTREACH_FROM_EMAIL`.
+- The CASL footer address comes from `OUTREACH_MAILING_ADDRESS`. Email sending
+  refuses to run while it is unset. It must be a full postal address or a PO box; a
+  postal code alone does not satisfy CASL.
 - Message format: plain-text style; no tracking pixels; `List-Unsubscribe` header and a
   one-click unsubscribe link; sender name, Verixa and a mailing address in the footer.
 - Bounces and complaints from the existing Resend webhook trigger suppression.
@@ -195,10 +201,11 @@ twice.
 ### LinkedIn
 - Matching: the worker searches name + "RCIC" / company / city and scores the match.
   A match is accepted only when `matchConfidence ≥ 0.8`.
-- Messaging a non-connection requires a connection invite first. Free accounts can
-  attach only a few personalized notes per month, so invites go out without a note
-  unless the account is Premium (see open questions). Touches start after the invite
-  is accepted.
+- The founder's account is LinkedIn Premium. Touch 1 is a connection invite with a
+  personalized note of at most 300 characters. Touches 2 and 3 go out as messages
+  once the invite is accepted. If the invite is still pending after 21 days, it is
+  withdrawn and the lead is reassigned to email. InMail credits are not used in
+  phase 1.
 - Invites count toward the daily cap of 5.
 
 ### X
@@ -246,10 +253,12 @@ twice.
 
 ## 11. Open questions
 
-1. **Year-2 price**, plus deadline or cohort size for the founding offer. Touch 3
-   cannot be written without these.
-2. **LinkedIn Premium or Sales Navigator?** This decides whether invites carry a note
-   and whether InMail is available.
-3. **Mailing address for the CASL footer.**
-4. **Sending subdomain:** confirm `outreach.getverixa.com` (or another name) and set up
-   SPF, DKIM and DMARC for it.
+Resolved:
+- **Offer and prices:** managed in the admin (plans + offers work on branch
+  `admin-plans-offers`). Outreach reads them through `getActiveFoundingOffer()`.
+- **LinkedIn:** Premium, so invites carry notes.
+- **Sending subdomain:** `outreach.getverixa.com` on Resend, with DNS on Vercel.
+
+Open:
+1. **Full mailing address for the CASL footer.** Only the postal code (L3Y 2C9) has
+   been given. Either a street address or a PO box works.

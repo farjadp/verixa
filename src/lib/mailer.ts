@@ -1,12 +1,13 @@
 import { Resend } from 'resend';
 import { prisma } from './prisma';
+import { formatInTimeZone } from "@/lib/timezone";
 
 const resend = new Resend(process.env.RESEND_API_KEY || "re_dummy_key_for_dev");
 
 // ── Security: HTML escape for all user-controlled values interpolated into email templates.
 // Prevents stored/reflected XSS if a malicious user sets their name or description to
 // something like: <script>...</script> or "><img src=x onerror=alert(1)>.
-function escapeHtml(unsafe: any): string {
+export function escapeHtml(unsafe: unknown): string {
   if (unsafe === null || unsafe === undefined) return '';
   return String(unsafe)
     .replace(/&/g, '&amp;')
@@ -47,7 +48,7 @@ export async function sendClientReceiptEmail(to: string, data: any) {
       <div style="background: #ffffff; border: 1px solid #F5F7FA; padding: 24px; border-radius: 8px; margin-bottom: 32px;">
         <p style="margin: 0 0 16px 0;"><strong>Consultant:</strong> ${escapeHtml(data.consultantName)}</p>
         <p style="margin: 0 0 16px 0;"><strong>Service:</strong> ${escapeHtml(data.serviceNeeded) || 'Consultation'}</p>
-        <p style="margin: 0 0 16px 0;"><strong>Proposed Time:</strong> ${escapeHtml(new Date(data.scheduledStart).toLocaleString())}</p>
+        <p style="margin: 0 0 16px 0;"><strong>Proposed Time:</strong> ${escapeHtml(formatInTimeZone(data.scheduledStart, data.timeZone))}</p>
         <p style="margin: 0;"><strong>Method:</strong> ${escapeHtml(data.preferredCommunicationMethod) || 'Online'}</p>
       </div>
 
@@ -151,13 +152,13 @@ export async function sendNewBookingEmail(consultantEmail: string, data: any) {
     
     <div style="background-color: #F8F9FA; padding: 16px; border-radius: 8px; margin: 16px 0;">
       <p style="margin: 0 0 8px 0;"><strong>Service:</strong> ${escapeHtml(data.serviceNeeded) || 'General Consultation'}</p>
-      <p style="margin: 0 0 8px 0;"><strong>Requested Time:</strong> ${escapeHtml(new Date(data.scheduledStart).toLocaleString())}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Requested Time:</strong> ${escapeHtml(formatInTimeZone(data.scheduledStart, data.timeZone))}</p>
       <p style="margin: 0;"><strong>Short Case Summary:</strong> <br/> ${escapeHtml(data.caseDescription) || 'No description provided.'}</p>
     </div>
 
     <p>Please review and confirm or decline this request as soon as possible.</p>
 
-    <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/consultant/bookings" style="${buttonStyle}">Review & Respond</a>
+    <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard/booking" style="${buttonStyle}">Review & Respond</a>
     
     <p style="font-size: 12px; color: #6c757d;">This is an automated notification from Verixa.</p>
   </div>`;
@@ -175,7 +176,7 @@ export async function sendBookingCancelledEmail(email: string, role: "CLIENT" | 
   const html = `
   <div style="${baseStyles}">
     <h2 style="color: #0F2A44;">Booking Cancelled</h2>
-    <p>The scheduled consultation for <strong>${new Date(data.scheduledStart).toLocaleString()}</strong> has been cancelled.</p>
+    <p>The scheduled consultation for <strong>${formatInTimeZone(data.scheduledStart, data.timeZone)}</strong> has been cancelled.</p>
     
     <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard" style="${buttonStyle}">View Dashboard</a>
     
@@ -184,7 +185,7 @@ export async function sendBookingCancelledEmail(email: string, role: "CLIENT" | 
 
   return sendEmail({
     to: email,
-    subject: `Booking Cancelled - ${new Date(data.scheduledStart).toLocaleDateString()}`,
+    subject: `Booking Cancelled - ${formatInTimeZone(data.scheduledStart, data.timeZone, { dateOnly: true })}`,
     html,
     from: 'Verixa <notifications@getverixa.com>',
     type: "BOOKING_CANCELLED"
@@ -198,7 +199,7 @@ export async function sendBookingConfirmedEmail(clientEmail: string, data: any) 
     <p>Your consultation request has been confirmed by the consultant.</p>
     
     <div style="background-color: #F8F9FA; padding: 16px; border-radius: 8px; margin: 16px 0;">
-      <p style="margin: 0 0 8px 0;"><strong>Date & Time:</strong> ${new Date(data.scheduledStart).toLocaleString()}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Date & Time:</strong> ${formatInTimeZone(data.scheduledStart, data.timeZone)}</p>
       <p style="margin: 0 0 8px 0;"><strong>Meeting Link:</strong> ${data.meetingLink ? `<a href="${data.meetingLink}">Join Meeting</a>` : 'Will be provided shortly.'}</p>
     </div>
 
@@ -209,7 +210,7 @@ export async function sendBookingConfirmedEmail(clientEmail: string, data: any) 
 
   return sendEmail({
     to: clientEmail,
-    subject: `Booking Confirmed for ${new Date(data.scheduledStart).toLocaleDateString()}`,
+    subject: `Booking Confirmed for ${formatInTimeZone(data.scheduledStart, data.timeZone, { dateOnly: true })}`,
     html,
     from: 'Verixa <notifications@getverixa.com>',
     type: "BOOKING_CONFIRMED"

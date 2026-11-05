@@ -28,7 +28,7 @@ export default async function ClientBookingsPage() {
 
   const bookings = await prisma.booking.findMany({
     where: { 
-      userEmail: session.user.email 
+      userEmail: { equals: session.user.email, mode: "insensitive" },
     },
     include: {
       profile: true,

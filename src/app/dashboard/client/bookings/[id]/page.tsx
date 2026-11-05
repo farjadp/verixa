@@ -30,10 +30,10 @@ export default async function BookingDetailsPage({
 
   const { id } = await params;
 
-  const booking = await prisma.booking.findUnique({
-    where: { 
+  const booking = await prisma.booking.findFirst({
+    where: {
       id,
-      userEmail: session.user.email 
+      userEmail: { equals: session.user.email, mode: "insensitive" },
     },
     include: {
       profile: true,

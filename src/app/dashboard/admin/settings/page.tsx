@@ -11,17 +11,14 @@
 // Security Notes: Enforce ADMIN authorization server-side before reads/writes and before rendering sensitive payloads.
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import PlatformSettingsClient from "./PlatformSettingsClient";
+import { requireAdminPage } from "../_lib/guard";
 
 export default async function SettingsPage() {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") redirect("/login");
+  await requireAdminPage();
 
-  const settings = await prisma.platformSetting.findMany();
+  const settings = await prisma.platformSetting.findMany({ take: 1000 });
   const settingsMap = settings.reduce((acc, curr) => ({
     ...acc,
     [curr.key]: curr.value

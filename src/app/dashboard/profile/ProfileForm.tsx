@@ -76,9 +76,13 @@ export default function ProfileForm({ profile, unlimitedMessengers, unlimitedSpe
     try {
       const formData = new FormData();
       formData.append("image", file);
-      const url = await uploadConsultantImageAction(formData);
-      if (type === 'avatar') setAvatarImage(url);
-      else setCoverImage(url);
+      const res = await uploadConsultantImageAction(formData);
+      if (!res.ok) {
+        alert(res.error);
+        return;
+      }
+      if (type === 'avatar') setAvatarImage(res.url);
+      else setCoverImage(res.url);
     } catch (err) {
       alert("Upload failed: " + (err as Error).message);
     }
@@ -99,7 +103,7 @@ export default function ProfileForm({ profile, unlimitedMessengers, unlimitedSpe
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateConsultantProfile({
+      const res = await updateConsultantProfile({
         avatarImage,
         coverImage,
         website,
@@ -110,7 +114,11 @@ export default function ProfileForm({ profile, unlimitedMessengers, unlimitedSpe
         officeAddress: offersInPerson ? officeAddress : "",
         ...(bioFeature ? { bio } : {}),
       });
-      alert("Profile Saved Successfully!");
+      if (!res.success) {
+        alert(res.error);
+        return;
+      }
+      alert("Profile saved.");
       router.refresh();
     } catch (err) {
       alert("Error saving: " + (err as Error).message);

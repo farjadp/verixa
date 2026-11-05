@@ -12,18 +12,15 @@
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import { format } from "date-fns";
 import { User, CalendarDays, Clock, MapPin, Video, FileText, Banknote, ShieldCheck, Mail, ArrowLeft, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { requireAdminPage } from "../../_lib/guard";
 
 export default async function AdminBookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") redirect("/login");
+  await requireAdminPage();
 
   const booking = await prisma.booking.findUnique({
     where: { id },

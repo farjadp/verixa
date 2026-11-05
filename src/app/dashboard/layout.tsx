@@ -12,7 +12,7 @@
 // Failure Strategy: Redirect unauthenticated users before any sensitive data fetch or render.
 // ============================================================================
 import Link from "next/link";
-import { LogOut, ShieldCheck, Bell, Share2 } from "lucide-react";
+import { LogOut, ShieldCheck, Bell, Share2, Menu } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { redirect } from "next/navigation";
@@ -30,8 +30,11 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const role = (session.user as any).role || "CLIENT";
+  const role = session.user?.role || "USER";
   const isConsultant = role === "CONSULTANT";
+  const consultantLicense = isConsultant
+    ? (await prisma.consultantProfile.findUnique({ where: { userId: session.user.id }, select: { licenseNumber: true } }))?.licenseNumber
+    : null;
 
   const unreadNotifications = await prisma.notification.count({
     where: {
@@ -60,9 +63,9 @@ export default async function DashboardLayout({
         {/* Bottom Actions */}
         <div className="p-4 border-t border-[#e5e7eb] space-y-1">
           {isConsultant && (
-            <Link href="/dashboard/verification" className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-green-700 bg-green-50 hover:bg-green-100 transition-colors">
+            <Link href="/dashboard/verification" className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-navy hover:bg-mist transition-colors">
               <ShieldCheck className="w-5 h-5 opacity-70" />
-              Verified Status
+              Verification
             </Link>
           )}
           <Link href="/api/auth/signout" className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors">
@@ -76,9 +79,22 @@ export default async function DashboardLayout({
       <div className="flex-1 flex flex-col min-w-0 max-h-screen overflow-y-auto">
         
         {/* DASHBOARD HEADER */}
-        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-[#e5e7eb] flex items-center justify-between px-8 sticky top-0 z-30">
-          <div className="font-bold text-lg text-[#1A1F2B]">
-             Dashboard
+        <header className="h-16 md:h-20 bg-white/80 backdrop-blur-md border-b border-[#e5e7eb] flex items-center justify-between px-4 md:px-8 sticky top-0 z-30">
+          <div className="flex items-center gap-3">
+            {/* Mobile navigation: the sidebar is hidden below md */}
+            <details className="relative md:hidden">
+              <summary className="list-none cursor-pointer rounded-xl border border-[#e5e7eb] p-2 text-navy" aria-label="Open menu">
+                <Menu className="w-5 h-5" aria-hidden="true" />
+              </summary>
+              <div className="absolute left-0 top-12 z-40 w-72 max-h-[75vh] overflow-y-auto rounded-2xl border border-[#e5e7eb] bg-white shadow-xl">
+                <SidebarNav role={role} />
+                <div className="border-t border-[#e5e7eb] p-3">
+                  {isConsultant && <Link href="/dashboard/verification" className="block rounded-xl px-4 py-2.5 text-sm font-bold text-navy hover:bg-mist">Verification</Link>}
+                  <Link href="/api/auth/signout" className="block rounded-xl px-4 py-2.5 text-sm font-bold text-gray-500 hover:bg-mist">Sign out</Link>
+                </div>
+              </div>
+            </details>
+            <div className="font-bold text-lg text-[#1A1F2B]">Dashboard</div>
           </div>
           <div className="flex items-center gap-4">
              <Link href="/dashboard/notifications" className="relative p-2 text-gray-500 hover:text-[#1A1F2B] transition-colors rounded-full hover:bg-gray-100">
@@ -87,10 +103,10 @@ export default async function DashboardLayout({
                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></span>
                )}
              </Link>
-             {isConsultant && (
-               <button className="flex items-center gap-2 border border-[#e5e7eb] bg-[#ffffff] px-4 py-2 rounded-xl text-xs font-bold hover:border-[#2FA4A9] transition-colors text-gray-600">
-                  <Share2 className="w-3.5 h-3.5" /> Share Profile
-               </button>
+             {consultantLicense && (
+               <Link href={`/consultant/${consultantLicense}`} className="hidden sm:flex items-center gap-2 border border-[#e5e7eb] bg-[#ffffff] px-4 py-2 rounded-xl text-xs font-bold hover:border-[#2FA4A9] transition-colors text-gray-600">
+                  <Share2 className="w-3.5 h-3.5" /> Public profile
+               </Link>
              )}
              <div className="w-10 h-10 rounded-full bg-[#0F2A44] text-[#2FA4A9] flex items-center justify-center font-bold border-2 border-white shadow-sm cursor-pointer uppercase">
                {session.user?.name ? session.user.name[0] : (session.user?.email?.[0] || 'U')}

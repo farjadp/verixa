@@ -13,10 +13,8 @@
 // ============================================================================
 import { getPlans } from "@/actions/plans.actions";
 import Link from "next/link";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import { Users, Zap, Grid3X3, Library, TrendingDown, DollarSign } from "lucide-react";
+import { requireAdminPage } from "../_lib/guard";
 
 export const metadata = { title: "Plan Management | Verixa Admin" };
 
@@ -28,8 +26,7 @@ const PLAN_COLORS: Record<string, { bg: string; border: string; text: string; ba
 };
 
 export default async function PlansPage() {
-  const session = await getServerSession(authOptions);
-  if ((session?.user as any)?.role !== "ADMIN") redirect("/dashboard");
+  await requireAdminPage();
 
   const plans = await getPlans();
 

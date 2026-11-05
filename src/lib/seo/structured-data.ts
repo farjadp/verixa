@@ -5,6 +5,7 @@
 // ============================================================================
 
 import { BRAND, getSiteUrl } from "@/lib/content-pipeline/seo";
+import { isRegistryActive } from "@/lib/booking-rules";
 
 export const ORG_DESCRIPTION =
   "Verixa is a Canadian marketplace for licensed immigration consultants (RCICs). Every profile is built from the public register of the College of Immigration and Citizenship Consultants (CICC).";
@@ -18,11 +19,11 @@ function origin(siteUrl?: string): string {
 
 /**
  * CICC register "entitled to practise" flag. The synced register stores
- * "Yes" / "No" (and a legacy "Active"). Anything else counts as not entitled.
+ * "Yes" / "No" (and a legacy "Active"). Delegates to the booking rules so the
+ * profile badge, booking gate, noindex and JSON-LD always agree.
  */
 export function isEntitledToPractise(status: string | null | undefined): boolean {
-  const s = (status || "").trim().toLowerCase();
-  return s === "yes" || s === "active";
+  return isRegistryActive(status);
 }
 
 /** Register status values that should be in the sitemap and indexed. */

@@ -13,6 +13,7 @@
 import { noindexMetadata } from "@/lib/seo/metadata";
 import { getConsultantByLicense } from "@/lib/db";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { ShieldCheck, User, AlertCircle } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -58,8 +59,8 @@ export default async function ClaimProfilePage({
           </div>
           <h1 className="text-3xl font-black font-serif text-[#0F172A] tracking-tight mb-2">Claim Your Profile</h1>
           <p className="text-gray-500 text-sm leading-relaxed">
-            Verify your identity using your CICC-registered contact details.<br/>
-            No unauthorized access is possible.
+            Verify your identity with the email or phone number listed for you on the CICC register.
+            Claims that don&apos;t match the register are reviewed by our team before bookings open.
           </p>
         </div>
 
@@ -115,14 +116,33 @@ export default async function ClaimProfilePage({
           </div>
         </div>
 
-        {/* The multi-step form */}
-        <div className="bg-white border border-gray-100 rounded-3xl shadow-sm p-6">
-          <ClaimForm
-            licenseNumber={license_number}
-            fullName={data.Full_Name}
-            ciccHint={ciccHint}
-          />
-        </div>
+        {/* The multi-step form, or why it isn't available */}
+        {ciccHint?.isClaimed && !ciccHint.claimIsPendingReview ? (
+          <div className="bg-white border border-gray-200 rounded-3xl p-6 text-center">
+            <h2 className="text-lg font-bold text-navy mb-2">This profile has already been claimed</h2>
+            <p className="text-sm text-gray-600 mb-5">
+              If this is your licence and you didn&apos;t claim it, contact support with your CICC licence number and we&apos;ll investigate.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href="/login" className="rounded-xl bg-navy px-5 py-2.5 text-sm font-bold text-white hover:bg-ink">Sign in</Link>
+              <Link href="/forgot-password" className="rounded-xl border border-gray-300 px-5 py-2.5 text-sm font-bold text-navy hover:bg-mist">Reset password</Link>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white border border-gray-100 rounded-3xl shadow-sm p-6">
+            {ciccHint?.claimIsPendingReview && (
+              <p className="mb-5 rounded-xl border border-warning/30 bg-warning/5 p-3 text-xs text-ink">
+                Someone has claimed this profile with details that don&apos;t match the CICC register. If you verify with your
+                register email or phone, your claim replaces theirs.
+              </p>
+            )}
+            <ClaimForm
+              licenseNumber={data.License_Number}
+              fullName={data.Full_Name}
+              ciccHint={ciccHint}
+            />
+          </div>
+        )}
 
       </main>
 

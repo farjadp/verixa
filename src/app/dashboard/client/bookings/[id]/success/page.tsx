@@ -26,9 +26,9 @@ export default async function BookingSubmissionSuccessPage({ params }: { params:
     include: { profile: { include: { user: true } }, type: true }
   });
 
-  if (!booking) redirect("/dashboard/client");
+  if (!booking) redirect("/dashboard/client/bookings");
   // Security check: ensure only the owner can see the success page
-  if (booking.userEmail !== session.user?.email) redirect("/dashboard/client");
+  if (booking.userEmail.toLowerCase() !== (session.user?.email ?? "").toLowerCase()) redirect("/dashboard/client/bookings");
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center pt-24 pb-12 px-6">

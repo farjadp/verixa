@@ -36,6 +36,11 @@ export default function CouponBox({ planId, planName, planPriceCents, onApplied 
     if (!preview?.ok || !preview.coupon) return;
     setApplying(true);
     const res = await applyCouponToSubscription(code.trim(), planId);
+    if (res.ok && res.url) {
+      // Discounted but not free: finish payment on Stripe Checkout.
+      window.location.href = res.url;
+      return;
+    }
     setApplying(false);
     if (res.ok) {
       onApplied(res.subscription?.id);

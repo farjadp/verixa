@@ -11,18 +11,15 @@
 // Security Notes: Enforce ADMIN authorization server-side before reads/writes and before rendering sensitive payloads.
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getAllCoupons } from "@/actions/coupon.actions";
 import { getPlans } from "@/actions/plans.actions";
 import CouponManagerClient from "./CouponManagerClient";
 import { Tag } from "lucide-react";
+import { requireAdminPage } from "../_lib/guard";
 
 export default async function CouponsPage() {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") redirect("/dashboard");
+  await requireAdminPage();
 
   const [coupons, plans] = await Promise.all([
     getAllCoupons(),

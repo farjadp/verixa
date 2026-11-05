@@ -2,70 +2,57 @@ import Link from "next/link";
 import { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Search, Home, ArrowLeft, Compass } from "lucide-react";
+import { Search, Home, BookOpen, ArrowRight } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Page Not Found",
   description: "The page you're looking for doesn't exist or has been moved.",
 };
 
+const LINKS = [
+  { href: "/search", icon: <Search className="h-5 w-5" aria-hidden="true" />, label: "Find a licensed RCIC", desc: "Search the CICC register" },
+  { href: "/blog", icon: <BookOpen className="h-5 w-5" aria-hidden="true" />, label: "Immigration journal", desc: "Policy updates and guides" },
+  { href: "/", icon: <Home className="h-5 w-5" aria-hidden="true" />, label: "Home", desc: "Choose your route to Canada" },
+];
+
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-[#F4F6F9] font-sans flex flex-col">
+    <div className="flex min-h-screen flex-col bg-white font-sans text-ink">
       <Header />
 
-      <main className="flex-1 flex items-center justify-center px-4 py-20">
-        <div className="max-w-lg w-full text-center">
-
-          {/* Animated number */}
-          <div className="relative mb-8 select-none">
-            <div className="text-[160px] font-black text-[#0F2A44]/5 leading-none tracking-tighter absolute inset-0 flex items-center justify-center pointer-events-none">
-              404
-            </div>
-            <div className="relative z-10 pt-8">
-              <div className="w-20 h-20 bg-gradient-to-br from-[#2FA4A9]/20 to-[#0F2A44]/10 border border-[#2FA4A9]/20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-[#2FA4A9]/10">
-                <Compass className="w-10 h-10 text-[#2FA4A9]" />
-              </div>
-            </div>
+      <main className="flex flex-1 items-center bg-mist px-6 pb-20 pt-32 lg:pt-40">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+          <div className="flex flex-col gap-4">
+            <span className="text-xs font-bold uppercase tracking-wider text-teal">Error 404</span>
+            <h1 className="text-4xl font-bold leading-tight tracking-tight text-navy md:text-5xl">
+              This page doesn&apos;t exist.
+            </h1>
+            <p className="max-w-xl text-lg leading-relaxed text-gray-600">
+              It may have moved or been renamed. These will get you back on track.
+            </p>
           </div>
 
-          {/* Message */}
-          <h1 className="text-3xl font-black font-serif text-[#0F172A] tracking-tight mb-3">
-            This page doesn't exist
-          </h1>
-          <p className="text-gray-500 text-base leading-relaxed mb-10">
-            The page you're looking for may have been moved, renamed, or is still under construction.
-            Don't worry — let us help you find your way back.
-          </p>
-
-          {/* Quick links */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
-            {[
-              { href: "/", icon: <Home className="w-4 h-4" />, label: "Home", desc: "Back to main page" },
-              { href: "/consultants", icon: <Search className="w-4 h-4" />, label: "Find a Consultant", desc: "Browse RCIC directory" },
-              { href: "/dashboard", icon: <ArrowLeft className="w-4 h-4" />, label: "Dashboard", desc: "Go to your panel" },
-            ].map(({ href, icon, label, desc }) => (
-              <Link
-                key={href}
-                href={href}
-                className="group flex flex-col items-center gap-2 p-4 bg-white border border-gray-100 rounded-2xl hover:border-[#2FA4A9]/30 hover:shadow-md transition-all"
-              >
-                <div className="w-9 h-9 bg-[#2FA4A9]/10 rounded-xl flex items-center justify-center text-[#2FA4A9] group-hover:bg-[#2FA4A9] group-hover:text-white transition-all">
-                  {icon}
-                </div>
-                <div>
-                  <p className="font-bold text-sm text-gray-900">{label}</p>
-                  <p className="text-[11px] text-gray-400">{desc}</p>
-                </div>
-              </Link>
+          <ul className="grid gap-3 sm:grid-cols-3">
+            {LINKS.map(({ href, icon, label, desc }) => (
+              <li key={href}>
+                <Link
+                  href={href}
+                  className="group flex h-full flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-5 transition-shadow hover:shadow-lg hover:shadow-navy/5"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-mist text-navy transition-colors group-hover:bg-teal group-hover:text-white">
+                    {icon}
+                  </span>
+                  <span className="flex flex-col gap-0.5">
+                    <span className="inline-flex items-center gap-1 font-bold text-navy group-hover:text-teal">
+                      {label}
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                    </span>
+                    <span className="text-sm text-gray-600">{desc}</span>
+                  </span>
+                </Link>
+              </li>
             ))}
-          </div>
-
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#0F2A44]/5 border border-[#0F2A44]/10 rounded-full text-xs font-semibold text-[#0F2A44]/60">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#2FA4A9] inline-block" />
-            Error 404 — Page Not Found
-          </div>
+          </ul>
         </div>
       </main>
 

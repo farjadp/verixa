@@ -5,6 +5,11 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { logEvent } from "./logger";
 
+const ROLE_REFRESH_MS = 60 * 1000;
+export function shouldRefreshRole(checkedAt: number | undefined, now: number): boolean {
+  return !checkedAt || now - checkedAt > ROLE_REFRESH_MS;
+}
+
 // ── Issue 15b: In-memory rate limiter for login brute-force protection ────────
 // Acceptable for login because: each cold start resets counters, worst case an
 // attacker gets 5 attempts per cold start — which is acceptable given the cost.
@@ -108,6 +113,23 @@ export const authOptions: NextAuthOptions = {
         // Issue 13: JWT interface is augmented in src/types/next-auth.d.ts
         token.id = user.id;
         token.role = user.role;
+        token.roleCheckedAt = Date.now();
+        return token;
+      }
+      // The role is baked into the JWT at sign-in. Re-read it at most once a
+      // minute so a claim (USER → CONSULTANT), a claim override (back to USER)
+      // or an admin change takes effect without signing out.
+      if (token.id && shouldRefreshRole(token.roleCheckedAt, Date.now())) {
+        try {
+          const fresh = await prisma.user.findUnique({ where: { id: token.id }, select: { role: true, email: true } });
+          if (fresh) {
+            token.role = fresh.role;
+            if (fresh.email) token.email = fresh.email;
+          }
+          token.roleCheckedAt = Date.now();
+        } catch (e) {
+          console.error("[auth] role refresh failed:", e);
+        }
       }
       return token;
     },

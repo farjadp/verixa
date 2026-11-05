@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import { saveBookingConfiguration } from "@/actions/settings.actions";
+import { CANADIAN_TIMEZONES } from "@/lib/booking-config-schema";
 import { Clock, DollarSign, Plus, Save, Settings2, Trash2, Video, Phone, Users, Loader2 } from "lucide-react";
 
 export default function BookingSettingsForm({ initialProfile }: { initialProfile: any }) {
   const [types, setTypes] = useState<any[]>(initialProfile.consultationTypes || []);
   const [availability, setAvailability] = useState<any[]>(initialProfile.weeklyAvailability || []);
   const [isSaving, setIsSaving] = useState(false);
+  const [timezone, setTimezone] = useState<string>(initialProfile.timezone || "America/Toronto");
+  const [bookingEnabled, setBookingEnabled] = useState<boolean>(initialProfile.bookingEnabled ?? true);
 
   const daysLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -55,7 +58,9 @@ export default function BookingSettingsForm({ initialProfile }: { initialProfile
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await saveBookingConfiguration({
+      const res = await saveBookingConfiguration({
+        timezone,
+        bookingEnabled,
         availability: fullAvailability,
         consultationTypes: types.map(t => ({
           id: t.id,
@@ -67,7 +72,7 @@ export default function BookingSettingsForm({ initialProfile }: { initialProfile
           isActive: t.isActive
         }))
       });
-      alert("Settings saved successfully!");
+      alert(res.success ? "Settings saved." : res.error);
     } catch (e) {
       alert("Failed to save settings.");
       console.error(e);
@@ -79,6 +84,27 @@ export default function BookingSettingsForm({ initialProfile }: { initialProfile
   return (
     <div className="space-y-8 pb-16">
       
+      {/* SECTION: STATUS & TIME ZONE */}
+      <div className="bg-white rounded-3xl border border-[#e5e7eb] p-6 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" checked={bookingEnabled} onChange={(e) => setBookingEnabled(e.target.checked)} className="mt-1 h-4 w-4 accent-[#0F2A44]" />
+          <span>
+            <span className="block text-sm font-bold text-[#1A1F2B]">Accept online bookings</span>
+            <span className="block text-xs text-gray-500 mt-0.5">Turn off to pause new requests. Existing bookings are not affected.</span>
+          </span>
+        </label>
+        <label className="block">
+          <span className="block text-sm font-bold text-[#1A1F2B] mb-1">Your time zone</span>
+          <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className="w-full bg-white border border-[#e5e7eb] px-3 py-2 rounded-lg text-sm text-[#1A1F2B] outline-none focus:border-[#2FA4A9]">
+            {CANADIAN_TIMEZONES.map((tz) => (
+              <option key={tz} value={tz}>{tz.replace("America/", "").replace(/_/g, " ")}</option>
+            ))}
+            {!CANADIAN_TIMEZONES.includes(timezone as (typeof CANADIAN_TIMEZONES)[number]) && <option value={timezone}>{timezone}</option>}
+          </select>
+          <span className="block text-xs text-gray-500 mt-1">Your weekly hours below are in this time zone. Clients see slots in their own.</span>
+        </label>
+      </div>
+
       {/* SECTION: SESSION TYPES */}
       <div className="bg-white rounded-3xl border border-[#e5e7eb] p-6 shadow-sm relative">
          <div className="flex items-center justify-between mb-6">
@@ -183,7 +209,7 @@ export default function BookingSettingsForm({ initialProfile }: { initialProfile
       <div className="flex justify-end sticky bottom-6 z-20">
         <button onClick={handleSave} disabled={isSaving} type="button" className="bg-[#0F2A44] text-white px-8 py-3.5 rounded-xl font-bold shadow-xl shadow-black/10 hover:bg-black transition-all flex items-center gap-2 disabled:opacity-70">
           {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-4 h-4" />}
-          {isSaving ? "Saving..." : "Save Schedule Output"}
+          {isSaving ? "Saving..." : "Save availability & pricing"}
         </button>
       </div>
 

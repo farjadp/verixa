@@ -22,7 +22,11 @@ export default function PasswordForm() {
     }
 
     try {
-      await changePassword({ current: formData.current, newPass: formData.newPass });
+      const res = await changePassword({ current: formData.current, newPass: formData.newPass });
+      if (!res.success) {
+        setError(res.error);
+        return;
+      }
       setSuccess(true);
       setFormData({ current: "", newPass: "", confirm: "" });
     } catch (e: any) {

@@ -11,44 +11,32 @@
 // Security Notes: Enforce ADMIN authorization server-side before reads/writes and before rendering sensitive payloads.
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import SocialHubClient from "./SocialHubClient";
-import { Share2 } from "lucide-react";
-import Image from "next/image";
+import { requireAdminPage } from "../_lib/guard";
+import { AdminPageHeader, AdminShell } from "../_components/AdminUI";
 
 export default async function SocialDistributionPage() {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") redirect("/login");
+  await requireAdminPage();
 
   const posts = await prisma.blogPost.findMany({
     orderBy: { createdAt: "desc" },
+    take: 200,
     include: {
       socialJobs: true,
     },
   });
 
   return (
-    <div className="p-4 md:p-8 max-w-[1600px] mx-auto min-h-screen flex flex-col bg-gray-50/50">
-      <div className="mb-6 shrink-0 flex justify-between items-end">
-        <div className="flex items-center gap-4">
-          <Image src="/brand/Vertixa2.png" alt="Verixa" width={44} height={44} className="rounded-xl object-contain" />
-          <div>
-            <h1 className="text-3xl font-serif font-black text-gray-900 tracking-tight flex items-center gap-3">
-              Multi-Format Social Hub <Share2 className="w-6 h-6 text-[#2FA4A9]" />
-            </h1>
-            <p className="text-gray-600 mt-1 font-light text-sm max-w-2xl">
-              Ignite the 4-layer GPT-4o Action sequence to generate optimized LinkedIn, Twitter, and Telegram posts directly from your CMS articles.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 min-h-[700px] flex">
+    <AdminShell wide>
+      <AdminPageHeader
+        section="Content"
+        title="Social publishing"
+        description="Generate LinkedIn, X, Telegram and Facebook copy from an article, approve it, then post. Nothing is posted without an explicit approve and post."
+      />
+      <div className="flex min-h-[700px]">
         <SocialHubClient initialPosts={posts} />
       </div>
-    </div>
+    </AdminShell>
   );
 }

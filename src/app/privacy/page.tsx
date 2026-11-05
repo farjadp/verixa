@@ -10,9 +10,8 @@
 // ============================================================================
 import { pageMetadata } from "@/lib/seo/metadata";
 import type { Metadata } from "next";
-import { ShieldCheck, Scale, FileText } from "lucide-react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import { ShieldCheck, Scale } from "lucide-react";
+import LegalPage from "@/components/legal/LegalPage";
 
 export const metadata: Metadata = pageMetadata({
   title: "Privacy Policy",
@@ -23,37 +22,22 @@ export const metadata: Metadata = pageMetadata({
 
 export default function PrivacyPolicyPage() {
   return (
-    <main className="min-h-screen bg-[#F5F7FA] font-sans selection:bg-[#2FA4A9] selection:text-white">
-      <Header />
-      <div className="pt-32 pb-20">
-      {/* HEADER SECTION */}
-      <div className="max-w-4xl mx-auto px-6 lg:px-8 mb-16">
-        <div className="flex items-center gap-3 text-[#2FA4A9] font-bold tracking-widest uppercase text-sm mb-4">
-          <ShieldCheck className="w-5 h-5" />
-          <span>Compliance & Security</span>
-        </div>
-        <h1 className="text-4xl lg:text-5xl font-black text-[#0F2A44] tracking-tight mb-6 font-serif">
-          Verixa Privacy & Data Protection Policy
-        </h1>
-        <p className="text-xl text-gray-500 font-medium">
-          Part 1 — Legal Foundation & Core Principles
-        </p>
-      </div>
-
-      {/* CONTENT SECTION */}
-      <div className="max-w-4xl mx-auto px-6 lg:px-8">
-        <div className="bg-white rounded-[2rem] shadow-xl shadow-gray-200/50 border border-gray-100 p-8 lg:p-14 text-gray-600 space-y-12">
+    <LegalPage
+      current="/privacy" eyebrow="Privacy & data protection" title="Verixa Privacy & Data Protection Policy"
+      meta={<>Part 1 — Legal Foundation & Core Principles</>}
+      bodyClassName="space-y-12"
+    >
           
           {/* 1. Introduction */}
           <section className="space-y-4">
-            <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-              <span className="text-[#2FA4A9]">1.</span> Introduction
+            <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+              <span className="text-teal">1.</span> Introduction
             </h2>
             <div className="prose prose-gray max-w-none text-gray-600 leading-relaxed text-[15px]">
               <p>
                 Verixa (“we”, “our”, or “the Platform”) is committed to protecting the privacy, confidentiality, and security of personal information in compliance with applicable Canadian laws, including but not limited to:
               </p>
-              <ul className="list-disc pl-6 space-y-2 mt-4 marker:text-[#2FA4A9]">
+              <ul className="list-disc pl-6 space-y-2 mt-4 marker:text-teal">
                 <li><strong>Personal Information Protection and Electronic Documents Act (PIPEDA)</strong></li>
                 <li>Digital Charter Implementation Act (Bill C-27 – where applicable updates may apply)</li>
                 <li>Applicable provincial privacy laws where relevant (e.g., Quebec Law 25)</li>
@@ -68,12 +52,12 @@ export default function PrivacyPolicyPage() {
 
           {/* 2. Scope of This Policy */}
           <section className="space-y-4">
-            <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-              <span className="text-[#2FA4A9]">2.</span> Scope of This Policy
+            <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+              <span className="text-teal">2.</span> Scope of This Policy
             </h2>
             <div className="prose prose-gray max-w-none text-gray-600 leading-relaxed text-[15px]">
               <p>This policy applies to:</p>
-              <ul className="list-disc pl-6 space-y-2 mt-4 marker:text-[#2FA4A9]">
+              <ul className="list-disc pl-6 space-y-2 mt-4 marker:text-teal">
                 <li><strong>Users</strong> (clients seeking immigration consulting services)</li>
                 <li><strong>Consultants</strong> (RCICs or related professionals)</li>
                 <li><strong>Visitors</strong> browsing the platform</li>
@@ -86,15 +70,15 @@ export default function PrivacyPolicyPage() {
 
           {/* 3. Legal Basis */}
           <section className="space-y-4">
-            <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-              <span className="text-[#2FA4A9]">3.</span> Legal Basis (PIPEDA Compliance)
+            <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+              <span className="text-teal">3.</span> Legal Basis (PIPEDA Compliance)
             </h2>
             <div className="prose prose-gray max-w-none text-gray-600 leading-relaxed text-[15px]">
               <p>Verixa operates under the principles established in PIPEDA, specifically:</p>
               
               <div className="bg-gray-50 border border-gray-100 rounded-2xl p-6 mt-6">
-                <h3 className="text-lg font-bold text-[#0F2A44] mb-4 flex items-center gap-2">
-                  <Scale className="w-5 h-5 text-[#2FA4A9]" />
+                <h3 className="text-lg font-bold text-navy mb-4 flex items-center gap-2">
+                  <Scale className="w-5 h-5 text-teal" />
                   10 Fair Information Principles (Schedule 1 of PIPEDA)
                 </h3>
                 <p className="mb-4">We explicitly align with:</p>
@@ -112,8 +96,8 @@ export default function PrivacyPolicyPage() {
                 </ol>
               </div>
 
-              <div className="mt-6 text-sm bg-[#0F2A44]/5 text-[#0F2A44] px-4 py-3 rounded-xl border border-[#0F2A44]/10">
-                <strong>📌 Reference:</strong> PIPEDA, Schedule 1 - <a href="https://laws-lois.justice.gc.ca/eng/acts/P-8.6/" target="_blank" rel="noreferrer" className="underline hover:text-[#2FA4A9]">View on laws-lois.justice.gc.ca</a>
+              <div className="mt-6 text-sm bg-navy/5 text-navy px-4 py-3 rounded-xl border border-navy/10">
+                <strong>📌 Reference:</strong> PIPEDA, Schedule 1 - <a href="https://laws-lois.justice.gc.ca/eng/acts/P-8.6/" target="_blank" rel="noreferrer" className="underline hover:text-teal">View on laws-lois.justice.gc.ca</a>
               </div>
             </div>
           </section>
@@ -122,16 +106,16 @@ export default function PrivacyPolicyPage() {
 
           {/* 4. Definitions */}
           <section className="space-y-4">
-            <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-              <span className="text-[#2FA4A9]">4.</span> Definitions
+            <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+              <span className="text-teal">4.</span> Definitions
             </h2>
             
             <div className="grid md:grid-cols-2 gap-8">
               {/* Personal Info */}
               <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 space-y-4">
-                <h3 className="text-lg font-bold text-[#0F2A44]">Personal Information</h3>
-                <p className="text-sm italic text-gray-500">Under PIPEDA: "Information about an identifiable individual"</p>
-                <ul className="text-sm list-disc pl-5 space-y-1 marker:text-[#2FA4A9]">
+                <h3 className="text-lg font-bold text-navy">Personal Information</h3>
+                <p className="text-sm italic text-gray-500">Under PIPEDA: &ldquo;Information about an identifiable individual&rdquo;</p>
+                <ul className="text-sm list-disc pl-5 space-y-1 marker:text-teal">
                   <li>Name</li>
                   <li>Email address</li>
                   <li>Phone number</li>
@@ -156,10 +140,10 @@ export default function PrivacyPolicyPage() {
               </div>
             </div>
 
-            <div className="bg-[#F5F7FA] p-6 rounded-2xl border border-[#0F2A44]/10 space-y-4 mt-6">
-              <h3 className="text-lg font-bold text-[#0F2A44]">Consultant Data</h3>
+            <div className="bg-mist p-6 rounded-2xl border border-navy/10 space-y-4 mt-6">
+              <h3 className="text-lg font-bold text-navy">Consultant Data</h3>
               <p className="text-sm">Information related to consultants may include:</p>
-              <ul className="text-sm list-disc pl-5 space-y-1 marker:text-[#2FA4A9]">
+              <ul className="text-sm list-disc pl-5 space-y-1 marker:text-teal">
                 <li>Public registry data (CICC)</li>
                 <li>Professional details</li>
                 <li>Profile information</li>
@@ -179,15 +163,15 @@ export default function PrivacyPolicyPage() {
 
           {/* 5. Accountability */}
           <section className="space-y-4">
-            <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-              <span className="text-[#2FA4A9]">5.</span> Accountability
+            <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+              <span className="text-teal">5.</span> Accountability
             </h2>
             <div className="prose prose-gray max-w-none text-gray-600 leading-relaxed text-[15px]">
               <p>
                 Verixa is responsible for personal information under its control and has designated a Privacy Officer responsible for compliance with PIPEDA.
               </p>
-              <p className="font-bold text-[#0F2A44] mt-4">Responsibilities include:</p>
-              <ul className="list-disc pl-6 space-y-2 mt-2 marker:text-[#2FA4A9]">
+              <p className="font-bold text-navy mt-4">Responsibilities include:</p>
+              <ul className="list-disc pl-6 space-y-2 mt-2 marker:text-teal">
                 <li>Ensuring compliance with applicable laws</li>
                 <li>Responding to data access requests</li>
                 <li>Managing complaints</li>
@@ -200,31 +184,31 @@ export default function PrivacyPolicyPage() {
 
           {/* 6. Consent */}
           <section className="space-y-4">
-            <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-              <span className="text-[#2FA4A9]">6.</span> Consent
+            <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+              <span className="text-teal">6.</span> Consent
             </h2>
             
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-bold text-[#0F2A44] mb-2">Principle</h3>
+                <h3 className="text-lg font-bold text-navy mb-2">Principle</h3>
                 <p className="text-[15px]">Verixa collects, uses, and discloses personal information only with user knowledge and consent, except where permitted or required by law.</p>
                 <p className="text-xs text-gray-400 mt-2">📌 Ref: PIPEDA Principle 3 – Consent</p>
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
-                  <h4 className="font-bold text-[#0F2A44] mb-2">1. Express Consent</h4>
+                  <h4 className="font-bold text-navy mb-2">1. Express Consent</h4>
                   <p className="text-sm text-gray-500 mb-2">Required for:</p>
-                  <ul className="text-sm list-disc pl-4 marker:text-[#2FA4A9]">
+                  <ul className="text-sm list-disc pl-4 marker:text-teal">
                     <li>Account creation</li>
                     <li>Booking consultations</li>
                     <li>Providing personal details</li>
                   </ul>
                 </div>
                 <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
-                  <h4 className="font-bold text-[#0F2A44] mb-2">2. Implied Consent</h4>
+                  <h4 className="font-bold text-navy mb-2">2. Implied Consent</h4>
                   <p className="text-sm text-gray-500 mb-2">Applies when:</p>
-                  <ul className="text-sm list-disc pl-4 marker:text-[#2FA4A9]">
+                  <ul className="text-sm list-disc pl-4 marker:text-teal">
                     <li>Users browse the platform</li>
                     <li>Users interact with public consultant profiles</li>
                   </ul>
@@ -232,9 +216,9 @@ export default function PrivacyPolicyPage() {
               </div>
 
               <div>
-                <h3 className="text-lg font-bold text-[#0F2A44] mb-2">Withdrawal of Consent</h3>
+                <h3 className="text-lg font-bold text-navy mb-2">Withdrawal of Consent</h3>
                 <p className="text-[15px]">Users may withdraw consent at any time, subject to:</p>
-                <ul className="text-[15px] list-disc pl-6 mt-2 space-y-1 marker:text-[#2FA4A9]">
+                <ul className="text-[15px] list-disc pl-6 mt-2 space-y-1 marker:text-teal">
                   <li>Legal obligations</li>
                   <li>Contractual obligations</li>
                   <li>Operational requirements (e.g., active bookings)</li>
@@ -248,8 +232,8 @@ export default function PrivacyPolicyPage() {
           {/* 7 & 8 */}
           <div className="grid md:grid-cols-2 gap-10">
             <section className="space-y-4">
-              <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                <span className="text-[#2FA4A9]">7.</span> Limiting Collection
+              <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                <span className="text-teal">7.</span> Limiting Collection
               </h2>
               <div className="prose prose-gray max-w-none text-gray-600 leading-relaxed text-[15px]">
                 <p>Verixa only collects information that is:</p>
@@ -264,12 +248,12 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                <span className="text-[#2FA4A9]">8.</span> Identifying Purposes
+              <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                <span className="text-teal">8.</span> Identifying Purposes
               </h2>
               <div className="prose prose-gray max-w-none text-gray-600 leading-relaxed text-[15px]">
                 <p>Before or at the time of collection, we clearly identify why data is collected. Core purposes include:</p>
-                <ul className="list-disc pl-6 space-y-1 marker:text-[#2FA4A9]">
+                <ul className="list-disc pl-6 space-y-1 marker:text-teal">
                   <li>Facilitating consultant discovery</li>
                   <li>Enabling booking and communication</li>
                   <li>Processing payments</li>
@@ -293,7 +277,7 @@ export default function PrivacyPolicyPage() {
               <p className="text-[15px] font-medium">Verixa may display data sourced from official public registries (e.g., CICC).</p>
               
               <div>
-                <h4 className="font-bold text-[#0F2A44] border-b pb-2 mb-3">Legal Position:</h4>
+                <h4 className="font-bold text-navy border-b pb-2 mb-3">Legal Position:</h4>
                 <p className="text-sm mb-2">Under Canadian law, public registry data may be used if:</p>
                 <ul className="text-sm list-disc pl-5 marker:text-red-500">
                   <li>It is publicly available</li>
@@ -303,7 +287,7 @@ export default function PrivacyPolicyPage() {
               </div>
 
               <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                <h4 className="font-bold text-[#0F2A44] mb-3">🛡️ Verixa Safeguards:</h4>
+                <h4 className="font-bold text-navy mb-3">🛡️ Verixa Safeguards:</h4>
                 <ul className="text-sm list-disc pl-5 space-y-2 marker:text-green-500 font-medium">
                   <li>Data is displayed for informational purposes only.</li>
                   <li>We do not alter official regulatory status.</li>
@@ -318,12 +302,12 @@ export default function PrivacyPolicyPage() {
 
           {/* 10. Data Minimization */}
           <section className="space-y-4">
-            <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-              <span className="text-[#2FA4A9]">10.</span> Data Minimization & Purpose Limitation
+            <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+              <span className="text-teal">10.</span> Data Minimization & Purpose Limitation
             </h2>
             <div className="prose prose-gray max-w-none text-gray-600 leading-relaxed text-[15px]">
               <p>Verixa ensures that:</p>
-              <ul className="list-disc pl-6 space-y-1 marker:text-[#2FA4A9] font-medium">
+              <ul className="list-disc pl-6 space-y-1 marker:text-teal font-medium">
                 <li>Data is only used for the purposes stated</li>
                 <li>Data is not repurposed without consent</li>
                 <li>Data is not sold to third parties</li>
@@ -337,28 +321,28 @@ export default function PrivacyPolicyPage() {
           {/* 11 & 12. Flow & Legal */}
           <section className="space-y-8">
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                <span className="text-[#2FA4A9]">11.</span> High-Level Data Flow
+              <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                <span className="text-teal">11.</span> High-Level Data Flow
               </h2>
               
-              <div className="flex flex-col gap-6 md:flex-row md:items-center bg-[#F5F7FA] p-6 rounded-2xl border border-gray-200">
+              <div className="flex flex-col gap-6 md:flex-row md:items-center bg-mist p-6 rounded-2xl border border-gray-200">
                 <div className="flex-1 space-y-4">
                   <div>
-                    <span className="text-xs font-bold uppercase tracking-widest text-[#2FA4A9]">User Flow</span>
-                    <p className="text-sm font-bold text-[#0F2A44] mt-1 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold uppercase tracking-widest text-teal">User Flow</span>
+                    <p className="text-sm font-bold text-navy mt-1 flex items-center gap-2 flex-wrap">
                       User <span className="text-gray-400">→</span> Search <span className="text-gray-400">→</span> Profile <span className="text-gray-400">→</span> Booking <span className="text-gray-400">→</span> Communication
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs font-bold uppercase tracking-widest text-[#2FA4A9]">Data Flow</span>
-                    <p className="text-sm font-bold text-[#0F2A44] mt-1 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold uppercase tracking-widest text-teal">Data Flow</span>
+                    <p className="text-sm font-bold text-navy mt-1 flex items-center gap-2 flex-wrap">
                       User Input <span className="text-gray-400">→</span> Platform Processing <span className="text-gray-400">→</span> Consultant Interaction <span className="text-gray-400">→</span> Logs / Storage
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-[#0F2A44] p-6 rounded-2xl text-white shadow-xl mt-6 relative overflow-hidden">
+              <div className="bg-navy p-6 rounded-2xl text-white shadow-xl mt-6 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-10">
                   <Scale className="w-32 h-32" />
                 </div>
@@ -376,18 +360,18 @@ export default function PrivacyPolicyPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                <span className="text-[#2FA4A9]">12.</span> Anti-Misrepresentation Clause
+              <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                <span className="text-teal">12.</span> Anti-Misrepresentation Clause
               </h2>
               <div className="bg-white border-2 border-red-50 p-6 rounded-2xl">
-                <p className="font-bold text-[#0F2A44] mb-3">Verixa explicitly prohibits:</p>
+                <p className="font-bold text-navy mb-3">Verixa explicitly prohibits:</p>
                 <ul className="list-disc pl-5 space-y-1 marker:text-red-400 text-[15px] font-medium mb-4">
                   <li>False claims of consultant identity</li>
                   <li>Misuse of profiles</li>
                   <li>Unauthorized data manipulation</li>
                 </ul>
-                <p className="font-bold text-[#0F2A44] mb-3 border-t border-gray-100 pt-3">Violations may result in:</p>
-                <ul className="list-disc pl-5 space-y-1 marker:text-[#0F2A44] text-[15px] font-medium text-red-600">
+                <p className="font-bold text-navy mb-3 border-t border-gray-100 pt-3">Violations may result in:</p>
+                <ul className="list-disc pl-5 space-y-1 marker:text-navy text-[15px] font-medium text-red-600">
                   <li>Account suspension</li>
                   <li>Legal reporting where applicable</li>
                 </ul>
@@ -399,46 +383,46 @@ export default function PrivacyPolicyPage() {
           {/* PART 2 START */}
           
           <div className="mt-20 mb-8 flex items-center gap-4">
-            <h2 className="text-3xl font-black text-[#0F2A44] font-serif">Part 2 — Data Collection, Use, Storage & Disclosure</h2>
+            <h2 className="text-3xl font-black text-navy font-serif">Part 2 — Data Collection, Use, Storage & Disclosure</h2>
             <div className="h-px bg-gray-200 flex-1"></div>
           </div>
 
           {/* 13. Types of Personal Information */}
           <section className="space-y-6">
-            <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-              <span className="text-[#2FA4A9]">13.</span> Types of Personal Information We Collect
+            <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+              <span className="text-teal">13.</span> Types of Personal Information We Collect
             </h2>
             <p className="text-[15px] font-medium text-gray-600">Verixa collects only information necessary to operate the platform effectively.</p>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
               <div className="bg-white border rounded-2xl p-6 shadow-sm">
-                <h4 className="font-bold text-[#0F2A44] mb-4 flex items-center gap-2 border-b pb-2">
-                  <span className="text-[#2FA4A9]">13.1</span> Users
+                <h4 className="font-bold text-navy mb-4 flex items-center gap-2 border-b pb-2">
+                  <span className="text-teal">13.1</span> Users
                 </h4>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Registration</p>
-                <ul className="text-sm list-disc pl-4 space-y-1 marker:text-[#2FA4A9] mb-4">
+                <ul className="text-sm list-disc pl-4 space-y-1 marker:text-teal mb-4">
                   <li>Full name</li>
                   <li>Email address</li>
                   <li>Password (hashed, never plain text)</li>
                 </ul>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Booking</p>
-                <ul className="text-sm list-disc pl-4 space-y-1 marker:text-[#2FA4A9] mb-4">
+                <ul className="text-sm list-disc pl-4 space-y-1 marker:text-teal mb-4">
                   <li>Selected consultant & Time</li>
                   <li>Notes / Case description (optional)</li>
                   <li>Contact preferences</li>
                 </ul>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Profile</p>
-                <ul className="text-sm list-disc pl-4 space-y-1 marker:text-[#2FA4A9]">
+                <ul className="text-sm list-disc pl-4 space-y-1 marker:text-teal">
                   <li>Nationality (optional) & Languages</li>
                   <li>Immigration goals</li>
                 </ul>
               </div>
 
               <div className="bg-white border rounded-2xl p-6 shadow-sm">
-                <h4 className="font-bold text-[#0F2A44] mb-4 flex items-center gap-2 border-b pb-2">
-                  <span className="text-[#2FA4A9]">13.2</span> Consultants
+                <h4 className="font-bold text-navy mb-4 flex items-center gap-2 border-b pb-2">
+                  <span className="text-teal">13.2</span> Consultants
                 </h4>
-                <ul className="text-sm list-disc pl-4 space-y-1 marker:text-[#2FA4A9] mb-4">
+                <ul className="text-sm list-disc pl-4 space-y-1 marker:text-teal mb-4">
                   <li>License number & Name</li>
                   <li>Status (from public registry)</li>
                   <li>Company / affiliation</li>
@@ -452,10 +436,10 @@ export default function PrivacyPolicyPage() {
 
               <div className="space-y-6">
                 <div className="bg-white border rounded-2xl p-6 shadow-sm">
-                  <h4 className="font-bold text-[#0F2A44] mb-3 flex items-center gap-2 border-b pb-2">
-                    <span className="text-[#2FA4A9]">13.3</span> Automated
+                  <h4 className="font-bold text-navy mb-3 flex items-center gap-2 border-b pb-2">
+                    <span className="text-teal">13.3</span> Automated
                   </h4>
-                  <ul className="text-sm list-disc pl-4 space-y-1 marker:text-[#2FA4A9]">
+                  <ul className="text-sm list-disc pl-4 space-y-1 marker:text-teal">
                     <li>IP address & Device/Browser type</li>
                     <li>Pages visited</li>
                     <li>Interaction logs (clicks, bookings)</li>
@@ -464,8 +448,8 @@ export default function PrivacyPolicyPage() {
                 </div>
                 
                 <div className="bg-white border rounded-2xl p-6 shadow-sm border-r-[4px] border-r-green-500">
-                  <h4 className="font-bold text-[#0F2A44] mb-3 flex items-center gap-2 border-b pb-2">
-                    <span className="text-[#2FA4A9]">13.4</span> Payment Info
+                  <h4 className="font-bold text-navy mb-3 flex items-center gap-2 border-b pb-2">
+                    <span className="text-teal">13.4</span> Payment Info
                   </h4>
                   <p className="text-[13px] font-medium mb-2">Verixa does <strong>not</strong> store full payment card details.</p>
                   <ul className="text-xs list-disc pl-4 space-y-1 marker:text-green-500">
@@ -483,28 +467,28 @@ export default function PrivacyPolicyPage() {
           {/* 14 & 15. Purpose & Limiting Use */}
           <div className="grid md:grid-cols-2 gap-10">
             <section className="space-y-4">
-              <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                <span className="text-[#2FA4A9]">14.</span> Purpose of Data Use
+              <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                <span className="text-teal">14.</span> Purpose of Data Use
               </h2>
               <div className="prose prose-gray max-w-none text-gray-600 leading-relaxed text-[15px]">
                 <p>We use collected data strictly for:</p>
                 
-                <h4 className="font-bold text-[#0F2A44] mt-4 mb-2">Core Functions</h4>
-                <ul className="list-disc pl-6 space-y-1 marker:text-[#2FA4A9] mb-4">
+                <h4 className="font-bold text-navy mt-4 mb-2">Core Functions</h4>
+                <ul className="list-disc pl-6 space-y-1 marker:text-teal mb-4">
                   <li>Matching users with consultants</li>
                   <li>Processing bookings and communications</li>
                   <li>Managing user accounts</li>
                 </ul>
 
-                <h4 className="font-bold text-[#0F2A44] mb-2">Operational Functions</h4>
-                <ul className="list-disc pl-6 space-y-1 marker:text-[#2FA4A9] mb-4">
+                <h4 className="font-bold text-navy mb-2">Operational Functions</h4>
+                <ul className="list-disc pl-6 space-y-1 marker:text-teal mb-4">
                   <li>Improving platform performance</li>
                   <li>Preventing fraud and monitoring system activity</li>
                   <li>Customer support</li>
                 </ul>
 
-                <h4 className="font-bold text-[#0F2A44] mb-2">Legal & Compliance</h4>
-                <ul className="list-disc pl-6 space-y-1 marker:text-[#2FA4A9]">
+                <h4 className="font-bold text-navy mb-2">Legal & Compliance</h4>
+                <ul className="list-disc pl-6 space-y-1 marker:text-teal">
                   <li>Enforcing terms and responding to legal requests</li>
                   <li>Maintaining audit logs</li>
                 </ul>
@@ -513,10 +497,10 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                <span className="text-[#2FA4A9]">15.</span> Limiting Use
+              <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                <span className="text-teal">15.</span> Limiting Use
               </h2>
-              <div className="bg-[#0F2A44] text-white p-6 rounded-2xl shadow-xl space-y-4">
+              <div className="bg-navy text-white p-6 rounded-2xl shadow-xl space-y-4">
                 <p className="font-bold text-lg mb-4">Verixa does NOT:</p>
                 <ul className="list-none pl-0 space-y-3 font-medium">
                   <li className="flex items-center gap-3"><div className="w-2 h-2 rounded-full bg-red-400"></div> Sell personal data</li>
@@ -534,13 +518,13 @@ export default function PrivacyPolicyPage() {
 
           {/* 16. Data Retention */}
           <section className="space-y-4">
-            <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-              <span className="text-[#2FA4A9]">16.</span> Data Retention
+            <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+              <span className="text-teal">16.</span> Data Retention
             </h2>
             <div className="bg-gray-50 border border-gray-100 rounded-2xl p-6">
               <p className="text-[15px] font-medium mb-4">We retain personal information only as long as necessary. Retention periods depend on active account status, booking history, and legal obligations.</p>
               
-              <h4 className="font-bold text-[#0F2A44] mb-3">Examples:</h4>
+              <h4 className="font-bold text-navy mb-3">Examples:</h4>
               <ul className="grid md:grid-cols-3 gap-4">
                 <li className="bg-white p-4 rounded-xl shadow-sm text-sm">
                   <strong>Booking data</strong><br/><span className="text-gray-500">Retained for audit & dispute resolution.</span>
@@ -560,15 +544,15 @@ export default function PrivacyPolicyPage() {
 
           {/* 17. Security */}
           <section className="space-y-6">
-            <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-              <span className="text-[#2FA4A9]">17.</span> Data Storage & Security
+            <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+              <span className="text-teal">17.</span> Data Storage & Security
             </h2>
             <p className="text-[15px] font-medium text-gray-600">Verixa implements strong safeguards to protect data.</p>
             
             <div className="grid md:grid-cols-3 gap-6 mt-4">
               <div className="space-y-3">
-                <h4 className="font-bold text-[#0F2A44] border-b pb-2">Technical Safeguards</h4>
-                <ul className="text-[14px] list-disc pl-4 space-y-1 marker:text-[#2FA4A9] text-gray-600">
+                <h4 className="font-bold text-navy border-b pb-2">Technical Safeguards</h4>
+                <ul className="text-[14px] list-disc pl-4 space-y-1 marker:text-teal text-gray-600">
                   <li>Encryption (HTTPS / TLS)</li>
                   <li>Password hashing (bcrypt/equiv)</li>
                   <li>Secure server infrastructure</li>
@@ -577,8 +561,8 @@ export default function PrivacyPolicyPage() {
                 </ul>
               </div>
               <div className="space-y-3">
-                <h4 className="font-bold text-[#0F2A44] border-b pb-2">Organizational Safeguards</h4>
-                <ul className="text-[14px] list-disc pl-4 space-y-1 marker:text-[#2FA4A9] text-gray-600">
+                <h4 className="font-bold text-navy border-b pb-2">Organizational Safeguards</h4>
+                <ul className="text-[14px] list-disc pl-4 space-y-1 marker:text-teal text-gray-600">
                   <li>Restricted access to sensitive data</li>
                   <li>Role-based permissions</li>
                   <li>Internal logging and monitoring</li>
@@ -586,8 +570,8 @@ export default function PrivacyPolicyPage() {
                 </ul>
               </div>
               <div className="space-y-3">
-                <h4 className="font-bold text-[#0F2A44] border-b pb-2">Physical Safeguards</h4>
-                <ul className="text-[14px] list-disc pl-4 space-y-1 marker:text-[#2FA4A9] text-gray-600">
+                <h4 className="font-bold text-navy border-b pb-2">Physical Safeguards</h4>
+                <ul className="text-[14px] list-disc pl-4 space-y-1 marker:text-teal text-gray-600">
                   <li>Secure hosting environments</li>
                   <li>Cloud provider security standards</li>
                 </ul>
@@ -600,27 +584,27 @@ export default function PrivacyPolicyPage() {
 
           {/* 18. Third-Party Service Providers */}
           <section className="space-y-6">
-            <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-              <span className="text-[#2FA4A9]">18.</span> Third-Party Service Providers
+            <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+              <span className="text-teal">18.</span> Third-Party Service Providers
             </h2>
             <p className="text-[15px] font-medium text-gray-600 mb-6">Verixa uses trusted third-party providers to operate the platform.</p>
             
             <div className="grid md:grid-cols-2 gap-4">
               <div className="bg-white border rounded-xl p-5 shadow-sm">
-                <h4 className="font-bold text-[#0F2A44] mb-2 text-sm tracking-widest uppercase text-[#2FA4A9]">Payment Processing</h4>
+                <h4 className="font-bold text-navy mb-2 text-sm tracking-widest uppercase text-teal">Payment Processing</h4>
                 <p className="text-sm text-gray-600 mb-2">Handled by: Stripe (or equivalent)</p>
                 <p className="text-sm font-medium text-green-700 bg-green-50 p-2 rounded">We do not store full card numbers or CVV.</p>
               </div>
               <div className="bg-white border rounded-xl p-5 shadow-sm">
-                <h4 className="font-bold text-[#0F2A44] mb-2 text-sm tracking-widest uppercase text-[#2FA4A9]">Email Delivery</h4>
+                <h4 className="font-bold text-navy mb-2 text-sm tracking-widest uppercase text-teal">Email Delivery</h4>
                 <p className="text-sm text-gray-600">Handled by: Transactional email services (e.g., Resend)</p>
               </div>
               <div className="bg-white border rounded-xl p-5 shadow-sm">
-                <h4 className="font-bold text-[#0F2A44] mb-2 text-sm tracking-widest uppercase text-[#2FA4A9]">Infrastructure</h4>
+                <h4 className="font-bold text-navy mb-2 text-sm tracking-widest uppercase text-teal">Infrastructure</h4>
                 <p className="text-sm text-gray-600">May include: Cloud hosting providers & managed database services.</p>
               </div>
               <div className="bg-gray-50 border rounded-xl p-5 shadow-sm">
-                <h4 className="font-bold text-[#0F2A44] mb-2 text-sm tracking-widest uppercase">Legal Position</h4>
+                <h4 className="font-bold text-navy mb-2 text-sm tracking-widest uppercase">Legal Position</h4>
                 <ul className="text-sm text-gray-600 list-disc pl-4 space-y-1">
                   <li>Third parties provide adequate protection.</li>
                   <li>Data is used only for intended purposes.</li>
@@ -636,8 +620,8 @@ export default function PrivacyPolicyPage() {
           {/* 19 & 20. Cross-border & Disclosure */}
           <div className="grid md:grid-cols-2 gap-10">
             <section className="space-y-4">
-              <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                <span className="text-[#2FA4A9]">19.</span> Cross-Border Transfers
+              <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                <span className="text-teal">19.</span> Cross-Border Transfers
               </h2>
               <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
                 <p className="text-[15px] text-gray-600 mb-4">Your data may be processed outside Canada (e.g., cloud infrastructure).</p>
@@ -650,8 +634,8 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                <span className="text-[#2FA4A9]">20.</span> Disclosure of Info
+              <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                <span className="text-teal">20.</span> Disclosure of Info
               </h2>
               <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
                 <ul className="text-[14px] list-disc pl-5 space-y-3 text-gray-600">
@@ -671,16 +655,16 @@ export default function PrivacyPolicyPage() {
           <section className="space-y-10">
             <div className="grid md:grid-cols-2 gap-10">
               <div className="space-y-4">
-                <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                  <span className="text-[#2FA4A9]">21.</span> Data Accuracy
+                <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                  <span className="text-teal">21.</span> Data Accuracy
                 </h2>
                 <p className="text-[15px] text-gray-600">We strive to keep personal information accurate, complete, and up-to-date. Users and consultants can update their information securely through their account dashboard limits.</p>
                 <p className="text-xs text-gray-400">📌 Ref: PIPEDA Principle 6</p>
               </div>
 
               <div className="space-y-4">
-                <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                  <span className="text-[#2FA4A9]">22.</span> Logging & Monitoring
+                <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                  <span className="text-teal">22.</span> Logging & Monitoring
                 </h2>
                 <div className="text-[14px] text-gray-600 grid grid-cols-2 gap-4">
                   <div>
@@ -696,7 +680,7 @@ export default function PrivacyPolicyPage() {
             </div>
 
             {/* CRITICAL TRUST STATEMENT */}
-            <div className="bg-[#1A1F2B] text-white p-8 lg:p-10 rounded-3xl shadow-2xl relative overflow-hidden">
+            <div className="bg-ink text-white p-8 lg:p-10 rounded-3xl shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 p-4 opacity-10">
                 <ShieldCheck className="w-48 h-48 text-white" />
               </div>
@@ -724,23 +708,23 @@ export default function PrivacyPolicyPage() {
           {/* PART 3 START */}
 
           <div className="mt-20 mb-8 flex items-center gap-4">
-            <h2 className="text-3xl font-black text-[#0F2A44] font-serif">Part 3 — User Rights, Cookies, Compliance & Legal</h2>
+            <h2 className="text-3xl font-black text-navy font-serif">Part 3 — User Rights, Cookies, Compliance & Legal</h2>
             <div className="h-px bg-gray-200 flex-1"></div>
           </div>
 
           {/* 23. Individual Rights */}
           <section className="space-y-6">
-            <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-              <span className="text-[#2FA4A9]">23.</span> Individual Rights (Under PIPEDA)
+            <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+              <span className="text-teal">23.</span> Individual Rights (Under PIPEDA)
             </h2>
             <p className="text-[15px] font-medium text-gray-600">Under PIPEDA, users have specific rights regarding their personal information.</p>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
               <div className="bg-white border rounded-2xl p-6 shadow-sm">
-                <h4 className="font-bold text-[#0F2A44] mb-3 flex items-center gap-2 border-b pb-2">
-                  <span className="text-[#2FA4A9]">23.1</span> Right of Access
+                <h4 className="font-bold text-navy mb-3 flex items-center gap-2 border-b pb-2">
+                  <span className="text-teal">23.1</span> Right of Access
                 </h4>
-                <ul className="text-[14px] list-disc pl-4 space-y-2 marker:text-[#2FA4A9] text-gray-600">
+                <ul className="text-[14px] list-disc pl-4 space-y-2 marker:text-teal text-gray-600">
                   <li>Request access to personal data</li>
                   <li>Understand how data is used</li>
                   <li>Know who data has been shared with</li>
@@ -749,10 +733,10 @@ export default function PrivacyPolicyPage() {
               </div>
 
               <div className="bg-white border rounded-2xl p-6 shadow-sm">
-                <h4 className="font-bold text-[#0F2A44] mb-3 flex items-center gap-2 border-b pb-2">
-                  <span className="text-[#2FA4A9]">23.2</span> Right to Correction
+                <h4 className="font-bold text-navy mb-3 flex items-center gap-2 border-b pb-2">
+                  <span className="text-teal">23.2</span> Right to Correction
                 </h4>
-                <ul className="text-[14px] list-disc pl-4 space-y-2 marker:text-[#2FA4A9] text-gray-600 mb-3">
+                <ul className="text-[14px] list-disc pl-4 space-y-2 marker:text-teal text-gray-600 mb-3">
                   <li>Inaccurate data</li>
                   <li>Incomplete data</li>
                   <li>Outdated data</li>
@@ -762,11 +746,11 @@ export default function PrivacyPolicyPage() {
               </div>
 
               <div className="bg-white border rounded-2xl p-6 shadow-sm">
-                <h4 className="font-bold text-[#0F2A44] mb-3 flex items-center gap-2 border-b pb-2">
-                  <span className="text-[#2FA4A9]">23.3</span> Withdraw Consent
+                <h4 className="font-bold text-navy mb-3 flex items-center gap-2 border-b pb-2">
+                  <span className="text-teal">23.3</span> Withdraw Consent
                 </h4>
                 <p className="text-[13px] text-gray-600 mb-2">Users may withdraw consent anytime, subject to:</p>
-                <ul className="text-[13px] list-disc pl-4 space-y-1 marker:text-[#2FA4A9] text-gray-600 mb-3">
+                <ul className="text-[13px] list-disc pl-4 space-y-1 marker:text-teal text-gray-600 mb-3">
                   <li>Legal obligations</li>
                   <li>Active transactions (e.g., bookings)</li>
                 </ul>
@@ -776,14 +760,14 @@ export default function PrivacyPolicyPage() {
 
             <div className="grid md:grid-cols-2 gap-6 mt-4">
               <div className="bg-gray-50 border border-gray-100 rounded-xl p-5">
-                <h4 className="font-bold text-[#0F2A44] mb-2 text-sm tracking-widest uppercase">23.4 Challenge Compliance</h4>
+                <h4 className="font-bold text-navy mb-2 text-sm tracking-widest uppercase">23.4 Challenge Compliance</h4>
                 <p className="text-sm text-gray-600 mb-2">Users may file a complaint regarding misuse, privacy concerns, or improper handling.</p>
                 <p className="text-sm font-medium">Verixa will investigate and respond in a reasonable timeframe.</p>
               </div>
               <div className="bg-gray-50 border border-gray-100 rounded-xl p-5">
-                <h4 className="font-bold text-[#0F2A44] mb-2 text-sm tracking-widest uppercase">23.5 Escalation to Regulator</h4>
+                <h4 className="font-bold text-navy mb-2 text-sm tracking-widest uppercase">23.5 Escalation to Regulator</h4>
                 <p className="text-sm text-gray-600 mb-2">If not satisfied, users may contact the Office of the Privacy Commissioner of Canada (OPC):</p>
-                <a href="https://www.priv.gc.ca/" target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-[#2FA4A9] hover:underline">https://www.priv.gc.ca/</a>
+                <a href="https://www.priv.gc.ca/" target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-teal hover:underline">https://www.priv.gc.ca/</a>
               </div>
             </div>
           </section>
@@ -792,21 +776,21 @@ export default function PrivacyPolicyPage() {
 
           {/* 24. Cookies */}
           <section className="space-y-6">
-             <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-              <span className="text-[#2FA4A9]">24.</span> Cookies & Tracking Technologies
+             <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+              <span className="text-teal">24.</span> Cookies & Tracking Technologies
             </h2>
             <div className="grid md:grid-cols-2 gap-8">
               <div className="text-[15px] prose prose-gray">
                 <p>Verixa uses cookies and similar technologies to:</p>
-                <ul className="list-disc pl-4 marker:text-[#2FA4A9]">
+                <ul className="list-disc pl-4 marker:text-teal">
                   <li>Maintain sessions</li>
                   <li>Improve performance</li>
                   <li>Analyze usage</li>
                   <li>Enhance user experience</li>
                 </ul>
                 
-                <h4 className="font-bold text-[#0F2A44] mt-6 mb-2">Legal Position</h4>
-                <ul className="list-disc pl-4 marker:text-[#2FA4A9]">
+                <h4 className="font-bold text-navy mt-6 mb-2">Legal Position</h4>
+                <ul className="list-disc pl-4 marker:text-teal">
                   <li>Compliant with PIPEDA consent principles</li>
                   <li>Compliant with reasonable user expectations</li>
                   <li>Users can disable cookies in browser settings or limit tracking.</li>
@@ -815,15 +799,15 @@ export default function PrivacyPolicyPage() {
 
               <div className="space-y-4">
                 <div className="bg-white p-4 border rounded-xl shadow-sm">
-                  <h5 className="font-bold text-[#0F2A44] text-sm">Essential Cookies</h5>
+                  <h5 className="font-bold text-navy text-sm">Essential Cookies</h5>
                   <p className="text-xs text-gray-500 mt-1">Login sessions & Security</p>
                 </div>
                 <div className="bg-white p-4 border rounded-xl shadow-sm">
-                  <h5 className="font-bold text-[#0F2A44] text-sm">Analytics Cookies</h5>
+                  <h5 className="font-bold text-navy text-sm">Analytics Cookies</h5>
                   <p className="text-xs text-gray-500 mt-1">Usage tracking & Performance metrics</p>
                 </div>
                 <div className="bg-white p-4 border rounded-xl shadow-sm">
-                  <h5 className="font-bold text-[#0F2A44] text-sm">Functional Cookies</h5>
+                  <h5 className="font-bold text-navy text-sm">Functional Cookies</h5>
                   <p className="text-xs text-gray-500 mt-1">Preferences & Saved settings</p>
                 </div>
               </div>
@@ -835,7 +819,7 @@ export default function PrivacyPolicyPage() {
           {/* 25, 26, 27. Comms, Breach, Deletion */}
           <div className="grid md:grid-cols-3 gap-6">
             <section className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-              <h4 className="text-lg font-bold text-[#0F2A44] mb-3">25. Marketing Comms</h4>
+              <h4 className="text-lg font-bold text-navy mb-3">25. Marketing Comms</h4>
               <p className="text-[13px] text-gray-600 mb-2">We may send booking confirmations, reminders, and service updates.</p>
               <ul className="text-[13px] list-disc pl-4 text-gray-600 mb-3 space-y-1">
                 <li><strong className="text-gray-800">Opt-in:</strong> Newsletters, edu content, platform updates.</li>
@@ -845,7 +829,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section className="bg-gray-50 p-6 rounded-2xl border border-gray-100 border-t-4 border-t-red-400">
-              <h4 className="text-lg font-bold text-[#0F2A44] mb-3">26. Data Breach Response</h4>
+              <h4 className="text-lg font-bold text-navy mb-3">26. Data Breach Response</h4>
               <p className="text-[13px] text-gray-600 mb-2">In the event of a breach, Verixa will:</p>
               <ul className="text-[13px] list-disc pl-4 text-gray-600 space-y-1">
                 <li>Assess the risk of harm</li>
@@ -856,7 +840,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-              <h4 className="text-lg font-bold text-[#0F2A44] mb-3">27. Account Closure</h4>
+              <h4 className="text-lg font-bold text-navy mb-3">27. Account Closure</h4>
               <p className="text-[13px] text-gray-600 mb-2">Users may request account deletion and data removal.</p>
               <p className="text-[13px] font-medium text-gray-800 mb-2">Verixa may retain data for:</p>
               <ul className="text-[13px] list-disc pl-4 text-gray-600 space-y-1">
@@ -872,8 +856,8 @@ export default function PrivacyPolicyPage() {
           {/* 28, 29, 30. Automation, Disclaimer, Liability */}
           <section className="space-y-8">
             <div className="bg-white border p-6 rounded-2xl shadow-sm">
-              <h2 className="text-xl font-bold text-[#0F2A44] flex items-center gap-2 mb-3">
-                <span className="text-[#2FA4A9]">28.</span> Automated Decision-Making
+              <h2 className="text-xl font-bold text-navy flex items-center gap-2 mb-3">
+                <span className="text-teal">28.</span> Automated Decision-Making
               </h2>
               <p className="text-[14px] text-gray-600 mb-3">Verixa may use automated systems for ranking consultants, displaying search results, and visibility weighting.</p>
               <div className="bg-amber-50 border border-amber-100 p-3 rounded-lg text-[13px] text-amber-900 font-medium">
@@ -883,8 +867,8 @@ export default function PrivacyPolicyPage() {
 
             <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-white border p-6 rounded-2xl shadow-sm">
-                 <h2 className="text-xl font-bold text-[#0F2A44] flex items-center gap-2 mb-3">
-                  <span className="text-[#2FA4A9]">29.</span> Prof. Services Disclaimer
+                 <h2 className="text-xl font-bold text-navy flex items-center gap-2 mb-3">
+                  <span className="text-teal">29.</span> Prof. Services Disclaimer
                 </h2>
                 <ul className="text-[14px] list-disc pl-4 text-gray-600 space-y-2">
                   <li>Connects users with licensed consultants.</li>
@@ -895,8 +879,8 @@ export default function PrivacyPolicyPage() {
               </div>
 
               <div className="bg-white border p-6 rounded-2xl shadow-sm">
-                 <h2 className="text-xl font-bold text-[#0F2A44] flex items-center gap-2 mb-3">
-                  <span className="text-[#2FA4A9]">30.</span> Limitation of Liability
+                 <h2 className="text-xl font-bold text-navy flex items-center gap-2 mb-3">
+                  <span className="text-teal">30.</span> Limitation of Liability
                 </h2>
                 <p className="text-[14px] text-gray-600 mb-3">Verixa takes reasonable steps to protect data, but no system is 100% secure. Users share information at their own risk.</p>
                 <p className="text-[13px] font-bold">Verixa is not responsible for:</p>
@@ -913,15 +897,15 @@ export default function PrivacyPolicyPage() {
           {/* 31, 32, 33 */}
           <div className="grid md:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <h4 className="font-bold text-[#0F2A44]">31. Children’s Privacy</h4>
+              <h4 className="font-bold text-navy">31. Children’s Privacy</h4>
               <p className="text-[13px] text-gray-600">Verixa is not intended for individuals under 18. We do not knowingly collect personal information from minors.</p>
             </div>
             <div className="space-y-2">
-              <h4 className="font-bold text-[#0F2A44]">32. Policy Updates</h4>
+              <h4 className="font-bold text-navy">32. Policy Updates</h4>
               <p className="text-[13px] text-gray-600">Verixa may update this policy periodically. Updated versions will be published, and users may be notified if changes are material.</p>
             </div>
             <div className="space-y-2">
-              <h4 className="font-bold text-[#0F2A44]">33. Contact Information</h4>
+              <h4 className="font-bold text-navy">33. Contact Information</h4>
               <p className="text-[13px] text-gray-600">For privacy-related inquiries:</p>
               <ul className="text-[13px] list-disc pl-4 text-gray-600 space-y-1">
                 <li>Privacy Officer</li>
@@ -936,15 +920,15 @@ export default function PrivacyPolicyPage() {
             
             <div className="text-center space-y-4">
               <div className="inline-flex items-center justify-center p-4 bg-gray-50 rounded-full mb-2">
-                <ShieldCheck className="w-8 h-8 text-[#0F2A44]" />
+                <ShieldCheck className="w-8 h-8 text-navy" />
               </div>
-              <h3 className="text-2xl font-black text-[#0F2A44] uppercase tracking-widest">Final Legal Position</h3>
+              <h3 className="text-2xl font-black text-navy uppercase tracking-widest">Final Legal Position</h3>
               <p className="text-gray-600 font-medium max-w-2xl mx-auto">
                 Verixa operates under Canadian privacy law and formally commits to <strong>transparency</strong>, <strong>limited data use</strong>, <strong>user control</strong>, and <strong>responsible handling</strong>.
               </p>
             </div>
 
-            <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-[#0F2A44] via-[#163859] to-[#2FA4A9] p-10 lg:p-16 text-center shadow-2xl">
+            <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-navy via-[#163859] to-teal p-10 lg:p-16 text-center shadow-2xl">
               {/* Abstract decorative circles */}
               <div className="absolute top-0 left-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
               <div className="absolute bottom-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
@@ -958,11 +942,6 @@ export default function PrivacyPolicyPage() {
             </div>
 
           </div>
-
-        </div>
-      </div>
-      </div>
-      <Footer />
-    </main>
+    </LegalPage>
   );
 }

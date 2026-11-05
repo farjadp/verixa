@@ -11,31 +11,27 @@
 // Security Notes: Enforce ADMIN authorization server-side before reads/writes and before rendering sensitive payloads.
 // Risk Notes: Regressions here can impact many users; prefer explicit guards and resilient fallbacks for DB calls.
 // ============================================================================
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
 import { getBlogPosts } from "@/actions/blog.actions";
 import BlogListClient from "./BlogListClient";
+import { requireAdminPage } from "../_lib/guard";
+import { AdminPageHeader, AdminShell } from "../_components/AdminUI";
 
 export default async function AdminBlogPage() {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") redirect("/login");
+  await requireAdminPage();
 
   // Fetch all posts, including drafts
   const posts = await getBlogPosts(false);
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto h-[calc(100vh-2rem)] flex flex-col">
-      <div className="mb-6 shrink-0 flex justify-between items-end">
-        <div>
-          <h1 className="text-3xl font-serif font-black text-white tracking-tight">SEO Blog Content Manager</h1>
-          <p className="text-gray-400 mt-1 font-light text-sm">Create and publish Programmatic Acquisition content to drive traffic and booking conversions.</p>
-        </div>
-      </div>
-
-      <div className="flex-1 min-h-0 bg-[#0F2A44] border border-gray-800 rounded-xl overflow-hidden shadow-2xl flex relative">
+    <AdminShell wide>
+      <AdminPageHeader
+        section="Content"
+        title="Articles"
+        description="Every blog post, published and draft, from any source (pipeline, wizard, aggregator or hand-written)."
+      />
+      <div className="relative flex h-[calc(100vh-14rem)] min-h-[500px] overflow-hidden rounded-2xl border border-gray-200 bg-navy shadow-sm">
         <BlogListClient initialPosts={posts} />
       </div>
-    </div>
+    </AdminShell>
   );
 }

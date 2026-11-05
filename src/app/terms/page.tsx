@@ -10,9 +10,8 @@
 // ============================================================================
 import { pageMetadata } from "@/lib/seo/metadata";
 import type { Metadata } from "next";
-import { ShieldAlert, Scale, CheckCircle, AlertTriangle } from "lucide-react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import { Scale, CheckCircle, AlertTriangle } from "lucide-react";
+import LegalPage from "@/components/legal/LegalPage";
 
 export const metadata: Metadata = pageMetadata({
   title: "Terms of Service",
@@ -23,31 +22,15 @@ export const metadata: Metadata = pageMetadata({
 
 export default function TermsPage() {
   return (
-    <main className="min-h-screen bg-[#F5F7FA] font-sans selection:bg-[#2FA4A9] selection:text-white">
-      <Header />
-      <div className="pt-32 pb-20">
-        
-        {/* HEADER SECTION */}
-        <div className="max-w-4xl mx-auto px-6 lg:px-8 mb-16">
-          <div className="flex items-center gap-3 text-[#0F2A44] font-bold tracking-widest uppercase text-sm mb-4">
-            <ShieldAlert className="w-5 h-5" />
-            <span>Legal Infrastructure</span>
-          </div>
-          <h1 className="text-4xl lg:text-5xl font-black text-[#0F2A44] tracking-tight mb-6 font-serif">
-            Verixa Terms of Service
-          </h1>
-          <p className="text-lg text-gray-500 font-medium flex items-center gap-3">
-            Effective Date: <span className="text-[#0F2A44] font-bold">March 23, 2026</span>
-          </p>
-        </div>
-
-        <div className="max-w-4xl mx-auto px-6 lg:px-8">
-          <div className="bg-white rounded-[2.5rem] shadow-xl shadow-gray-200/50 border border-gray-100 p-8 lg:p-14 text-gray-600">
+    <LegalPage
+      current="/terms" eyebrow="Legal" title="Verixa Terms of Service"
+      meta={<>Effective date: <span className="font-bold text-navy">March 23, 2026</span></>}
+    >
             
             {/* 1. Acceptance */}
             <section className="space-y-4 mb-12">
-              <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                <span className="text-[#2FA4A9]">1.</span> Acceptance of Terms
+              <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                <span className="text-teal">1.</span> Acceptance of Terms
               </h2>
               <p className="text-[15px] leading-relaxed">
                 By accessing or using Verixa (“the Platform”), you agree to be bound by these Terms of Service. If you do not agree, you must not use the Platform.
@@ -65,14 +48,14 @@ export default function TermsPage() {
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
                   <p className="text-[14px] mb-3">Verixa is a technology platform that:</p>
-                  <ul className="list-none pl-0 space-y-2 text-[14px] font-medium text-[#0F2A44]">
-                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-[#2FA4A9] shrink-0"/> Connects users with independent immigration consultants</li>
-                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-[#2FA4A9] shrink-0"/> Enables discovery, comparison, and booking</li>
-                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-[#2FA4A9] shrink-0"/> Facilitates communication between users & consultants</li>
+                  <ul className="list-none pl-0 space-y-2 text-[14px] font-medium text-navy">
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-teal shrink-0"/> Connects users with independent immigration consultants</li>
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-teal shrink-0"/> Enables discovery, comparison, and booking</li>
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-teal shrink-0"/> Facilitates communication between users & consultants</li>
                   </ul>
                 </div>
                 
-                <div className="bg-[#1A1F2B] p-6 rounded-2xl border border-[#0F2A44] text-white shadow-lg relative overflow-hidden">
+                <div className="bg-ink p-6 rounded-2xl border border-navy text-white shadow-lg relative overflow-hidden">
                   <Scale className="absolute top-4 right-4 w-24 h-24 text-white opacity-5" />
                   <h4 className="font-bold text-amber-400 mb-3 flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4" /> Legal Clarification
@@ -94,8 +77,8 @@ export default function TermsPage() {
             {/* 3 & 4 */}
             <div className="grid md:grid-cols-2 gap-10 mb-12">
               <section className="space-y-4">
-                <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                  <span className="text-[#2FA4A9]">3.</span> Eligibility
+                <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                  <span className="text-teal">3.</span> Eligibility
                 </h2>
                 <ul className="list-disc pl-5 space-y-2 text-[15px]">
                   <li>Be at least 18 years old</li>
@@ -105,8 +88,8 @@ export default function TermsPage() {
               </section>
 
               <section className="space-y-4">
-                <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                  <span className="text-[#2FA4A9]">4.</span> User Accounts
+                <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                  <span className="text-teal">4.</span> User Accounts
                 </h2>
                 <p className="text-[15px]">Users are responsible for maintaining account confidentiality and all activity under their account.</p>
                 <div className="bg-red-50 p-3 rounded-lg border border-red-100 text-sm text-red-900 mt-2">
@@ -119,20 +102,20 @@ export default function TermsPage() {
 
             {/* 5. Consultant Profiles */}
             <section className="space-y-6 mb-12">
-              <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2 mb-4">
-                <span className="text-[#2FA4A9]">5.</span> Consultant Profiles
+              <h2 className="text-2xl font-bold text-navy flex items-center gap-2 mb-4">
+                <span className="text-teal">5.</span> Consultant Profiles
               </h2>
               <div className="grid md:grid-cols-3 gap-6">
                 <div className="bg-white border rounded-xl p-5 shadow-sm space-y-2">
-                  <h4 className="font-bold text-[#0F2A44]">5.1 Source of Data</h4>
+                  <h4 className="font-bold text-navy">5.1 Source of Data</h4>
                   <p className="text-sm">Some consultant information may be sourced from publicly available regulatory registries (e.g., CICC).</p>
                 </div>
                 <div className="bg-white border rounded-xl p-5 shadow-sm space-y-2">
-                  <h4 className="font-bold text-[#0F2A44]">5.2 Accuracy Disclaimer</h4>
+                  <h4 className="font-bold text-navy">5.2 Accuracy Disclaimer</h4>
                   <p className="text-sm">Verixa does not guarantee completeness or real-time accuracy. Users must independently verify status via official sources.</p>
                 </div>
                 <div className="bg-white border rounded-xl p-5 shadow-sm space-y-2">
-                  <h4 className="font-bold text-[#0F2A44]">5.3 Claiming Profiles</h4>
+                  <h4 className="font-bold text-navy">5.3 Claiming Profiles</h4>
                   <p className="text-sm">Consultants may claim profiles. Verixa reserves the right to verify identity, request docs, or reject claims.</p>
                 </div>
               </div>
@@ -143,11 +126,11 @@ export default function TermsPage() {
             {/* 6. Reviews & 7. Booking */}
             <div className="grid lg:grid-cols-5 gap-10 mb-12">
               <section className="lg:col-span-2 space-y-4">
-                <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                  <span className="text-[#2FA4A9]">6.</span> Reviews & Ratings
+                <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                  <span className="text-teal">6.</span> Reviews & Ratings
                 </h2>
                 <p className="text-[15px]">Users may leave reviews based on actual experiences.</p>
-                <ul className="list-disc pl-5 space-y-1 text-sm marker:text-[#2FA4A9]">
+                <ul className="list-disc pl-5 space-y-1 text-sm marker:text-teal">
                   <li>Must be truthful</li>
                   <li>Must not be defamatory</li>
                   <li>Must not be misleading</li>
@@ -156,20 +139,20 @@ export default function TermsPage() {
               </section>
 
               <section className="lg:col-span-3 space-y-4">
-                <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                  <span className="text-[#2FA4A9]">7.</span> Booking & Payments
+                <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                  <span className="text-teal">7.</span> Booking & Payments
                 </h2>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                    <h5 className="font-bold text-sm text-[#0F2A44] mb-1">7.1 Booking Process</h5>
+                    <h5 className="font-bold text-sm text-navy mb-1">7.1 Booking Process</h5>
                     <p className="text-xs text-gray-600">Subject to consultant availability and confirmed only after consultant acceptance.</p>
                   </div>
                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                    <h5 className="font-bold text-sm text-[#0F2A44] mb-1">7.2 Payment Processing</h5>
+                    <h5 className="font-bold text-sm text-navy mb-1">7.2 Payment Processing</h5>
                     <p className="text-xs text-gray-600">Processed via Stripe. We do not store full payment details. Funds may be held until booking confirmation.</p>
                   </div>
                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 sm:col-span-2">
-                    <h5 className="font-bold text-sm text-[#0F2A44] mb-1">7.3 Platform Fees</h5>
+                    <h5 className="font-bold text-sm text-navy mb-1">7.3 Platform Fees</h5>
                     <p className="text-xs text-gray-600">Verixa may charge service fees and commissions. All fees are disclosed at the time of transaction.</p>
                   </div>
                 </div>
@@ -181,8 +164,8 @@ export default function TermsPage() {
             {/* 8. Cancellations & 9. Responsibility */}
             <div className="grid md:grid-cols-2 gap-10 mb-12">
               <section className="space-y-4">
-                <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                  <span className="text-[#2FA4A9]">8.</span> Cancellations
+                <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                  <span className="text-teal">8.</span> Cancellations
                 </h2>
                 <ul className="list-disc pl-5 space-y-2 text-[14px]">
                   <li>Cancellation policies vary by consultant.</li>
@@ -193,8 +176,8 @@ export default function TermsPage() {
               </section>
 
               <section className="space-y-4">
-                <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                  <span className="text-[#2FA4A9]">9.</span> Consultant Responsibility
+                <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                  <span className="text-teal">9.</span> Consultant Responsibility
                 </h2>
                 <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
                   <p className="text-[13px] text-amber-900 mb-2 font-medium">Consultants are solely responsible for:</p>
@@ -213,8 +196,8 @@ export default function TermsPage() {
             {/* 10. Conduct & 11. IP */}
             <div className="grid md:grid-cols-2 gap-10 mb-12">
               <section className="space-y-4">
-                <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                  <span className="text-[#2FA4A9]">10.</span> User Conduct
+                <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                  <span className="text-teal">10.</span> User Conduct
                 </h2>
                 <p className="text-sm font-medium mb-2">Users agree NOT to:</p>
                 <ul className="list-none pl-0 space-y-2 text-sm">
@@ -226,8 +209,8 @@ export default function TermsPage() {
               </section>
 
               <section className="space-y-4">
-                <h2 className="text-2xl font-bold text-[#0F2A44] flex items-center gap-2">
-                  <span className="text-[#2FA4A9]">11.</span> Intellectual Property
+                <h2 className="text-2xl font-bold text-navy flex items-center gap-2">
+                  <span className="text-teal">11.</span> Intellectual Property
                 </h2>
                 <p className="text-[14px]">All platform content (excluding user-generated content) is owned by Verixa.</p>
                 <div className="bg-gray-50 p-3 rounded border text-sm text-gray-700">
@@ -239,16 +222,16 @@ export default function TermsPage() {
             <hr className="border-gray-100 mb-12" />
 
              {/* 13 & 14 THE LIABILITY WALL */}
-             <div className="bg-white border-2 border-[#0F2A44] p-8 lg:p-10 rounded-3xl shadow-xl mb-12">
+             <div className="bg-white border-2 border-navy p-8 lg:p-10 rounded-3xl shadow-xl mb-12">
               <div className="space-y-10">
                 
                 <section>
-                  <h2 className="text-2xl font-black text-[#0F2A44] flex items-center gap-2 mb-4">
+                  <h2 className="text-2xl font-black text-navy flex items-center gap-2 mb-4">
                     <span className="text-red-500">13.</span> Limitation of Liability (VERY IMPORTANT)
                   </h2>
                   <p className="text-[15px] font-bold text-red-600 uppercase tracking-wide mb-3">To the fullest extent permitted by law:</p>
                   <p className="text-[15px] text-gray-800 mb-2">Verixa shall not be liable for:</p>
-                  <ul className="text-[14px] list-disc pl-5 space-y-3 font-medium text-gray-600 marker:text-[#0F2A44]">
+                  <ul className="text-[14px] list-disc pl-5 space-y-3 font-medium text-gray-600 marker:text-navy">
                     <li>Decisions made based on consultant advice</li>
                     <li>Losses resulting from consultations</li>
                     <li>Indirect or consequential damages</li>
@@ -259,7 +242,7 @@ export default function TermsPage() {
                 <div className="h-px bg-gray-200 w-full" />
 
                 <section>
-                  <h2 className="text-2xl font-black text-[#0F2A44] flex items-center gap-2 mb-4">
+                  <h2 className="text-2xl font-black text-navy flex items-center gap-2 mb-4">
                     <span className="text-red-500">14.</span> No Guarantee of Results
                   </h2>
                   <p className="text-[15px] text-gray-800 font-medium mb-3">Verixa does <strong>NOT</strong> guarantee:</p>
@@ -268,7 +251,7 @@ export default function TermsPage() {
                     <li className="flex gap-3 items-center"><span className="text-[10px]">❌</span> Visa approvals</li>
                     <li className="flex gap-3 items-center"><span className="text-[10px]">❌</span> Success of applications</li>
                   </ul>
-                  <p className="text-sm bg-[#F5F7FA] p-4 rounded-xl border border-gray-200">
+                  <p className="text-sm bg-mist p-4 rounded-xl border border-gray-200">
                     All outcomes depend entirely on user circumstances, consultant actions, and autonomous government decisions.
                   </p>
                 </section>
@@ -281,19 +264,19 @@ export default function TermsPage() {
              {/* 15, 16, 17, 18. Wrap up logistics */}
              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                <div className="space-y-2">
-                 <h4 className="font-bold text-[#0F2A44]">15. Indemnification</h4>
+                 <h4 className="font-bold text-navy">15. Indemnification</h4>
                  <p className="text-xs text-gray-600">Users agree to indemnify Verixa against claims arising from misuse, terms violations, or consultant disputes.</p>
                </div>
                <div className="space-y-2">
-                 <h4 className="font-bold text-[#0F2A44]">16. Suspension</h4>
+                 <h4 className="font-bold text-navy">16. Suspension</h4>
                  <p className="text-xs text-gray-600">Access may be terminated if terms are violated, fraud is detected, or legal risk arises.</p>
                </div>
                <div className="space-y-2">
-                 <h4 className="font-bold text-[#0F2A44]">17. Third-Party</h4>
+                 <h4 className="font-bold text-navy">17. Third-Party</h4>
                  <p className="text-xs text-gray-600">The platform relies on third parties (e.g., Stripe). Verixa is not responsible for their system failures.</p>
                </div>
                <div className="space-y-2">
-                 <h4 className="font-bold text-[#0F2A44]">18. Modifications</h4>
+                 <h4 className="font-bold text-navy">18. Modifications</h4>
                  <p className="text-xs text-gray-600">These Terms may be updated. Continued usage instantly constitutes acceptance of the new changes.</p>
                </div>
              </div>
@@ -303,20 +286,20 @@ export default function TermsPage() {
              {/* 19, 20, 21. Formal Jurisdiction */}
              <div className="grid md:grid-cols-3 gap-6 mb-6">
                 <section className="bg-gray-50 border p-5 rounded-2xl">
-                  <h4 className="font-bold text-[#0F2A44] mb-2 text-sm">19. Governing Law</h4>
+                  <h4 className="font-bold text-navy mb-2 text-sm">19. Governing Law</h4>
                   <p className="text-sm">These Terms are governed strictly by the laws of:</p>
-                  <p className="text-sm font-bold text-[#2FA4A9] mt-2 bg-white px-3 py-2 rounded border">Province of Ontario, Canada</p>
+                  <p className="text-sm font-bold text-teal mt-2 bg-white px-3 py-2 rounded border">Province of Ontario, Canada</p>
                   <p className="text-xs mt-2 text-gray-500">and applicable federal laws.</p>
                 </section>
                 
                 <section className="bg-gray-50 border p-5 rounded-2xl">
-                  <h4 className="font-bold text-[#0F2A44] mb-2 text-sm">20. Dispute Resolution</h4>
+                  <h4 className="font-bold text-navy mb-2 text-sm">20. Dispute Resolution</h4>
                   <p className="text-xs text-gray-600 mb-2">Disputes should first be addressed through direct communication or platform support.</p>
                   <p className="text-xs font-medium">Verixa may provide mediation where appropriate.</p>
                 </section>
                 
                 <section className="bg-gray-50 border p-5 rounded-2xl">
-                  <h4 className="font-bold text-[#0F2A44] mb-2 text-sm">21. Contact Information</h4>
+                  <h4 className="font-bold text-navy mb-2 text-sm">21. Contact Information</h4>
                   <p className="text-xs text-gray-600 mb-2">For legal inquiries regarding these terms:</p>
                   <p className="text-sm font-medium mt-1">Email: <em>legal@getverixa.com</em></p>
                   <p className="text-sm font-medium">Platform contact form</p>
@@ -325,9 +308,9 @@ export default function TermsPage() {
 
              {/* THE IMMUTABLE FACILITATOR MANTRA */}
              <div className="mt-20 lg:mt-24">
-               <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-[#0F2A44] via-[#163859] to-[#2FA4A9] p-10 lg:p-16 text-center shadow-2xl border border-[#2FA4A9]/20">
+               <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-navy via-[#163859] to-teal p-10 lg:p-16 text-center shadow-2xl border border-teal/20">
                  {/* Internal lighting */}
-                 <div className="absolute top-0 right-0 w-64 h-64 bg-[#2FA4A9] opacity-20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                 <div className="absolute top-0 right-0 w-64 h-64 bg-teal opacity-20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
                  
                  <Scale className="w-12 h-12 text-teal-400/50 mx-auto mb-6" />
                  
@@ -339,11 +322,6 @@ export default function TermsPage() {
                  </p>
                </div>
              </div>
-
-          </div>
-        </div>
-      </div>
-      <Footer />
-    </main>
+    </LegalPage>
   );
 }

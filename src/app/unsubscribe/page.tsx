@@ -10,40 +10,51 @@
 // ============================================================================
 "use client";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle, XCircle, ShieldOff } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, XCircle, MailX } from "lucide-react";
 import { Suspense } from "react";
 
 function UnsubscribeContent() {
   const params = useSearchParams();
   const status = params.get("status");
 
-  const isSuccess   = status === "success";
-  const isInvalid   = status === "invalid";
+  const isSuccess = status === "success";
+  const isInvalid = status === "invalid";
+
+  const icon = isSuccess ? (
+    <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-success/10 text-success">
+      <CheckCircle2 className="h-7 w-7" aria-hidden="true" />
+    </span>
+  ) : isInvalid ? (
+    <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-error/10 text-error">
+      <XCircle className="h-7 w-7" aria-hidden="true" />
+    </span>
+  ) : (
+    <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-mist text-navy">
+      <MailX className="h-7 w-7" aria-hidden="true" />
+    </span>
+  );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6">
-      <div className="max-w-md w-full bg-white rounded-3xl border border-gray-100 shadow-xl p-10 text-center">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-mist px-6 py-16 font-sans text-ink">
+      <Link href="/" className="mb-8">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/api/assets/logo?type=header" alt="Verixa" className="h-9 w-auto object-contain" />
+      </Link>
 
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <div className="bg-[#0F172A] px-6 py-3 rounded-2xl">
-            <span className="text-[#2FA4A9] font-black text-xl tracking-tight">VERIXA</span>
-          </div>
-        </div>
+      <div className="flex w-full max-w-md flex-col items-start gap-5 rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+        {icon}
 
         {isSuccess && (
           <>
-            <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-8 h-8 text-green-500" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-3">You're unsubscribed</h1>
-            <p className="text-gray-500 text-sm leading-relaxed mb-8">
-              Your email address has been removed from our mailing list.
-              You won't receive any further marketing emails from Verixa.
+            <h1 className="text-2xl font-bold tracking-tight text-navy">You&apos;re unsubscribed</h1>
+            <p className="text-sm leading-relaxed text-gray-600">
+              Your email address has been removed from our mailing list. You won&apos;t receive further marketing
+              emails from Verixa.
             </p>
-            <p className="text-xs text-gray-400">
+            <p className="text-sm text-gray-600">
               Changed your mind?{" "}
-              <a href="mailto:info@getverixa.ca" className="text-[#2FA4A9] font-semibold underline">
+              <a href="mailto:info@getverixa.ca" className="font-bold text-teal hover:text-navy">
                 Contact us
               </a>{" "}
               to re-subscribe.
@@ -53,42 +64,34 @@ function UnsubscribeContent() {
 
         {isInvalid && (
           <>
-            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
-              <XCircle className="w-8 h-8 text-red-400" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-3">Invalid link</h1>
-            <p className="text-gray-500 text-sm leading-relaxed mb-8">
-              This unsubscribe link is invalid or has expired.
-              Please use the link from the original email, or contact us directly.
+            <h1 className="text-2xl font-bold tracking-tight text-navy">This link didn&apos;t work</h1>
+            <p className="text-sm leading-relaxed text-gray-600">
+              The unsubscribe link is invalid or has expired. Use the link from the original email, or contact us
+              directly.
             </p>
             <a
               href="mailto:info@getverixa.ca"
-              className="inline-block bg-[#2FA4A9] text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-[#2FA4A9]/90 transition"
+              className="inline-flex min-h-11 items-center rounded-xl bg-navy px-5 text-sm font-bold text-white transition-colors hover:bg-teal"
             >
-              Contact Support
+              Contact support
             </a>
           </>
         )}
 
         {!status && (
           <>
-            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
-              <ShieldOff className="w-8 h-8 text-gray-400" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-3">Unsubscribe</h1>
-            <p className="text-gray-500 text-sm">
-              To unsubscribe, please use the link at the bottom of the email you received.
+            <h1 className="text-2xl font-bold tracking-tight text-navy">Unsubscribe</h1>
+            <p className="text-sm leading-relaxed text-gray-600">
+              To unsubscribe, use the link at the bottom of the email you received.
             </p>
           </>
         )}
 
-        <div className="mt-10 pt-6 border-t border-gray-100">
-          <a href="/" className="text-xs text-gray-400 hover:text-gray-600 transition">
-            ← Return to Verixa
-          </a>
-        </div>
+        <Link href="/" className="mt-2 border-t border-gray-200 pt-5 text-sm font-semibold text-gray-600 hover:text-navy">
+          ← Back to Verixa
+        </Link>
       </div>
-    </div>
+    </main>
   );
 }
 

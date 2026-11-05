@@ -15,7 +15,7 @@ describe("buildOutreachEmail", () => {
     expect(m.from).toBe(env.OUTREACH_FROM_EMAIL);
     expect(m.replyTo).toBe("farjad@example.test");
     expect(m.text).toContain("1 Test St, Newmarket, ON L3Y 0A0, Canada");
-    expect(m.text).toMatch(/Unsubscribe: https:\/\/example\.test\/unsubscribe\?email=rcic%40firm\.ca&token=/);
+    expect(m.text).toMatch(/Unsubscribe: https:\/\/example\.test\/api\/unsubscribe\?email=rcic%40firm\.ca&token=/);
     expect(m.headers["List-Unsubscribe"]).toMatch(/^<https:\/\/example\.test\/api\/unsubscribe\?email=rcic%40firm\.ca&token=[0-9a-f]{24}>$/);
     expect(m.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
     expect(m.html).toContain("Hi &lt;Sara&gt;,<br>line two");

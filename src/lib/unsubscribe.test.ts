@@ -24,6 +24,34 @@ describe("unsubscribe tokens", () => {
     expect(verifyUnsubscribeToken("a@b.com", "anything")).toBe(false);
   });
 
+  it("body link points at the API route that records the unsubscribe", async () => {
+    const { buildUnsubscribeUrl } = await import("./unsubscribe");
+    expect(buildUnsubscribeUrl("a@b.com")).toMatch(/^https:\/\/example\.test\/api\/unsubscribe\?email=a%40b\.com&token=[0-9a-f]{24}$/);
+  });
+
+  it("accepts legacy-signed tokens only when UNSUBSCRIBE_LEGACY_SECRET is set", async () => {
+    const { signUnsubscribeToken, verifyUnsubscribeToken } = await import("./unsubscribe");
+    process.env.UNSUBSCRIBE_SECRET = "old-secret";
+    const legacyToken = signUnsubscribeToken("a@b.com");
+    process.env.UNSUBSCRIBE_SECRET = "test-secret";
+    delete process.env.UNSUBSCRIBE_LEGACY_SECRET;
+    expect(verifyUnsubscribeToken("a@b.com", legacyToken)).toBe(false);
+    process.env.UNSUBSCRIBE_LEGACY_SECRET = "old-secret";
+    expect(verifyUnsubscribeToken("A@b.com", legacyToken)).toBe(true);
+    expect(verifyUnsubscribeToken("a@b.com", "x".repeat(24))).toBe(false);
+    // signing always uses the primary secret
+    expect(signUnsubscribeToken("a@b.com")).not.toBe(legacyToken);
+    delete process.env.UNSUBSCRIBE_LEGACY_SECRET;
+  });
+
+  it("stays fail-closed when the primary secret is unset even if legacy is set", async () => {
+    const { verifyUnsubscribeToken } = await import("./unsubscribe");
+    delete process.env.UNSUBSCRIBE_SECRET;
+    process.env.UNSUBSCRIBE_LEGACY_SECRET = "old-secret";
+    expect(verifyUnsubscribeToken("a@b.com", "anything")).toBe(false);
+    delete process.env.UNSUBSCRIBE_LEGACY_SECRET;
+  });
+
   it("builds a one-click API URL", async () => {
     const { buildOneClickUnsubscribeUrl } = await import("./unsubscribe");
     expect(buildOneClickUnsubscribeUrl("a@b.com")).toMatch(/^https:\/\/example\.test\/api\/unsubscribe\?email=a%40b\.com&token=[0-9a-f]{24}$/);

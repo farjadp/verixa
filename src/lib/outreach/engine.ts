@@ -23,11 +23,31 @@ export interface EngineDeps {
   getOffer: () => Promise<FoundingOffer | null>;
   email: {
     build: (i: { to: string; subject: string; body: string }) => BuiltEmail;
-    send: (m: BuiltEmail, at: Date | null) => Promise<{ id: string }>;
+    send: (m: BuiltEmail, at: Date | null, idempotencyKey?: string) => Promise<{ id: string }>;
     cancel: (id: string) => Promise<void>;
   };
   suppress: (profileId: string, reason: string, contact?: { email?: string | null; linkedinUrl?: string | null; xHandle?: string | null }) => Promise<void>;
   appUrl: string;
+  /** Founder alert; optional so tests and callers without alerting still work. */
+  alert?: (subject: string, lines: string[]) => Promise<void>;
+}
+
+/**
+ * True only when the provider definitely refused the send (HTTP 400–499, e.g. validation or an invalid address),
+ * so nothing was sent. 409 can mean a concurrent idempotent request that may have gone out, so it is NOT definite.
+ * Timeouts, 5xx, network errors and anything unrecognised are ambiguous: the email may exist.
+ */
+export function isDefiniteRejection(e: unknown): boolean {
+  const code = (e as { statusCode?: unknown } | null)?.statusCode;
+  return typeof code === "number" && code >= 400 && code < 500 && code !== 409;
+}
+
+async function raise(deps: EngineDeps, subject: string, lines: string[]): Promise<void> {
+  try {
+    await deps.alert?.(subject, lines);
+  } catch (e) {
+    console.error(`[outreach] alert failed (${(e as Error).message}): ${subject}`);
+  }
 }
 
 /** Extra planned leads to try when some are skipped (failed compose, no email, full window). */
@@ -172,7 +192,8 @@ export async function planEmailDay(deps: EngineDeps) {
     const lead = leads.find((l) => l.id === task.leadId)!;
     const msg = await composeWithRetry(deps, lead, task.step, offer);
     if (!msg) { result.failed++; continue; }
-    if (!msg.email?.trim()) {
+    const email = msg.email?.trim() ?? "";
+    if (!email) {
       // No address will ever appear: stop retrying this lead every day.
       await deps.suppress(lead.consultantProfileId, "no_email");
       await apply(deps, lead, { type: "SUPPRESSED" });
@@ -199,11 +220,25 @@ export async function planEmailDay(deps: EngineDeps) {
     if (!touch.created) continue; // already handled; never send twice
 
     let id: string;
+    let built: BuiltEmail;
     try {
-      const built = deps.email.build({ to: msg.email, subject: msg.subject, body: msg.body });
-      ({ id } = await deps.email.send(built, at));
+      built = deps.email.build({ to: email, subject: msg.subject, body: msg.body });
     } catch (e) {
       await deps.repo.updateTouch(touch.id, { status: "FAILED", error: (e as Error).message.slice(0, 500) });
+      result.failed++;
+      continue;
+    }
+    try {
+      ({ id } = await deps.email.send(built, at, touch.id));
+    } catch (e) {
+      const message = (e as Error).message.slice(0, 500);
+      if (isDefiniteRejection(e)) {
+        await deps.repo.updateTouch(touch.id, { status: "FAILED", error: message });
+      } else {
+        // The email may exist at Resend. Keep the row (blocks re-send, counts toward the cap) and tell the founder.
+        await deps.repo.updateTouch(touch.id, { status: "UNCERTAIN", error: message });
+        await raise(deps, "Email send outcome unknown", [`Sending to ${email} failed ambiguously: ${message}`, "Check Resend for a possible send; the touch is held as UNCERTAIN and will not be retried."]);
+      }
       result.failed++;
       continue;
     }
@@ -217,6 +252,9 @@ export async function planEmailDay(deps: EngineDeps) {
       } catch (e) {
         console.error(`[outreach] CRITICAL: email ${id} is scheduled at Resend but touch ${touch.id} could not be saved (attempt ${attempt + 1}): ${(e as Error).message}`);
       }
+    }
+    if (!persisted) {
+      await raise(deps, "Scheduled email not recorded", [`Email ${id} to ${email} is scheduled at Resend but touch ${touch.id} could not be saved. The kill switch cannot find it; cancel it in the Resend dashboard if needed.`]);
     }
     try {
       await apply(deps, lead, { type: "TOUCH_SENT", step: task.step });

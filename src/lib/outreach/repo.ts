@@ -124,6 +124,8 @@ export const prismaRepo: OutreachRepo = {
           { status: "SENT", sentAt: { gte: dayStart } },
           { status: "SCHEDULED", scheduledFor: { gte: dayStart } },
           { status: "QUEUED" },
+          // Ambiguous sends may have gone out; they count against today's cap.
+          { status: "UNCERTAIN", createdAt: { gte: dayStart } },
         ],
       },
     });
@@ -191,6 +193,7 @@ export const prismaRepo: OutreachRepo = {
     const idempotencyKey = `${t.leadId}:${t.step}:${t.cycle}${t.status === "DRY_RUN" ? `:dry:${t.dryRunDay}` : ""}`;
     const existing = await prisma.outreachTouch.findUnique({ where: { idempotencyKey } });
     if (existing) {
+      // UNCERTAIN (ambiguous send) is deliberately not dead: like SENT/SCHEDULED it blocks any re-send.
       const dead = existing.status === "CANCELLED" || (existing.status === "FAILED" && existing.externalMessageId === null);
       if (!dead) return { id: existing.id, created: false, status: existing.status, body: existing.body };
       // Compare-and-set: of two overlapping runs only one wins the dead row.

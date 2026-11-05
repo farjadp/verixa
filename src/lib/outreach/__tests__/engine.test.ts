@@ -8,7 +8,7 @@ import type { LeadSnapshot } from "../types";
 const TOR = "America/Toronto";
 const NOW = new Date("2026-11-05T11:00:00Z"); // Thu 06:00 Toronto — daily cron time
 
-interface MemoryOpts { noEmail?: Set<string>; failFirstScheduledWrite?: boolean; external?: { n: number }; afterCreate?: () => void }
+interface MemoryOpts { noEmail?: Set<string>; failFirstScheduledWrite?: boolean; padEmail?: boolean; external?: { n: number }; afterCreate?: () => void }
 
 function memoryRepo(leads: LeadRow[], opts: MemoryOpts = {}) {
   const touches: { id: string; leadId: string; step: number; status: string; externalMessageId?: string; scheduledFor?: Date; key: string; body: string }[] = [];
@@ -23,7 +23,7 @@ function memoryRepo(leads: LeadRow[], opts: MemoryOpts = {}) {
     countTouchesToday: async () => touches.filter((t) => !["CANCELLED", "FAILED", "DRY_RUN"].includes(t.status)).length + (opts.external?.n ?? 0),
     getProfileEligibility: async () => ({ exists: true, claimed: false, ciccActive: true, suppressed: false }),
     findDiscoveryCandidates: async () => [],
-    getComposeContext: async (leadId) => ({ consultantProfileId: leadId, email: opts.noEmail?.has(leadId) ? null : `${leadId}@firm.ca`, firstName: "Sam", city: null, licenseNumber: `R${leadId}`, profileViews30d: 0, externalHandle: null }),
+    getComposeContext: async (leadId) => ({ consultantProfileId: leadId, email: opts.noEmail?.has(leadId) ? null : opts.padEmail ? `  ${leadId}@firm.ca \n` : `${leadId}@firm.ca`, firstName: "Sam", city: null, licenseNumber: `R${leadId}`, profileViews30d: 0, externalHandle: null }),
     createTouch: async (t) => {
       const key = `${t.leadId}:${t.step}:${t.cycle}${t.status === "DRY_RUN" ? ":dry" : ""}`;
       const ex = touches.find((x) => x.key === key);
@@ -113,6 +113,68 @@ describe("planEmailDay", () => {
     const res = await planEmailDay(d);
     expect(res.scheduled).toBe(1); // 1 ours + 4 from the rival = 5, so the loop stops
     expect(d.email.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("ambiguous send error -> UNCERTAIN, alert raised, never re-sent next day", async () => {
+    const leads = [backlog("A", 20)];
+    const { repo, touches } = memoryRepo(leads);
+    const alert = vi.fn(async () => {});
+    const d = deps(repo, { alert });
+    vi.mocked(d.email.send).mockRejectedValueOnce(Object.assign(new Error("timeout"), { statusCode: 504 }));
+    expect(await planEmailDay(d)).toMatchObject({ scheduled: 0, failed: 1 });
+    expect(touches[0].status).toBe("UNCERTAIN");
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(leads[0].state).toBe("BACKLOG");
+    // next day: the row blocks a re-send
+    const tomorrow = deps(repo, { now: () => new Date("2026-11-09T11:00:00Z") });
+    await planEmailDay(tomorrow);
+    expect(tomorrow.email.send).not.toHaveBeenCalled();
+    expect(touches).toHaveLength(1);
+  });
+
+  it("error without a status code is treated as ambiguous", async () => {
+    const { repo, touches } = memoryRepo([backlog("A", 20)]);
+    const d = deps(repo);
+    vi.mocked(d.email.send).mockRejectedValueOnce(new Error("socket hang up"));
+    await planEmailDay(d);
+    expect(touches[0].status).toBe("UNCERTAIN");
+  });
+
+  it("definite 4xx rejection -> FAILED and the touch is reused next day", async () => {
+    const leads = [backlog("A", 20)];
+    const { repo, touches } = memoryRepo(leads);
+    const alert = vi.fn(async () => {});
+    const d = deps(repo, { alert });
+    vi.mocked(d.email.send).mockRejectedValueOnce(Object.assign(new Error("invalid to"), { statusCode: 422 }));
+    await planEmailDay(d);
+    expect(touches[0].status).toBe("FAILED");
+    expect(alert).not.toHaveBeenCalled();
+    const tomorrow = deps(repo, { now: () => new Date("2026-11-09T11:00:00Z") });
+    expect((await planEmailDay(tomorrow)).scheduled).toBe(1);
+    expect(touches).toHaveLength(1);
+    expect(touches[0].status).toBe("SCHEDULED");
+  });
+
+  it("passes the touch id as the idempotency key and sends to the trimmed address", async () => {
+    const { repo } = memoryRepo([backlog("A", 20)], { padEmail: true });
+    const d = deps(repo);
+    const build = vi.spyOn(d.email, "build");
+    await planEmailDay(d);
+    expect(vi.mocked(d.email.send).mock.calls[0][2]).toBe("t0");
+    expect(build.mock.calls[0][0].to).toBe("A@firm.ca");
+  });
+
+  it("alerts when the email was sent but the SCHEDULED write failed twice", async () => {
+    const { repo } = memoryRepo([backlog("A", 20)], { failFirstScheduledWrite: true });
+    const alert = vi.fn(async () => {});
+    const d = deps(repo, { alert });
+    const orig = repo.updateTouch;
+    let fails = 0;
+    repo.updateTouch = async (id, p) => { if (p.status === "SCHEDULED" && fails++ < 2) throw new Error("db down"); return orig(id, p); };
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    await planEmailDay(d);
+    err.mockRestore();
+    expect(alert).toHaveBeenCalledTimes(1);
   });
 
   it("dry-run records touches but sends nothing and keeps state", async () => {

@@ -8,6 +8,14 @@ export class OutreachConfigError extends Error {
   }
 }
 
+/** Resend rejected the send; statusCode is the HTTP status when Resend reported one. */
+export class ResendSendError extends Error {
+  constructor(message: string, readonly statusCode: number | null) {
+    super(message);
+    this.name = "ResendSendError";
+  }
+}
+
 export interface BuiltEmail {
   from: string;
   to: string;
@@ -52,13 +60,17 @@ function client(): Resend {
   return new Resend(key);
 }
 
-export async function sendOutreachEmail(msg: BuiltEmail, scheduledAt: Date | null): Promise<{ id: string }> {
-  const { data, error } = await client().emails.send({
-    from: msg.from, to: [msg.to], replyTo: msg.replyTo, subject: msg.subject,
-    text: msg.text, html: msg.html, headers: msg.headers,
-    ...(scheduledAt ? { scheduledAt: scheduledAt.toISOString() } : {}),
-  });
-  if (error || !data) throw new Error(`Resend send failed: ${error?.message ?? "no data"}`);
+/** `idempotencyKey` makes Resend dedupe a retried/overlapping send of the same touch. */
+export async function sendOutreachEmail(msg: BuiltEmail, scheduledAt: Date | null, idempotencyKey?: string): Promise<{ id: string }> {
+  const { data, error } = await client().emails.send(
+    {
+      from: msg.from, to: [msg.to], replyTo: msg.replyTo, subject: msg.subject,
+      text: msg.text, html: msg.html, headers: msg.headers,
+      ...(scheduledAt ? { scheduledAt: scheduledAt.toISOString() } : {}),
+    },
+    idempotencyKey ? { idempotencyKey } : undefined,
+  );
+  if (error || !data) throw new ResendSendError(`Resend send failed: ${error?.message ?? "no data"}`, error?.statusCode ?? null);
   return { id: data.id };
 }
 

@@ -932,7 +932,7 @@ model OutreachTouch {
   step              Int          // 1..3
   subject           String?
   body              String       @db.Text
-  status            String       // QUEUED | SCHEDULED | SENT | FAILED | CANCELLED | DRY_RUN
+  status            String       // QUEUED | SCHEDULED | SENT | FAILED | CANCELLED | DRY_RUN | UNCERTAIN
   idempotencyKey    String       @unique // `${leadId}:${step}:${cycle}` (dry runs add `:dry:<ymd>`)
   externalMessageId String?
   scheduledFor      DateTime?

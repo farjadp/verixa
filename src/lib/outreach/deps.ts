@@ -37,6 +37,7 @@ export function realDeps(): EngineDeps {
     email: { build: (i) => buildOutreachEmail(i), send: sendOutreachEmail, cancel: cancelOutreachEmail },
     suppress,
     appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://www.getverixa.com",
+    alert: (subject, lines) => alertFounder(subject, lines),
   };
 }
 

@@ -40,7 +40,7 @@ export default async function ClientReviewsPage() {
   // Fetch Unreviewed Completed Bookings (Pending Reviews)
   const unreviewedBookings = await prisma.booking.findMany({
     where: { 
-      userEmail: session.user.email,
+      userEmail: { equals: session.user.email, mode: "insensitive" },
       status: "COMPLETED",
       review: null // booking has no review linked
     },

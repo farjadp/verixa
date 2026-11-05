@@ -267,7 +267,9 @@ export async function createBookingRequest(input: CreateBookingInput): Promise<C
     );
 
     await prisma.bookingEventLog.create({
-      data: { bookingId: booking.id, action: "CREATED", actorType: "USER", notes: "Booking request submitted." },
+      // GUEST = the email was typed, not proven by a session. The client dossier
+      // is only shown to consultants for signed-in (USER) bookings.
+      data: { bookingId: booking.id, action: "CREATED", actorType: session?.user ? "USER" : "GUEST", notes: "Booking request submitted." },
     });
 
     // Auto-confirm: capture now, so a CONFIRMED booking always has captured funds

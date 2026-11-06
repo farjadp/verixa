@@ -3,8 +3,9 @@
 Verifies the repo layer against real Postgres: raw SQL (discovery, negative stats), the dead-touch
 reuse race, daily caps, cascade deletes. The unit suite mocks all of this.
 
-**Never point it at the live database.** The test refuses to run if the target host matches any
-`DATABASE_URL`/`DIRECT_URL` in `.env`, `.env.local`, `.env.production` or `.env.vercel`.
+**Never point it at the live database.** The test refuses to run if either target host (pooled or direct, `-pooler` ignored) matches any
+postgres URL found in a `.env*` file in the project root (any variable name, `export` prefixes
+included) or in the process environment, and it also needs `OUTREACH_IT_CONFIRM_THROWAWAY=yes`.
 
 ## Steps
 

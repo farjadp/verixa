@@ -7,9 +7,10 @@
 //   OUTREACH_IT_CONFIRM_THROWAWAY=yes npm run test:outreach-db
 //
 // Every row it creates is tagged (license "ITOUT-…", email "@it-outreach.test") and deleted afterwards.
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { findLiveConflict } from "./it-guard";
 
 const URL = process.env.OUTREACH_IT_DATABASE_URL;
 const DIRECT = process.env.OUTREACH_IT_DIRECT_URL ?? URL;
@@ -19,22 +20,14 @@ const enabled = Boolean(URL && CONFIRMED);
 const TAG = `ITOUT-${Date.now().toString(36)}`;
 const MAIL = "@it-outreach.test";
 
-function hostOf(u: string): string {
-  try { return new globalThis.URL(u.replace(/^postgres(ql)?:/, "http:")).hostname; } catch { return ""; }
-}
-
-/** Refuse to run against any host named in the project's own env files (the live DB). */
-function assertNotLive(target: string) {
-  const targetHost = hostOf(target);
-  for (const f of [".env", ".env.local", ".env.production", ".env.vercel"]) {
-    let text = "";
-    try { text = readFileSync(path.resolve(process.cwd(), f), "utf8"); } catch { continue; }
-    for (const m of text.matchAll(/^(?:DATABASE_URL|DIRECT_URL)=["']?([^"'\n]+)/gm)) {
-      if (hostOf(m[1]) === targetHost) {
-        throw new Error(`Refusing to run: ${f} already points at host ${targetHost}. Use a separate Neon branch.`);
-      }
-    }
+/** Refuse to run against any host named in the project's env files or environment (the live DB). */
+function assertNotLive() {
+  const envFiles: Record<string, string> = {};
+  for (const f of readdirSync(process.cwd()).filter((n) => n === ".env" || n.startsWith(".env."))) {
+    try { envFiles[f] = readFileSync(path.resolve(process.cwd(), f), "utf8"); } catch { /* unreadable: skip */ }
   }
+  const conflict = findLiveConflict([URL!, DIRECT!], envFiles, process.env);
+  if (conflict) throw new Error(conflict);
 }
 
 describe.skipIf(!enabled)("outreach repo — real Postgres", () => {
@@ -65,7 +58,7 @@ describe.skipIf(!enabled)("outreach repo — real Postgres", () => {
   const touchInput = (leadId: string, over = {}) => ({ leadId, channel: "EMAIL", step: 1, cycle: 0, subject: "s", body: "b", status: "QUEUED", ...over });
 
   beforeAll(async () => {
-    assertNotLive(URL!);
+    assertNotLive();
     process.env.DATABASE_URL = URL;
     process.env.DIRECT_URL = DIRECT;
     ({ prisma } = await import("@/lib/prisma"));

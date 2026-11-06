@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:outreach-db": "vitest run src/lib/outreach/__tests__/repo.integration.test.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },

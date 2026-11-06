@@ -38,7 +38,24 @@ describe("write actions are confined", () => {
     expect(sendClicks(code)).toBe(2);
   });
 
-  it("probe checks never write", () => {
+  it("x: fill only inside sendMessage, Send clicked only there, invite unsupported", () => {
+    const code = src("x.ts");
+    const total = (code.match(WRITE) ?? []).length;
+    expect(total).toBe((methodBody(code, "sendMessage").match(WRITE) ?? []).length);
+    expect(total).toBe(1);
+    expect((code.match(/\bsend\.click\(/g) ?? []).length).toBe(1);
+    expect(methodBody(code, "sendMessage")).toContain("send.click(");
+    expect(code).toContain("X has no connection invites");
+  });
+
+  it("x probe checks never write or click", () => {
+    const code = src("x.ts");
+    const probe = code.slice(code.indexOf("export function xProbeChecks"));
+    expect(probe.match(WRITE)).toBeNull();
+    expect(probe).not.toMatch(/\.click\(/);
+  });
+
+  it("linkedin probe checks never write", () => {
     const code = src("linkedin.ts");
     const probe = code.slice(code.indexOf("export function linkedinProbeChecks"));
     expect(probe.match(WRITE)).toBeNull();

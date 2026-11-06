@@ -119,6 +119,33 @@ describe("buildSocialTasks + applyReport", () => {
     expect(await buildSocialTasks(deps, "X")).toEqual([]);
   });
 
+  it("DMS_CLOSED on a BACKLOG lead cancels the queued touch (freeing the idempotency key and cap) and moves it to email", async () => {
+    const lead = xLead();
+    const { deps, touches } = setup([lead], { subject: null, body: "Hi Ana, your listing is live." });
+    await buildSocialTasks(deps, "X");
+    const r = await applyReport(deps, { type: "DMS_CLOSED", leadId: "X1" }, { haltChannel: vi.fn() });
+    expect(r.ok).toBe(true);
+    expect(lead.channel).toBe("EMAIL");
+    expect([...touches.values()][0].status).toBe("CANCELLED");
+  });
+
+  it("DMS_CLOSED on a lead past BACKLOG is ok:true skipped, and the touch is failed so it is not re-handed", async () => {
+    const lead = { ...xLead(), state: "TOUCH_1" as const, touchCount: 1, nextActionAt: NOW };
+    const { deps, touches } = setup([lead], { subject: null, body: "Hi Ana, follow up." });
+    const [task] = await buildSocialTasks(deps, "X");
+    expect(task).toBeDefined();
+    const r = await applyReport(deps, { type: "DMS_CLOSED", leadId: "X1" }, { haltChannel: vi.fn() });
+    expect(r.ok).toBe(true);
+    expect(r.detail).toMatch(/skipped/);
+    expect(lead.channel).toBe("X");
+    expect([...touches.values()][0].status).toBe("FAILED");
+  });
+
+  it("DMS_CLOSED for an unknown lead is ok:true skipped", async () => {
+    const { deps } = setup([xLead()], {});
+    expect((await applyReport(deps, { type: "DMS_CLOSED", leadId: "nope" }, { haltChannel: vi.fn() })).ok).toBe(true);
+  });
+
   it("drops matches below 0.8 confidence and scores the rest", async () => {
     const { deps, created } = setup([], {});
     const signals = { postedAboutMarketing: true, soloOrSmallFirm: true, activeLast21Days: true, socialProfileComplete: true, hadProfileViews30d: false };

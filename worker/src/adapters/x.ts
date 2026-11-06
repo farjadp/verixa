@@ -16,6 +16,14 @@ const dmButton = (page: Page) => page.getByRole("button", { name: /^message$/i }
 const composer = (page: Page) => page.getByRole("textbox", { name: /message/i }).or(page.getByTestId("dmComposerTextInput")).first();
 const sendButton = (page: Page) => page.getByRole("button", { name: /^send$/i }).or(page.getByTestId("dmComposerSendButton")).first();
 
+/**
+ * Closed DMs are concluded only after giving the Message control time to render; a slow page must not read as "closed".
+ * The profile header is already confirmed visible by openProfile.
+ */
+async function dmAvailable(page: Page): Promise<boolean> {
+  return dmButton(page).waitFor({ state: "visible", timeout: 5000 }).then(() => true, () => false);
+}
+
 async function openProfile(page: Page, handle: string): Promise<void> {
   await visit(page, `${BASE}/${encodeURIComponent(handle)}`);
   await need(page.getByTestId("UserName"), "profile header");
@@ -63,7 +71,7 @@ export class XAdapter implements ChannelAdapter {
     return this.run("send message", async () => {
       await openProfile(this.page, handle);
       const dm = dmButton(this.page);
-      if ((await dm.count()) === 0) return { status: "dmsClosed" as const };
+      if (!(await dmAvailable(this.page))) return { status: "dmsClosed" as const };
       await dm.click();
       const box = composer(this.page);
       await need(box, "DM composer");
@@ -80,7 +88,7 @@ export class XAdapter implements ChannelAdapter {
     return this.run("check thread", async () => {
       await openProfile(this.page, handle);
       const dm = dmButton(this.page);
-      if ((await dm.count()) === 0) return false; // DMs closed: nothing can have been sent
+      if (!(await dmAvailable(this.page))) return false; // DMs closed: nothing can have been sent
       await dm.click();
       await need(composer(this.page), "DM composer");
       await this.page.waitForTimeout(1500);
@@ -157,7 +165,7 @@ export function xProbeChecks(page: Page): ProbeCheck[] {
         if (!firstHandle) throw new Error("no handle from previous step");
         await openProfile(page, firstHandle);
         await assertClear();
-        return `DM button count: ${await dmButton(page).count()} (0 means DMs closed for this user)`;
+        return `DM button visible after 5s: ${await dmAvailable(page)} (false means DMs closed for this user)`;
       },
     },
     {

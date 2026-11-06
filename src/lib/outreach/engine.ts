@@ -442,7 +442,16 @@ export async function applyReport(
 
     case "DMS_CLOSED": {
       const lead = await deps.repo.getLead(r.leadId);
-      return { ok: lead ? await apply(deps, lead, { type: "REASSIGN", channel: "EMAIL" }) : false };
+      if (!lead) return { ok: true, detail: "skipped: unknown lead" };
+      const queued = (await deps.repo.listQueuedTouches(lead.channel)).filter((q) => q.leadId === lead.id);
+      if (lead.state === "BACKLOG") {
+        // Cancelled (not failed) so the same lead/step key can be reused by the email touch, and the cap is freed.
+        for (const q of queued) await deps.repo.updateTouch(q.id, { status: "CANCELLED", error: "DMs closed" });
+        return { ok: await apply(deps, lead, { type: "REASSIGN", channel: "EMAIL" }) };
+      }
+      // Mid-sequence a lead cannot change channel. Fail the touch so it is not handed out again, and report success so the queue never stalls.
+      for (const q of queued) await deps.repo.updateTouch(q.id, { status: "FAILED", error: "DMs closed" });
+      return { ok: true, detail: `skipped: lead is ${lead.state}; touch failed` };
     }
 
     case "CHANNEL_HALT":

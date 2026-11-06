@@ -5,7 +5,7 @@ import type { FoundingOffer } from "./offer";
 import type { Channel, Step } from "./types";
 
 export const ESCAPE_LINE = 'Not relevant? Just reply "no" and I won\'t message again.';
-export const INVITE_ESCAPE_LINE = "Not relevant? Just ignore this.";
+export const INVITE_ESCAPE_LINE = 'Not relevant? Reply "no" and I won\'t follow up.';
 
 export class ComposeRejectedError extends Error {
   constructor(reason: string) {

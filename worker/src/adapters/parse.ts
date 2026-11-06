@@ -34,3 +34,10 @@ export function xHandleFromHref(href: string): string | null {
   const m = /^\/([A-Za-z0-9_]{1,15})\/?$/.exec(path);
   return m && !X_RESERVED.has(m[1].toLowerCase()) ? m[1] : null;
 }
+
+/** What the profile's controls say about inviting. A Pending control means the invite is already out. */
+export function decideInvite(c: { connect: number; pending: number; more: number }): "connect" | "already_invited" | "check_more" | "unavailable" {
+  if (c.pending > 0) return "already_invited";
+  if (c.connect > 0) return "connect";
+  return c.more > 0 ? "check_more" : "unavailable";
+}

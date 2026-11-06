@@ -15,6 +15,14 @@ export class ElementMissing extends Error {
   }
 }
 
+/** The operation failed before any write action touched the site, so nothing was sent and a later retry is safe. */
+export class DefiniteFailure extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DefiniteFailure";
+  }
+}
+
 /** Waits for a locator to be visible; a miss is ElementMissing (adapter broken), never a guess at another selector. */
 export async function need(loc: { waitFor(o: { state: "visible"; timeout: number }): Promise<unknown> }, what: string, timeout = 8000): Promise<void> {
   try {

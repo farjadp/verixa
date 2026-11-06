@@ -4,8 +4,8 @@ import type { SocialProfile } from "../match";
 import { CheckpointError, type ProbeCheck } from "../probe";
 import type { Candidate } from "../types";
 import { looksLikeCheckpoint } from "./checkpoint";
-import { attachPartial, ElementMissing, guarded, need } from "./guard";
-import { parseSearchCard, slugFromProfileHref } from "./parse";
+import { attachPartial, DefiniteFailure, ElementMissing, guarded, need } from "./guard";
+import { decideInvite, parseSearchCard, slugFromProfileHref } from "./parse";
 import type { AdapterResult, ChannelAdapter, InboxEvents, SentInfo } from "./types";
 
 const BASE = "https://www.linkedin.com";
@@ -68,13 +68,20 @@ export class LinkedInAdapter implements ChannelAdapter {
       const main = this.page.locator("main");
       const connectName = /^(connect|invite .* to connect)$/i;
       let connect = main.getByRole("button", { name: connectName }).first();
-      if ((await connect.count()) === 0) {
-        if ((await main.getByRole("button", { name: /pending/i }).count()) > 0) throw new Error("invite not available: already pending");
+      const decision = decideInvite({
+        connect: await main.getByRole("button", { name: connectName }).count(),
+        pending: await main.getByRole("button", { name: /pending/i }).count(),
+        more: await main.getByRole("button", { name: /^more( actions)?$/i }).count(),
+      });
+      // An invite that is already pending is, for Verixa's purposes, sent: report it so the lead moves to INVITED.
+      if (decision === "already_invited") return {} as SentInfo;
+      if (decision === "unavailable") throw new DefiniteFailure("invite not available: no Connect, Pending or More control");
+      if (decision === "check_more") {
         const more = main.getByRole("button", { name: /^more( actions)?$/i }).first();
         await need(more, "More actions button");
         await more.click();
         connect = this.page.getByRole("menuitem", { name: /connect/i }).first();
-        if ((await connect.count()) === 0) throw new Error("invite not available: no Connect option (already connected or restricted)");
+        if ((await connect.count()) === 0) throw new DefiniteFailure("invite not available: no Connect option (already connected or restricted)");
       }
       await connect.click();
       const dialog = this.page.getByRole("dialog");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSearchCard, slugFromProfileHref, xHandleFromHref } from "./parse";
+import { decideInvite, parseSearchCard, slugFromProfileHref, xHandleFromHref } from "./parse";
 
 describe("parseSearchCard", () => {
   it("extracts name, headline and location, dropping degree and button noise", () => {
@@ -28,4 +28,14 @@ describe("xHandleFromHref", () => {
     expect(xHandleFromHref("/janedoe/status/1")).toBeNull();
     expect(xHandleFromHref("/i/flow/login")).toBeNull();
   });
+});
+
+describe("decideInvite", () => {
+  it("clicks Connect when present", () => expect(decideInvite({ connect: 1, pending: 0, more: 1 })).toBe("connect"));
+  it("treats Pending as already invited (counts as sent)", () => {
+    expect(decideInvite({ connect: 0, pending: 1, more: 1 })).toBe("already_invited");
+    expect(decideInvite({ connect: 1, pending: 1, more: 0 })).toBe("already_invited");
+  });
+  it("looks under More when there is no direct Connect", () => expect(decideInvite({ connect: 0, pending: 0, more: 1 })).toBe("check_more"));
+  it("is unavailable with no relevant control", () => expect(decideInvite({ connect: 0, pending: 0, more: 0 })).toBe("unavailable"));
 });

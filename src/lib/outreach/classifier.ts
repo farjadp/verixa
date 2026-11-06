@@ -8,7 +8,11 @@ const schema = z.object({
   confidence: z.number().min(0).max(1),
 });
 
-const OBVIOUS_NO = /^\s*(no\b|nope\b|not interested|stop\b|unsubscribe|remove me|please stop|don'?t (contact|message|email) me)|\b(stop|unsubscribe|remove me)\s*[.!]*\s*$/i;
+// Opt-out wording that is unambiguous wherever it appears (a signature or pleasantries may follow it).
+const OPT_OUT_ANYWHERE = /(?<!\bdon'?t\s)(?<!\bnot\s)\b(stop (contacting|messaging|emailing|writing to|sending)( me)?|unsubscribe( me)?|remove me|take me off|do not (contact|message|email|write)( to)?\s+me|don'?t (contact|message|email|write)( to)?\s+me|please stop\b)/i;
+// Short refusals only count at the very start of the reply, so "I was not interested before, but..." is left to the model.
+const OPT_OUT_AT_START = /^\s*(no\b|nope\b|not interested|stop\b)/i;
+const OBVIOUS_NO = { test: (t: string) => OPT_OUT_AT_START.test(t) || OPT_OUT_ANYWHERE.test(t) };
 
 const SYSTEM = `Classify a reply to a cold outreach message to an immigration consultant.
 negative = declines, asks to stop, annoyed. positive = interested, wants to proceed. question = asks something or is unclear. auto_reply = out-of-office or automated.

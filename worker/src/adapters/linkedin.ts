@@ -164,8 +164,14 @@ export class LinkedInAdapter implements ChannelAdapter {
         await this.page.waitForTimeout(1200);
         const link = this.page.locator('main a[href*="/in/"]').first();
         const handle = (await link.count()) ? slugFromProfileHref((await link.getAttribute("href")) ?? "") : null;
-        const last = this.page.locator("main p").last();
-        const text = (await last.count()) ? (await last.innerText()).trim() : "";
+        // The whole latest message (its list item), not just its last paragraph: refusals often sit above a signature.
+        const text = (
+          await this.page.evaluate(() => {
+            const ps = document.querySelectorAll("main p");
+            const last = ps[ps.length - 1] as HTMLElement | undefined;
+            return ((last?.closest("li") as HTMLElement | null) ?? last)?.innerText ?? "";
+          })
+        ).trim();
         if (!handle || !text) throw new ElementMissing("conversation sender or last message");
         events.replies.push({ handle, body: text });
       }

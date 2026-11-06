@@ -12,6 +12,29 @@ describe("classifyReply", () => {
     expect(l.json).not.toHaveBeenCalled();
   });
 
+  it("catches refusals followed by a signature or pleasantries", async () => {
+    const l = llm("positive", 1);
+    for (const t of [
+      "No thanks.\n\nBest,\nJohn Smith\nRCIC",
+      "Thanks, but please remove me from your list.\n\nRegards,\nJane",
+      "Hi Farjad,\n\nPlease stop contacting me.\n\nThanks",
+      "Hello. Unsubscribe me please.\nCheers",
+      "Thank you for reaching out. Do not contact me again.",
+      "Not interested, thank you.",
+      "Take me off your list.",
+    ]) {
+      expect(await classifyReply(l, t)).toEqual({ label: "negative", confidence: 1 });
+    }
+    expect(l.json).not.toHaveBeenCalled();
+  });
+
+  it("does not treat a mention inside an interested reply as an opt-out", async () => {
+    const l = llm("positive", 0.9);
+    expect((await classifyReply(l, "I was not interested before, but your new pricing looks good. Call me.")).label).toBe("positive");
+    expect((await classifyReply(l, "Interested! Please don't stop sending updates.")).label).toBe("positive");
+    expect(l.json).toHaveBeenCalledTimes(2);
+  });
+
   it("does not short-circuit softer phrasing such as 'not for me, thanks'", async () => {
     const l = llm("negative", 0.9);
     expect(await classifyReply(l, "not for me, thanks")).toEqual({ label: "negative", confidence: 0.9 });

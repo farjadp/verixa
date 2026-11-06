@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ApiError, createApi, FatalApiError } from "./api";
+import { ApiError, createApi, FatalApiError, isRetryable } from "./api";
 
 function fakeFetch(status: number, body: unknown) {
   return vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
@@ -70,5 +70,17 @@ describe("api client", () => {
   it("never leaks the token into error messages", async () => {
     const err = await make(fakeFetch(500, "<html>oops</html>")).getTasks("X").catch((e) => e);
     expect(String(err.message)).not.toContain("secret-token");
+  });
+});
+
+describe("isRetryable", () => {
+  it("5xx, 429 and network errors retry later; rejections and 401 do not", () => {
+    expect(isRetryable(new ApiError("x", 500))).toBe(true);
+    expect(isRetryable(new ApiError("x", 503))).toBe(true);
+    expect(isRetryable(new ApiError("x", 429))).toBe(true);
+    expect(isRetryable(new TypeError("fetch failed"))).toBe(true);
+    expect(isRetryable(new ApiError("ok:false", 200))).toBe(false);
+    expect(isRetryable(new ApiError("bad", 400))).toBe(false);
+    expect(isRetryable(new FatalApiError("401", 401))).toBe(false);
   });
 });

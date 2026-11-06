@@ -1,5 +1,5 @@
 import type { AdapterResult, ChannelAdapter } from "./adapters/types";
-import { FatalApiError, type Api } from "./api";
+import { FatalApiError, isRetryable, type Api } from "./api";
 import { inSendWindow, localDay, randomGapMs, type Sleep } from "./timing";
 import type { SocialChannel, WorkerReport, WorkerTask } from "./types";
 import type { ActionEntry } from "./state";
@@ -61,7 +61,8 @@ export async function runChannel(channel: SocialChannel, deps: RunnerDeps): Prom
     } catch (e) {
       deps.log(`report ${r.type} failed: ${(e as Error).message}`);
       if (e instanceof FatalApiError) fatal = e;
-      return false;
+      // A rejection will never succeed on retry; the thread guard prevents a resend, so keep going.
+      return !(e instanceof FatalApiError) && !isRetryable(e);
     }
   };
 

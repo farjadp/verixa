@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Api } from "./api";
+import { ApiError, type Api } from "./api";
 import type { AdapterResult, ChannelAdapter } from "./adapters/types";
 import { runChannel, type RunnerDeps, type RunnerState } from "./runner";
 import type { WorkerReport, WorkerStatus, WorkerTask } from "./types";
@@ -243,6 +243,14 @@ describe("runChannel", () => {
     const r = await runChannel("LINKEDIN", s.deps);
     expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
     expect(r.outcome).toBe("error");
+  });
+
+  it("a rejected (non-retryable) report does not stop the run", async () => {
+    const s = setup([task(1), task(2)]);
+    (s.api.report as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new ApiError("touch is CANCELLED, not QUEUED", 200));
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(2);
+    expect(r.outcome).toBe("completed");
   });
 
   it("always heartbeats, even when getTasks throws", async () => {

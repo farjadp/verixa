@@ -1,6 +1,6 @@
 import { haltFromResult } from "../runner";
 import type { ChannelAdapter } from "../adapters/types";
-import { FatalApiError, type Api } from "../api";
+import { FatalApiError, isRetryable, type Api } from "../api";
 import { deriveSignals, pickMatch } from "../match";
 import { inSendWindow, type Sleep } from "../timing";
 import type { Candidate, SocialChannel } from "../types";
@@ -33,6 +33,7 @@ export async function discoverChannel(channel: SocialChannel, candidates: Candid
     } catch (e) {
       deps.log(`report ${r.type} failed: ${(e as Error).message}`);
       if (e instanceof FatalApiError) throw e;
+      if (!isRetryable(e)) return true; // rejected: skip it, the rest of the batch is unaffected
       res.outcome = "error";
       return false;
     }

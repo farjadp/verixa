@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AdapterResult, InboxEvents } from "../adapters/types";
+import { ApiError } from "../api";
 import { fakeAdapter, fakeApi, type FakeApiOpts, MONDAY_9AM, ok, SATURDAY } from "../testkit";
 import { runInbox, type InboxDeps } from "./inbox";
 
@@ -67,9 +68,18 @@ describe("runInbox", () => {
     expect((await runInbox("LINKEDIN", s.deps)).outcome).toBe("error");
   });
 
+  it("a rejected report (ok:false / 4xx) is skipped and the batch continues", async () => {
+    const s = setup(ok({ acceptedHandles: ["Jane"], replies: [{ handle: "a", body: "1" }, { handle: "b", body: "2" }] }));
+    (s.api.report as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new ApiError("no active lead", 200));
+    const r = await runInbox("LINKEDIN", s.deps);
+    expect(s.api.report).toHaveBeenCalledTimes(3);
+    expect(r.outcome).toBe("completed");
+    expect(r).toMatchObject({ accepted: 0, replies: 2 });
+  });
+
   it("stops with error if a report fails", async () => {
     const s = setup(ok({ acceptedHandles: ["Jane", "bob"], replies: [] }));
-    (s.api.report as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("net"));
+    (s.api.report as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new ApiError("boom", 503));
     const r = await runInbox("LINKEDIN", s.deps);
     expect(r.outcome).toBe("error");
     expect(s.api.report).toHaveBeenCalledTimes(1);

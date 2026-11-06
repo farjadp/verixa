@@ -73,6 +73,16 @@ describe("runWork", () => {
     expect(r.exitCode).toBe(EXIT.ERROR);
   });
 
+  it("a rejected email reply (ok:false) is skipped; the UID is still committed and later replies still go out", async () => {
+    const commit = vi.fn();
+    const s = setup({ imap: async () => ({ replies: [{ email: "a@b.ca", body: "1" }, { email: "c@d.ca", body: "2" }], commit }) });
+    (s.api.report as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new ApiError("skipped", 200));
+    const r = await runWork(s.deps);
+    expect(s.api.report).toHaveBeenCalledTimes(2);
+    expect(commit).toHaveBeenCalled();
+    expect(r.exitCode).toBe(EXIT.OK);
+  });
+
   it("an IMAP failure is an ERROR exit but does not stop channels", async () => {
     const s = setup({ imap: async () => { throw new Error("auth failed"); } });
     const r = await runWork(s.deps);

@@ -15,6 +15,13 @@ export class FatalApiError extends ApiError {
   }
 }
 
+/** 5xx, 429 and network failures may succeed later; a rejection (ok:false, other 4xx) never will, so callers skip it. 401 is fatal. */
+export function isRetryable(e: unknown): boolean {
+  if (e instanceof FatalApiError) return false;
+  if (e instanceof ApiError) return e.status >= 500 || e.status === 429;
+  return true;
+}
+
 export interface Api {
   getTasks(channel: SocialChannel): Promise<WorkerTask[]>;
   getCandidates(limit: number): Promise<Candidate[]>;

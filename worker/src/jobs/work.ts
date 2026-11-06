@@ -1,5 +1,5 @@
 import type { ChannelAdapter } from "../adapters/types";
-import { FatalApiError, type Api } from "../api";
+import { FatalApiError, isRetryable, type Api } from "../api";
 import { inSendWindow, isActiveDay, type Sleep } from "../timing";
 import { runChannel, type RunnerState } from "../runner";
 import type { SocialChannel } from "../types";
@@ -109,8 +109,11 @@ export async function runWork(deps: WorkDeps): Promise<WorkSummary> {
         } catch (e) {
           if (e instanceof FatalApiError) throw e;
           deps.log(`email reply report failed: ${(e as Error).message}`);
-          allSent = false;
-          break;
+          // A rejection is skipped so one bad reply can never block the UID; only retryable failures hold it back.
+          if (isRetryable(e)) {
+            allSent = false;
+            break;
+          }
         }
       }
       if (allSent) {

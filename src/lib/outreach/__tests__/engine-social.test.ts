@@ -81,6 +81,31 @@ describe("buildSocialTasks + applyReport", () => {
     expect(replies).toHaveLength(1);
   });
 
+  it("an unmatched reply is skipped with ok:true so the worker's batch and UID can advance", async () => {
+    const { deps, replies } = setup([xLead()], { label: "positive", confidence: 0.9 });
+    const r = await applyReport(deps, { type: "REPLY", channel: "X", handle: "nobody", body: "hi" }, { haltChannel: vi.fn() });
+    expect(r.ok).toBe(true);
+    expect(r.detail).toMatch(/skipped/);
+    expect(replies).toEqual([]);
+  });
+
+  it("a negative reply from a lead already in a terminal state still suppresses, and is ok:true", async () => {
+    const lead = { ...xLead(), state: "ARCHIVED" as const, touchCount: 1 };
+    const { deps, replies } = setup([lead], { label: "negative", confidence: 0.95 });
+    const r = await applyReport(deps, { type: "REPLY", channel: "X", handle: "ana_rcic", body: "not for me, thanks" }, { haltChannel: vi.fn() });
+    expect(r.ok).toBe(true);
+    expect(deps.suppress).toHaveBeenCalledWith("P1", "negative_reply", { xHandle: "ana_rcic" });
+    expect(replies).toHaveLength(1);
+    expect(lead.state).toBe("ARCHIVED");
+  });
+
+  it("looks the lead up including terminal states", async () => {
+    const { deps } = setup([xLead()], { label: "positive", confidence: 0.9 });
+    const spy = vi.spyOn(deps.repo, "findLeadByContact");
+    await applyReport(deps, { type: "REPLY", channel: "X", handle: "ana_rcic", body: "hello" }, { haltChannel: vi.fn() });
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ includeTerminal: true }));
+  });
+
   it("drops matches below 0.8 confidence and scores the rest", async () => {
     const { deps, created } = setup([], {});
     const signals = { postedAboutMarketing: true, soloOrSmallFirm: true, activeLast21Days: true, socialProfileComplete: true, hadProfileViews30d: false };

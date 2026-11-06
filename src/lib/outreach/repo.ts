@@ -22,7 +22,7 @@ export interface TouchInput { leadId: string; channel: Channel; step: Step; cycl
 export interface OutreachRepo {
   listLeads(channel?: Channel): Promise<LeadRow[]>;
   getLead(id: string): Promise<LeadRow | null>;
-  findLeadByContact(q: { email?: string; handle?: string; channel: Channel }): Promise<LeadRow | null>;
+  findLeadByContact(q: { email?: string; handle?: string; channel: Channel; includeTerminal?: boolean }): Promise<LeadRow | null>;
   getProfileEligibility(consultantProfileId: string): Promise<{ exists: boolean; claimed: boolean; ciccActive: boolean; suppressed: boolean }>;
   saveLead(id: string, s: LeadSnapshot): Promise<void>;
   createLead(input: { consultantProfileId: string; snapshot: LeadSnapshot; score: number; externalHandle: string | null; matchConfidence: number | null }): Promise<boolean>;
@@ -71,17 +71,12 @@ export const prismaRepo: OutreachRepo = {
     return l ? toRow(l) : null;
   },
 
-  async findLeadByContact({ email, handle, channel }) {
+  async findLeadByContact({ email, handle, channel, includeTerminal }) {
     if (!email && !handle) return null;
-    const l = await prisma.outreachLead.findFirst({
-      where: {
-        channel,
-        state: { notIn: [...TERMINAL_STATES] },
-        ...(email ? { consultantProfile: { rawEmail: { equals: email, mode: "insensitive" } } } : { externalHandle: { equals: handle ?? "", mode: "insensitive" } }),
-      },
-      orderBy: { updatedAt: "desc" },
-      include,
-    });
+    const who = email ? { consultantProfile: { rawEmail: { equals: email, mode: "insensitive" as const } } } : { externalHandle: { equals: handle ?? "", mode: "insensitive" as const } };
+    // The active lead wins; terminal-state leads are only a fallback when the caller asks for them.
+    let l = await prisma.outreachLead.findFirst({ where: { channel, state: { notIn: [...TERMINAL_STATES] }, ...who }, orderBy: { updatedAt: "desc" }, include });
+    if (!l && includeTerminal) l = await prisma.outreachLead.findFirst({ where: { channel, ...who }, orderBy: { updatedAt: "desc" }, include });
     return l ? toRow(l) : null;
   },
 

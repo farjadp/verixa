@@ -1,6 +1,6 @@
 import { haltFromResult } from "../runner";
 import type { ChannelAdapter } from "../adapters/types";
-import { FatalApiError, type Api } from "../api";
+import { FatalApiError, isRetryable, type Api } from "../api";
 import { inSendWindow } from "../timing";
 import type { SocialChannel, WorkerReport } from "../types";
 
@@ -27,15 +27,17 @@ export async function runInbox(channel: SocialChannel, deps: InboxDeps): Promise
     if (!status.enabled) return { ...res, outcome: "disabled" };
     if (!inSendWindow(deps.now(), deps.tz)) return { ...res, outcome: "outside_window" };
 
-    const send = async (r: WorkerReport): Promise<boolean> => {
+    /** "rejected" reports are skipped (the server will never accept them); only retryable failures stop the batch. */
+    const send = async (r: WorkerReport): Promise<"ok" | "rejected" | "retry"> => {
       try {
         await api.report(r);
-        return true;
+        return "ok";
       } catch (e) {
         if (e instanceof FatalApiError) throw e;
         deps.log(`report ${r.type} failed: ${(e as Error).message}`);
+        if (!isRetryable(e)) return "rejected";
         res.outcome = "error";
-        return false;
+        return "retry";
       }
     };
 
@@ -56,13 +58,15 @@ export async function runInbox(channel: SocialChannel, deps: InboxDeps): Promise
 
     for (const handle of read.value.acceptedHandles) {
       for (const lead of status.invitedLeads.filter((l) => l.handle.toLowerCase() === handle.toLowerCase())) {
-        if (!(await send({ type: "INVITE_ACCEPTED", leadId: lead.leadId }))) return res;
-        res.accepted++;
+        const o = await send({ type: "INVITE_ACCEPTED", leadId: lead.leadId });
+        if (o === "retry") return res;
+        if (o === "ok") res.accepted++;
       }
     }
     for (const r of read.value.replies) {
-      if (!(await send({ type: "REPLY", channel, handle: r.handle, body: r.body.slice(0, 8000) }))) return res;
-      res.replies++;
+      const o = await send({ type: "REPLY", channel, handle: r.handle, body: r.body.slice(0, 8000) });
+      if (o === "retry") return res;
+      if (o === "ok") res.replies++;
     }
   } catch (e) {
     if (e instanceof FatalApiError) throw e;

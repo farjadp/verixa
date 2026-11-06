@@ -24,8 +24,8 @@ export default function SaveProfileButton({
       const newState = await toggleSaveProfile(licenseNumber);
       setIsSaved(newState);
       // Let server revalidation handle background refresh
-    } catch (e: any) {
-      if (e.message.includes("logged in")) {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message.includes("logged in")) {
         router.push("/login?callbackUrl=/consultant/" + licenseNumber);
       } else {
         alert("Failed to save profile. Please try again.");
@@ -49,17 +49,19 @@ export default function SaveProfileButton({
   }
 
   return (
-    <button 
+    <button
+      type="button"
       onClick={handleToggle}
       disabled={isLoading}
-      className={`w-full md:w-auto px-6 py-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border shadow-sm ${
-        isSaved 
-          ? "bg-[#2FA4A9] text-white border-[#2FA4A9] hover:bg-[#258d92]" 
-          : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-[#2FA4A9]/30"
+      aria-pressed={isSaved}
+      className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border px-6 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-70 ${
+        isSaved
+          ? "border-navy bg-navy text-white hover:bg-ink"
+          : "border-gray-300 bg-white text-navy hover:border-navy"
       }`}
     >
-      <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
-      {isLoading ? "Saving..." : isSaved ? "Saved" : "Save Profile"}
+      <Bookmark className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} aria-hidden="true" />
+      {isLoading ? "Saving..." : isSaved ? "Saved" : "Save profile"}
     </button>
   );
 }

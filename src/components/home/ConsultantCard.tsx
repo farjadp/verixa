@@ -44,10 +44,11 @@ const STANDING_LABEL: Record<LicenceStanding, string> = {
   unknown: "Standing unknown",
 };
 
+// Colour lives on the dot; the label stays ink so it passes AA contrast.
 const STANDING_CLASS: Record<LicenceStanding, string> = {
-  active: "text-success",
-  inactive: "text-warning",
-  unknown: "text-gray-500",
+  active: "text-ink",
+  inactive: "text-ink",
+  unknown: "text-gray-600",
 };
 
 const STANDING_DOT: Record<LicenceStanding, string> = {

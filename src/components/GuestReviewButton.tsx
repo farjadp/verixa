@@ -9,11 +9,12 @@ export default function GuestReviewButton({ licenseNumber, consultantName }: { l
 
   return (
     <>
-      <button 
+      <button
+        type="button"
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 text-sm font-bold text-[#2FA4A9] bg-[#2FA4A9]/10 hover:bg-[#2FA4A9] hover:text-white transition-all px-4 py-2 rounded-xl"
+        className="flex min-h-11 items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 text-sm font-bold text-navy transition-colors hover:border-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2"
       >
-        <MessageSquarePlus className="w-4 h-4" />
+        <MessageSquarePlus className="h-4 w-4 text-teal" aria-hidden="true" />
         Leave a Review
       </button>
 

@@ -25,7 +25,7 @@ function setup(tasks: WorkerTask[], opts: { statuses?: Partial<WorkerStatus>[]; 
   const reports: WorkerReport[] = [];
   const calls: string[] = [];
   const api: Api = {
-    getStatus: vi.fn(async () => { calls.push("status"); const s = statuses[Math.min(si++, statuses.length - 1)]; return { enabled: true, dryRun: false, invitedHandles: [], ...s }; }),
+    getStatus: vi.fn(async () => { calls.push("status"); const s = statuses[Math.min(si++, statuses.length - 1)]; return { enabled: true, dryRun: false, invitedHandles: [], invitedLeads: [], ...s }; }),
     getTasks: vi.fn(async () => { calls.push("tasks"); return tasks; }),
     getCandidates: vi.fn(async () => []),
     report: vi.fn(async (r: WorkerReport) => { calls.push(`report:${r.type}`); if (opts.reportFails) throw new Error("net down"); reports.push(r); }),

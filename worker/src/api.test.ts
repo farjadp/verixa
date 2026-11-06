@@ -23,8 +23,8 @@ describe("api client", () => {
   });
 
   it("getStatus returns the flags", async () => {
-    const f = fakeFetch(200, { ok: true, enabled: true, dryRun: false, invitedHandles: ["a"] });
-    expect(await make(f).getStatus("X")).toEqual({ enabled: true, dryRun: false, invitedHandles: ["a"] });
+    const f = fakeFetch(200, { ok: true, enabled: true, dryRun: false, invitedHandles: ["a"], invitedLeads: [{ leadId: "l", handle: "a" }] });
+    expect(await make(f).getStatus("X")).toEqual({ enabled: true, dryRun: false, invitedHandles: ["a"], invitedLeads: [{ leadId: "l", handle: "a" }] });
     expect(f.mock.calls[0][0]).toBe("https://v.test/api/outreach/worker/status?channel=X");
   });
 

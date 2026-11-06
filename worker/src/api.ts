@@ -58,8 +58,8 @@ export function createApi(opts: ApiOptions): Api {
       return (await call<{ ok: boolean; candidates: Candidate[] }>(`candidates?limit=${limit}`, { method: "GET" })).candidates;
     },
     async getStatus(channel) {
-      const { enabled, dryRun, invitedHandles } = await call<{ ok: boolean } & WorkerStatus>(`status?channel=${channel}`, { method: "GET" });
-      return { enabled, dryRun, invitedHandles };
+      const { enabled, dryRun, invitedHandles, invitedLeads } = await call<{ ok: boolean } & WorkerStatus>(`status?channel=${channel}`, { method: "GET" });
+      return { enabled, dryRun, invitedHandles, invitedLeads };
     },
     async report(r) {
       await call("report", { method: "POST", body: r });

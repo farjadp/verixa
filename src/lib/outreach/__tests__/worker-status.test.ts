@@ -24,12 +24,15 @@ describe("computeWorkerStatus", () => {
 
   it("returns handles of INVITED leads only, deduped, skipping nulls", () => {
     const leads = [
-      { state: "INVITED", externalHandle: "a" },
-      { state: "INVITED", externalHandle: "a" },
-      { state: "INVITED", externalHandle: null },
-      { state: "TOUCH_1", externalHandle: "b" },
-      { state: "INVITED", externalHandle: "c" },
+      { id: "L1", state: "INVITED", externalHandle: "a" },
+      { id: "L1b", state: "INVITED", externalHandle: "a" },
+      { id: "L2", state: "INVITED", externalHandle: null },
+      { id: "L3", state: "TOUCH_1", externalHandle: "b" },
+      { id: "L4", state: "INVITED", externalHandle: "c" },
     ] as const;
-    expect(computeWorkerStatus(settings(), "LINKEDIN", [...leads]).invitedHandles).toEqual(["a", "c"]);
+    const st = computeWorkerStatus(settings(), "LINKEDIN", [...leads]);
+    expect(st.invitedHandles).toEqual(["a", "c"]);
+    // leadId is needed to report INVITE_ACCEPTED
+    expect(st.invitedLeads).toEqual([{ leadId: "L1", handle: "a" }, { leadId: "L1b", handle: "a" }, { leadId: "L4", handle: "c" }]);
   });
 });

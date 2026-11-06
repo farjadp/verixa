@@ -37,6 +37,7 @@ export interface WorkerStatus {
   enabled: boolean;
   dryRun: boolean;
   invitedHandles: string[];
+  invitedLeads: { leadId: string; handle: string }[];
 }
 
 export type WorkerReport =

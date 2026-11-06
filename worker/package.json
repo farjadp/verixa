@@ -5,7 +5,9 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "work": "tsx src/index.ts"
+    "work": "tsx --env-file=.env src/index.ts",
+    "login": "tsx --env-file=.env src/cli/login.ts",
+    "probe": "tsx --env-file=.env src/cli/probe.ts"
   },
   "dependencies": {
     "imapflow": "^1.0.0",

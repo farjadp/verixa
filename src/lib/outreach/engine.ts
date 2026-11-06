@@ -413,11 +413,13 @@ export async function applyReport(
       const lead = await deps.repo.findLeadByContact({ ...(r.email ? { email: r.email } : { handle: r.handle }), channel: r.channel, includeTerminal: true });
       if (!lead) return { ok: true, detail: "skipped: no lead for contact" };
       const { label, confidence } = await classifyReply(deps.llm, r.body);
-      await deps.repo.recordReply({ leadId: lead.id, body: r.body, label, confidence });
+      // Suppress before recording: if we crash in between, the replay still finds the opt-out to honour (suppress is idempotent).
       if (label === "negative") {
         const contact = r.channel === "EMAIL" ? { email: r.email } : r.channel === "X" ? { xHandle: r.handle } : { linkedinUrl: r.handle };
         await deps.suppress(lead.consultantProfileId, "negative_reply", contact);
       }
+      const isNew = await deps.repo.recordReply({ leadId: lead.id, body: r.body, label, confidence });
+      if (!isNew) return { ok: true, detail: "duplicate reply ignored" };
       const applied = await apply(deps, lead, { type: "REPLY", label });
       // Never ok:false here: a reply that cannot move the lead is still recorded, and failing would stall the worker's batch.
       return { ok: true, detail: applied ? undefined : `recorded; lead is ${lead.state}` };

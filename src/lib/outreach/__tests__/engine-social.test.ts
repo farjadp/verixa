@@ -35,7 +35,11 @@ function setup(leads: LeadRow[], llmOut: unknown, elig: Elig = OK_ELIG) {
     updateTouch: async (id: string, p: object) => { for (const t of touches.values()) if (t.id === id) Object.assign(t, p); },
     listQueuedTouches: async () => [...touches.values()].filter((t) => t.status === "QUEUED"),
     getTouch: async (id: string) => { for (const t of touches.values()) if (t.id === id) return { id: t.id, leadId: t.leadId, channel: t.channel, step: t.step as 1, status: t.status }; return null; },
-    recordReply: async (r: unknown) => { replies.push(r); },
+    recordReply: async (r: { leadId: string; body: string }) => {
+      if (replies.some((x) => (x as { leadId: string; body: string }).leadId === r.leadId && (x as { body: string }).body === r.body)) return false;
+      replies.push(r);
+      return true;
+    },
   } as unknown as OutreachRepo;
   const llm: Llm = { json: (async (...args: unknown[]) => {
     const m = String(args[3]).match(/FACTS: (\{[\s\S]*\})/);
@@ -144,6 +148,26 @@ describe("buildSocialTasks + applyReport", () => {
   it("DMS_CLOSED for an unknown lead is ok:true skipped", async () => {
     const { deps } = setup([xLead()], {});
     expect((await applyReport(deps, { type: "DMS_CLOSED", leadId: "nope" }, { haltChannel: vi.fn() })).ok).toBe(true);
+  });
+
+  it("a replayed reply is recorded once, does not touch the lead again, but a replayed opt-out still suppresses", async () => {
+    const lead = { ...xLead(), state: "TOUCH_1" as const, touchCount: 1 };
+    const { deps, replies } = setup([lead], { label: "positive", confidence: 0.9 });
+    const rep = { type: "REPLY" as const, channel: "X" as const, handle: "ana_rcic", body: "sounds good" };
+    const a = await applyReport(deps, rep, { haltChannel: vi.fn() });
+    const b = await applyReport(deps, rep, { haltChannel: vi.fn() });
+    expect(replies).toHaveLength(1);
+    expect(a.ok && b.ok).toBe(true);
+    expect(b.detail).toMatch(/duplicate/);
+    expect(lead.state).toBe("CONVERSATION");
+
+    const neg = { ...xLead(), id: "X2", consultantProfileId: "P2", externalHandle: "bob", state: "TOUCH_1" as const, touchCount: 1 };
+    const s2 = setup([neg], { label: "negative", confidence: 0.95 });
+    const nrep = { type: "REPLY" as const, channel: "X" as const, handle: "bob", body: "not for me, thanks" };
+    await applyReport(s2.deps, nrep, { haltChannel: vi.fn() });
+    await applyReport(s2.deps, nrep, { haltChannel: vi.fn() });
+    expect(s2.replies).toHaveLength(1);
+    expect(s2.deps.suppress).toHaveBeenCalledTimes(2); // suppression is idempotent and runs before the dedupe
   });
 
   it("drops matches below 0.8 confidence and scores the rest", async () => {

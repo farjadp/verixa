@@ -40,7 +40,8 @@ export interface OutreachRepo {
   getTouch(id: string): Promise<{ id: string; leadId: string; channel: Channel; step: Step; status: string } | null>;
   findTouchByExternalId(externalMessageId: string): Promise<{ id: string; leadId: string; step: Step; sentAt: Date | null } | null>;
   listFutureScheduledEmailTouches(now: Date): Promise<{ id: string; leadId: string; step: Step; externalMessageId: string }[]>;
-  recordReply(r: { leadId: string; body: string; label: string; confidence: number }): Promise<void>;
+  /** Idempotent per lead and exact body: returns false when the same reply was already recorded (a replay). */
+  recordReply(r: { leadId: string; body: string; label: string; confidence: number }): Promise<boolean>;
   negativeStats(since: Date): Promise<{ touches: number; negatives: number }>;
 }
 
@@ -273,7 +274,10 @@ export const prismaRepo: OutreachRepo = {
   },
 
   async recordReply(r) {
+    const dup = await prisma.outreachReply.findFirst({ where: { leadId: r.leadId, body: r.body }, select: { id: true } });
+    if (dup) return false;
     await prisma.outreachReply.create({ data: r });
+    return true;
   },
 
   async negativeStats(since) {

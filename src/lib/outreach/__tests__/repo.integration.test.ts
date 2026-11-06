@@ -132,6 +132,14 @@ describe.skipIf(!enabled)("outreach repo — real Postgres", () => {
     expect((await repo.createTouch(touchInput(lead.id, { channel: "X", body: "new body" }))).created).toBe(true);
   });
 
+  it("recordReply: the same reply for the same lead is stored once", async () => {
+    const lead = await mkLead((await mkProfile()).id);
+    const r = { leadId: lead.id, body: "not for me", label: "negative", confidence: 0.9 };
+    expect(await repo.recordReply(r)).toBe(true);
+    expect(await repo.recordReply(r)).toBe(false);
+    expect(await prisma.outreachReply.count({ where: { leadId: lead.id } })).toBe(1);
+  });
+
   it("createTouch: dry-run rows are keyed per day", async () => {
     const lead = await mkLead((await mkProfile()).id);
     const d1 = await repo.createTouch(touchInput(lead.id, { status: "DRY_RUN", dryRunDay: "2026-11-10" }));

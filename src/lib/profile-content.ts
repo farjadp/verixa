@@ -1,4 +1,6 @@
-import DOMPurify from "isomorphic-dompurify";
+// sanitize-html, not DOMPurify: isomorphic-dompurify pulls in jsdom, which fails to
+// load in the Vercel runtime (ERR_REQUIRE_ESM) and took down every profile page.
+import sanitizeHtml from "sanitize-html";
 
 const BIO_TAGS = ["b", "i", "em", "strong", "a", "p", "br", "ul", "ol", "li", "h2", "h3", "h4"];
 
@@ -9,16 +11,17 @@ const BIO_TAGS = ["b", "i", "em", "strong", "a", "p", "br", "ul", "ol", "li", "h
  */
 export function sanitizeBio(html: string | null | undefined): string {
   if (!html) return "";
-  const clean = DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: BIO_TAGS,
-    ALLOWED_ATTR: ["href"],
-    ALLOWED_URI_REGEXP: /^(?:https?:|mailto:)/i,
+  const clean = sanitizeHtml(html, {
+    allowedTags: BIO_TAGS,
+    allowedAttributes: { a: ["href"] },
+    allowedSchemes: ["http", "https", "mailto"],
+    allowProtocolRelative: false,
   });
-  return clean.replace(/<a /g, '<a target="_blank" rel="noopener noreferrer nofollow" ');
+  return clean.replace(/<a(?=[ >])/g, '<a target="_blank" rel="noopener noreferrer nofollow"');
 }
 
 export function bioTextLength(html: string): number {
-  return DOMPurify.sanitize(html, { ALLOWED_TAGS: [] }).replace(/\s+/g, " ").trim().length;
+  return sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} }).replace(/\s+/g, " ").trim().length;
 }
 
 /** Profile images must be ones we serve, or https URLs. */

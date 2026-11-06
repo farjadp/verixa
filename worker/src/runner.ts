@@ -38,6 +38,13 @@ export interface RunResult {
 
 type Halt = { reason: "CHECKPOINT" | "ADAPTER_BROKEN"; detail: string };
 
+/** Maps a non-ok adapter result to the CHANNEL_HALT it should produce. */
+export function haltFromResult(r: Exclude<AdapterResult<unknown>, { status: "ok" | "dmsClosed" }>): Halt {
+  return r.status === "checkpoint"
+    ? { reason: "CHECKPOINT", detail: r.detail }
+    : { reason: "ADAPTER_BROKEN", detail: r.screenshot ? `${r.detail} (screenshot: ${r.screenshot})` : r.detail };
+}
+
 /**
  * Executes one channel's tasks. Verixa decides what to send; this only carries it out, and stops at the first sign of trouble.
  * Order for every live task: gap, window check, kill-switch check, checkpoint check, crash-resend guard, action, report.
@@ -65,10 +72,7 @@ export async function runChannel(channel: SocialChannel, deps: RunnerDeps): Prom
     await report({ type: "CHANNEL_HALT", channel, reason: h.reason, detail: h.detail.slice(0, 1000) });
   };
 
-  const haltFrom = (r: Exclude<AdapterResult<unknown>, { status: "ok" | "dmsClosed" }>): Halt =>
-    r.status === "checkpoint"
-      ? { reason: "CHECKPOINT", detail: r.detail }
-      : { reason: "ADAPTER_BROKEN", detail: r.screenshot ? `${r.detail} (screenshot: ${r.screenshot})` : r.detail };
+  const haltFrom = haltFromResult;
 
   try {
     const initial = await api.getStatus(channel);

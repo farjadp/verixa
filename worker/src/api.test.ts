@@ -28,6 +28,12 @@ describe("api client", () => {
     expect(f.mock.calls[0][0]).toBe("https://v.test/api/outreach/worker/status?channel=X");
   });
 
+  it("leadCheck asks about one touch", async () => {
+    const f = fakeFetch(200, { ok: true, sendable: false, reason: "profile claimed" });
+    expect(await make(f).leadCheck("t 1")).toEqual({ sendable: false, reason: "profile claimed" });
+    expect(f.mock.calls[0][0]).toBe("https://v.test/api/outreach/worker/lead-check?touchId=t%201");
+  });
+
   it("report POSTs JSON", async () => {
     const f = fakeFetch(200, { ok: true });
     await make(f).report({ type: "DMS_CLOSED", leadId: "l" });

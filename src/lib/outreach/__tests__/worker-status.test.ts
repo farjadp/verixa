@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeWorkerStatus } from "../worker-status";
+import { computeSendable, computeWorkerStatus } from "../worker-status";
 import type { OutreachSettings } from "../settings";
 
 const settings = (o: Partial<OutreachSettings> & { li?: boolean; x?: boolean } = {}): OutreachSettings => ({
@@ -22,17 +22,38 @@ describe("computeWorkerStatus", () => {
     expect(computeWorkerStatus(settings({ dryRun: false }), "X", []).dryRun).toBe(false);
   });
 
-  it("returns handles of INVITED leads only, deduped, skipping nulls", () => {
-    const leads = [
-      { id: "L1", state: "INVITED", externalHandle: "a" },
-      { id: "L1b", state: "INVITED", externalHandle: "a" },
-      { id: "L2", state: "INVITED", externalHandle: null },
-      { id: "L3", state: "TOUCH_1", externalHandle: "b" },
-      { id: "L4", state: "INVITED", externalHandle: "c" },
-    ] as const;
-    const st = computeWorkerStatus(settings(), "LINKEDIN", [...leads]);
+  it("returns handles of the invited leads, deduped, skipping nulls, plus lead ids", () => {
+    const invited = [
+      { id: "L1", externalHandle: "a" },
+      { id: "L1b", externalHandle: "a" },
+      { id: "L2", externalHandle: null },
+      { id: "L4", externalHandle: "c" },
+    ];
+    const st = computeWorkerStatus(settings(), "LINKEDIN", invited);
     expect(st.invitedHandles).toEqual(["a", "c"]);
-    // leadId is needed to report INVITE_ACCEPTED
     expect(st.invitedLeads).toEqual([{ leadId: "L1", handle: "a" }, { leadId: "L1b", handle: "a" }, { leadId: "L4", handle: "c" }]);
+  });
+});
+
+describe("computeSendable", () => {
+  const base = { touchStatus: "QUEUED", leadState: "BACKLOG", claimed: false, suppressed: false } as const;
+  it("is sendable for a queued touch on an active, unclaimed, unsuppressed lead", () => {
+    expect(computeSendable(base)).toEqual({ sendable: true });
+    expect(computeSendable({ ...base, leadState: "TOUCH_1" }).sendable).toBe(true);
+  });
+  it.each([
+    [{ touchStatus: "CANCELLED" }, /touch/],
+    [{ touchStatus: "SENT" }, /touch/],
+    [{ touchStatus: "DRY_RUN" }, /touch/],
+    [{ leadState: "OPTED_OUT" }, /lead is/],
+    [{ leadState: "CONVERSATION" }, /lead is/],
+    [{ leadState: "CLAIMED" }, /lead is/],
+    [{ leadState: "ARCHIVED" }, /lead is/],
+    [{ claimed: true }, /claimed/],
+    [{ suppressed: true }, /suppressed/],
+  ])("is not sendable: %j", (over, reason) => {
+    const r = computeSendable({ ...base, ...over });
+    expect(r.sendable).toBe(false);
+    expect(r.reason).toMatch(reason);
   });
 });

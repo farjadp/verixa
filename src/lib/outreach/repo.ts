@@ -33,6 +33,10 @@ export interface OutreachRepo {
   createTouch(t: TouchInput): Promise<{ id: string; created: boolean; status: string; body: string }>;
   updateTouch(id: string, patch: { status: string; externalMessageId?: string; error?: string; sentAt?: Date; scheduledFor?: Date }): Promise<void>;
   listQueuedTouches(channel: Channel): Promise<{ id: string; leadId: string; step: Step; body: string }[]>;
+  /** Leads in state INVITED on a channel. One cheap query: no suppression lookups. */
+  listInvitedLeads(channel: Channel): Promise<{ id: string; externalHandle: string | null }[]>;
+  /** Everything needed to decide, for one touch, whether it may still be sent. Null when the touch is unknown. */
+  getSendCheck(touchId: string): Promise<{ touchStatus: string; leadState: string; claimed: boolean; suppressed: boolean } | null>;
   getTouch(id: string): Promise<{ id: string; leadId: string; channel: Channel; step: Step; status: string } | null>;
   findTouchByExternalId(externalMessageId: string): Promise<{ id: string; leadId: string; step: Step; sentAt: Date | null } | null>;
   listFutureScheduledEmailTouches(now: Date): Promise<{ id: string; leadId: string; step: Step; externalMessageId: string }[]>;
@@ -231,6 +235,23 @@ export const prismaRepo: OutreachRepo = {
   async listQueuedTouches(channel) {
     const rows = await prisma.outreachTouch.findMany({ where: { channel, status: "QUEUED" }, select: { id: true, leadId: true, step: true, body: true } });
     return rows.map((r) => ({ ...r, step: r.step as Step }));
+  },
+
+  async listInvitedLeads(channel) {
+    return prisma.outreachLead.findMany({ where: { channel, state: "INVITED", externalHandle: { not: null } }, select: { id: true, externalHandle: true } });
+  },
+
+  async getSendCheck(touchId) {
+    const t = await prisma.outreachTouch.findUnique({
+      where: { id: touchId },
+      select: { status: true, lead: { select: { state: true, consultantProfileId: true, consultantProfile: { select: { userId: true, rawEmail: true } } } } },
+    });
+    if (!t) return null;
+    const p = t.lead.consultantProfile;
+    return {
+      touchStatus: t.status, leadState: t.lead.state, claimed: p.userId !== null,
+      suppressed: await isSuppressed({ id: t.lead.consultantProfileId, rawEmail: p.rawEmail }),
+    };
   },
 
   async getTouch(id) {

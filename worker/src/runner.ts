@@ -182,6 +182,21 @@ export async function runChannel(channel: SocialChannel, deps: RunnerDeps): Prom
       return (await reportOrStop({ type: "TOUCH_RESULT", touchId: task.touchId, status: "SENT" })) ? "idle" : "stop";
     }
 
+    // Last-moment re-check of this one person. Fails closed: if Verixa cannot answer, nothing is sent.
+    try {
+      const check = await api.leadCheck(task.touchId);
+      if (!check.sendable) {
+        deps.log(`${task.touchId}: not sendable (${check.reason ?? "no reason"}), skipped`);
+        result.skipped++;
+        return "idle";
+      }
+    } catch (e) {
+      if (e instanceof FatalApiError) throw e;
+      deps.log(`lead check failed: ${(e as Error).message}`);
+      result.outcome = "error";
+      return "stop";
+    }
+
     let out: AdapterResult<{ externalMessageId?: string }>;
     try {
       out = task.kind === "INVITE" ? await adapter.invite(task.handle, task.body) : await adapter.sendMessage(task.handle, task.body);

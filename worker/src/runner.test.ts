@@ -29,6 +29,7 @@ function setup(tasks: WorkerTask[], opts: { statuses?: Partial<WorkerStatus>[]; 
     getStatus: vi.fn(async () => { calls.push("status"); const s = statuses[Math.min(si++, statuses.length - 1)]; return { enabled: true, dryRun: false, invitedHandles: [], invitedLeads: [], ...s }; }),
     getTasks: vi.fn(async () => { calls.push("tasks"); return tasks; }),
     getCandidates: vi.fn(async () => []),
+    leadCheck: vi.fn(async () => { calls.push("leadcheck"); return { sendable: true }; }),
     report: vi.fn(async (r: WorkerReport) => { calls.push(`report:${r.type}`); if (opts.reportFails) throw new Error("net down"); reports.push(r); }),
     heartbeat: vi.fn(async () => { calls.push("heartbeat"); }),
   };
@@ -275,6 +276,40 @@ describe("runChannel", () => {
     const r = await runChannel("LINKEDIN", s.deps);
     expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
     expect(r.outcome).toBe("error");
+  });
+
+  it("checks the lead right before each send and skips a lead that is no longer sendable", async () => {
+    const s = setup([task(1), task(2)]);
+    (s.api.leadCheck as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ sendable: false, reason: "profile claimed" });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.api.leadCheck).toHaveBeenCalledWith("t1");
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
+    expect(s.adapter.sendMessage).toHaveBeenCalledWith("h2", "hello 2");
+    expect(r.skipped).toBe(1);
+    expect(s.reports.map((x) => (x as { touchId?: string }).touchId)).toEqual(["t2"]);
+  });
+
+  it("the lead check happens after the thread guard and before the write", async () => {
+    const s = setup([task(1)]);
+    await runChannel("LINKEDIN", s.deps);
+    expect(s.calls.indexOf("leadcheck")).toBeGreaterThan(-1);
+    expect(s.calls.indexOf("leadcheck")).toBeLessThan(s.calls.indexOf("send"));
+  });
+
+  it("fails closed when the lead check errors: nothing is sent", async () => {
+    const s = setup([task(1), task(2)]);
+    (s.api.leadCheck as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new ApiError("down", 503));
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+    expect(r.outcome).toBe("error");
+  });
+
+  it("an already-recorded touch is reported without a lead check", async () => {
+    const state = memState();
+    state.recordAction("2026-11-09", { channel: "LINKEDIN", touchId: "t1", handle: "h1", kind: "TOUCH" });
+    const s = setup([task(1)], { state });
+    await runChannel("LINKEDIN", s.deps);
+    expect(s.api.leadCheck).not.toHaveBeenCalled();
   });
 
   it("a rejected (non-retryable) report does not stop the run", async () => {

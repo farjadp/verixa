@@ -26,6 +26,8 @@ export interface Api {
   getTasks(channel: SocialChannel): Promise<WorkerTask[]>;
   getCandidates(limit: number): Promise<Candidate[]>;
   getStatus(channel: SocialChannel): Promise<WorkerStatus>;
+  /** Last-moment check before one send. */
+  leadCheck(touchId: string): Promise<{ sendable: boolean; reason?: string }>;
   report(r: WorkerReport): Promise<void>;
   heartbeat(): Promise<void>;
 }
@@ -67,6 +69,10 @@ export function createApi(opts: ApiOptions): Api {
     async getStatus(channel) {
       const { enabled, dryRun, invitedHandles, invitedLeads } = await call<{ ok: boolean } & WorkerStatus>(`status?channel=${channel}`, { method: "GET" });
       return { enabled, dryRun, invitedHandles, invitedLeads };
+    },
+    async leadCheck(touchId) {
+      const { sendable, reason } = await call<{ ok: boolean; sendable: boolean; reason?: string }>(`lead-check?touchId=${encodeURIComponent(touchId)}`, { method: "GET" });
+      return { sendable: sendable === true, reason };
     },
     async report(r) {
       await call("report", { method: "POST", body: r });

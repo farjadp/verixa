@@ -47,6 +47,8 @@ function memoryRepo(leads: LeadRow[], opts: MemoryOpts = {}) {
     listFutureScheduledEmailTouches: async (now) => touches.filter((t) => t.externalMessageId && t.scheduledFor! > now && !["CANCELLED", "SENT"].includes(t.status)).map((t) => ({ id: t.id, leadId: t.leadId, step: t.step as 1, externalMessageId: t.externalMessageId! })),
     recordReply: async () => {},
     negativeStats: async () => ({ touches: 0, negatives: 0 }),
+    listInvitedLeads: async () => [],
+    getSendCheck: async () => null,
   };
   return { repo, touches };
 }

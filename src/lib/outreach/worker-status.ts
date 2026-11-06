@@ -1,5 +1,5 @@
 import type { OutreachSettings } from "./settings";
-import type { LeadState } from "./types";
+import { TERMINAL_STATES } from "./types";
 
 export interface WorkerStatus {
   enabled: boolean;
@@ -13,13 +13,22 @@ export interface WorkerStatus {
 export function computeWorkerStatus(
   settings: OutreachSettings,
   channel: "LINKEDIN" | "X",
-  leads: readonly { id: string; state: LeadState; externalHandle: string | null }[],
+  invited: readonly { id: string; externalHandle: string | null }[],
 ): WorkerStatus {
-  const invited = leads.filter((l) => l.state === "INVITED" && l.externalHandle).map((l) => ({ leadId: l.id, handle: l.externalHandle as string }));
+  const leads = invited.filter((l) => l.externalHandle).map((l) => ({ leadId: l.id, handle: l.externalHandle as string }));
   return {
     enabled: settings.enabled && settings.channels[channel],
     dryRun: settings.dryRun,
-    invitedHandles: [...new Set(invited.map((i) => i.handle))],
-    invitedLeads: invited,
+    invitedHandles: [...new Set(leads.map((l) => l.handle))],
+    invitedLeads: leads,
   };
+}
+
+/** Last-moment check before one send: the touch must still be queued and the person still contactable. */
+export function computeSendable(i: { touchStatus: string; leadState: string; claimed: boolean; suppressed: boolean }): { sendable: boolean; reason?: string } {
+  if (i.touchStatus !== "QUEUED") return { sendable: false, reason: `touch is ${i.touchStatus}` };
+  if ((TERMINAL_STATES as readonly string[]).includes(i.leadState)) return { sendable: false, reason: `lead is ${i.leadState}` };
+  if (i.claimed) return { sendable: false, reason: "profile claimed" };
+  if (i.suppressed) return { sendable: false, reason: "person suppressed" };
+  return { sendable: true };
 }

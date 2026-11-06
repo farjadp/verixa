@@ -41,6 +41,7 @@ export function fakeApi(opts: FakeApiOpts = {}) {
     getStatus: vi.fn(async () => ({ enabled: true, dryRun: false, invitedHandles: [], invitedLeads: [], ...statuses[Math.min(si++, statuses.length - 1)] })),
     getTasks: vi.fn(async (ch: "LINKEDIN" | "X") => (typeof opts.tasks === "function" ? opts.tasks(ch) : opts.tasks ?? [])),
     getCandidates: vi.fn(async () => opts.candidates ?? []),
+    leadCheck: vi.fn(async () => ({ sendable: true })),
     report: vi.fn(async (r: WorkerReport) => { reports.push(r); }),
     heartbeat: vi.fn(async () => {}),
   };

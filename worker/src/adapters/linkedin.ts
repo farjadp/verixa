@@ -4,7 +4,7 @@ import type { SocialProfile } from "../match";
 import { CheckpointError, type ProbeCheck } from "../probe";
 import type { Candidate } from "../types";
 import { looksLikeCheckpoint } from "./checkpoint";
-import { ElementMissing, guarded, need } from "./guard";
+import { attachPartial, ElementMissing, guarded, need } from "./guard";
 import { parseSearchCard, slugFromProfileHref } from "./parse";
 import type { AdapterResult, ChannelAdapter, InboxEvents, SentInfo } from "./types";
 
@@ -126,9 +126,18 @@ export class LinkedInAdapter implements ChannelAdapter {
     });
   }
 
-  readInbox(invitedHandles: string[]): Promise<AdapterResult<InboxEvents>> {
+  async readInbox(invitedHandles: string[]): Promise<AdapterResult<InboxEvents>> {
+    // Collected outside the guarded body so a mid-way failure still returns what was already read (and marked read).
+    const events: InboxEvents = { acceptedHandles: [], replies: [] };
+    try {
+      return attachPartial(await this.readInboxInto(events, invitedHandles), events);
+    } catch (e) {
+      return { status: "broken", detail: `read inbox: ${(e as Error).message}`.slice(0, 600), partial: events };
+    }
+  }
+
+  private readInboxInto(events: InboxEvents, invitedHandles: string[]): Promise<AdapterResult<InboxEvents>> {
     return this.run("read inbox", async () => {
-      const events: InboxEvents = { acceptedHandles: [], replies: [] };
 
       if (invitedHandles.length) {
         await visit(this.page, `${BASE}/mynetwork/invite-connect/connections/`);

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ElementMissing, guarded, need, type PageLike } from "./guard";
+import { attachPartial, ElementMissing, guarded, need, type PageLike } from "./guard";
 
 function page(url = "https://www.linkedin.com/in/x/", text = "fine", shotFails = false): PageLike & { shots: string[] } {
   const shots: string[] = [];
@@ -67,5 +67,15 @@ describe("need", () => {
   it("throws ElementMissing when it does not", async () => {
     const loc = { waitFor: vi.fn(async () => { throw new Error("timeout"); }) };
     await expect(need(loc, "Send button")).rejects.toBeInstanceOf(ElementMissing);
+  });
+});
+
+describe("attachPartial", () => {
+  it("adds what was read so far to broken and checkpoint results only", () => {
+    const events = { acceptedHandles: ["a"], replies: [] };
+    expect(attachPartial({ status: "broken", detail: "d" }, events)).toEqual({ status: "broken", detail: "d", partial: events });
+    expect(attachPartial({ status: "checkpoint", detail: "d" }, events)).toEqual({ status: "checkpoint", detail: "d", partial: events });
+    const okRes = { status: "ok" as const, value: events };
+    expect(attachPartial(okRes, events)).toBe(okRes);
   });
 });

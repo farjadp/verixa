@@ -48,25 +48,30 @@ export async function runInbox(channel: SocialChannel, deps: InboxDeps): Promise
     }
 
     const read = await adapter.readInbox(status.invitedHandles);
-    if (read.status === "checkpoint" || read.status === "broken") {
-      const h = haltFromResult(read);
-      res.outcome = "halted";
-      await send({ type: "CHANNEL_HALT", channel, reason: h.reason, detail: h.detail.slice(0, 1000) });
-      return res;
-    }
-    if (read.status !== "ok") return res;
+    if (read.status === "dmsClosed") return res;
+    // A failed read may still have collected events (conversations already marked read): report them before halting.
+    const events = read.status === "ok" ? read.value : read.partial ?? { acceptedHandles: [], replies: [] };
 
-    for (const handle of read.value.acceptedHandles) {
+    let stopped = false;
+    for (const handle of events.acceptedHandles) {
       for (const lead of status.invitedLeads.filter((l) => l.handle.toLowerCase() === handle.toLowerCase())) {
         const o = await send({ type: "INVITE_ACCEPTED", leadId: lead.leadId });
-        if (o === "retry") return res;
+        if (o === "retry") stopped = true;
         if (o === "ok") res.accepted++;
+        if (stopped) break;
       }
+      if (stopped) break;
     }
-    for (const r of read.value.replies) {
+    for (const r of stopped ? [] : events.replies) {
       const o = await send({ type: "REPLY", channel, handle: r.handle, body: r.body.slice(0, 8000) });
-      if (o === "retry") return res;
+      if (o === "retry") break;
       if (o === "ok") res.replies++;
+    }
+
+    if (read.status === "checkpoint" || read.status === "broken") {
+      const h = haltFromResult(read);
+      await send({ type: "CHANNEL_HALT", channel, reason: h.reason, detail: h.detail.slice(0, 1000) });
+      res.outcome = "halted";
     }
   } catch (e) {
     if (e instanceof FatalApiError) throw e;

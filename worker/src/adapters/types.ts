@@ -8,8 +8,8 @@ import type { Candidate, SocialChannel } from "../types";
 export type AdapterResult<T> =
   | { status: "ok"; value: T }
   | { status: "dmsClosed" }
-  | { status: "checkpoint"; detail: string }
-  | { status: "broken"; detail: string; screenshot?: string };
+  | { status: "checkpoint"; detail: string; partial?: T }
+  | { status: "broken"; detail: string; screenshot?: string; partial?: T };
 
 export interface SentInfo {
   externalMessageId?: string;

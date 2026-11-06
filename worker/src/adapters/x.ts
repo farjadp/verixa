@@ -4,7 +4,7 @@ import type { SocialProfile } from "../match";
 import { CheckpointError, type ProbeCheck } from "../probe";
 import type { Candidate } from "../types";
 import { looksLikeCheckpoint } from "./checkpoint";
-import { ElementMissing, guarded, need } from "./guard";
+import { attachPartial, ElementMissing, guarded, need } from "./guard";
 import { xHandleFromHref } from "./parse";
 import type { AdapterResult, ChannelAdapter, InboxEvents, SentInfo } from "./types";
 
@@ -88,11 +88,19 @@ export class XAdapter implements ChannelAdapter {
     });
   }
 
-  readInbox(): Promise<AdapterResult<InboxEvents>> {
+  async readInbox(): Promise<AdapterResult<InboxEvents>> {
+    const events: InboxEvents = { acceptedHandles: [], replies: [] };
+    try {
+      return attachPartial(await this.readInboxInto(events), events);
+    } catch (e) {
+      return { status: "broken", detail: `read inbox: ${(e as Error).message}`.slice(0, 600), partial: events };
+    }
+  }
+
+  private readInboxInto(events: InboxEvents): Promise<AdapterResult<InboxEvents>> {
     return this.run("read inbox", async () => {
       await visit(this.page, `${BASE}/messages`);
       await need(this.page.locator("main"), "messages page");
-      const events: InboxEvents = { acceptedHandles: [], replies: [] };
       const unread = this.page.getByTestId("conversation").filter({ has: this.page.locator('[aria-label*="unread" i]') });
       const n = Math.min(await unread.count(), 10);
       for (let i = 0; i < n; i++) {

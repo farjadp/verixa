@@ -43,6 +43,13 @@ describe("runInbox", () => {
     expect(s.adapter.readInbox).not.toHaveBeenCalled();
   });
 
+  it("reports what was read before a halt, then halts", async () => {
+    const s = setup({ status: "broken", detail: "conversation sender missing", screenshot: "s.png", partial: { acceptedHandles: ["jane"], replies: [{ handle: "bob", body: "stop please" }] } });
+    const r = await runInbox("LINKEDIN", s.deps);
+    expect(s.reports.map((x) => x.type)).toEqual(["INVITE_ACCEPTED", "REPLY", "CHANNEL_HALT"]);
+    expect(r).toMatchObject({ outcome: "halted", accepted: 1, replies: 1 });
+  });
+
   it("halts on checkpoint", async () => {
     const s = setup({ status: "checkpoint", detail: "authwall" });
     expect((await runInbox("LINKEDIN", s.deps)).outcome).toBe("halted");

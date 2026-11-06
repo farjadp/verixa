@@ -24,6 +24,11 @@ export async function need(loc: { waitFor(o: { state: "visible"; timeout: number
   }
 }
 
+/** Keeps whatever a multi-step read collected before it failed, so the caller can still report it. */
+export function attachPartial<T>(r: AdapterResult<T>, partial: T): AdapterResult<T> {
+  return r.status === "broken" || r.status === "checkpoint" ? { ...r, partial } : r;
+}
+
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 /**

@@ -1,3 +1,4 @@
+import { DefiniteFailure } from "./adapters/guard";
 import type { AdapterResult, ChannelAdapter } from "./adapters/types";
 import { FatalApiError, isRetryable, type Api } from "./api";
 import { inSendWindow, localDay, randomGapMs, type Sleep } from "./timing";
@@ -152,10 +153,10 @@ export async function runChannel(channel: SocialChannel, deps: RunnerDeps): Prom
       try {
         seen = await adapter.hasSentText(task.handle, task.body);
       } catch (e) {
-        // If we cannot tell, we must not send.
+        // Nothing was written, so nothing is reported: the touch stays QUEUED and the next run checks again.
+        deps.log(`thread check failed for ${task.touchId}: ${(e as Error).message}`);
         result.failed++;
-        const ok = await reportOrStop({ type: "TOUCH_RESULT", touchId: task.touchId, status: "FAILED", error: `thread check failed: ${(e as Error).message}`.slice(0, 500) });
-        return ok ? "acted" : "stop";
+        return "idle";
       }
       if (seen.status === "checkpoint" || seen.status === "broken") {
         await halt(haltFrom(seen));
@@ -173,7 +174,9 @@ export async function runChannel(channel: SocialChannel, deps: RunnerDeps): Prom
       out = task.kind === "INVITE" ? await adapter.invite(task.handle, task.body) : await adapter.sendMessage(task.handle, task.body);
     } catch (e) {
       result.failed++;
-      const ok = await reportOrStop({ type: "TOUCH_RESULT", touchId: task.touchId, status: "FAILED", error: (e as Error).message.slice(0, 500) });
+      // Only a failure raised before any write action is "definitely not sent". Anything else may have gone out.
+      const definite = e instanceof DefiniteFailure;
+      const ok = await reportOrStop({ type: "TOUCH_RESULT", touchId: task.touchId, status: definite ? "FAILED" : "UNCERTAIN", error: (e as Error).message.slice(0, 500) });
       return ok ? "acted" : "stop";
     }
 

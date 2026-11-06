@@ -41,6 +41,16 @@ export interface OutreachRepo {
 }
 
 const DAY_MS = 86_400_000;
+
+/**
+ * A touch row that may be reused for a fresh attempt. CANCELLED is always dead. FAILED is dead only for email
+ * without a provider id; a FAILED social touch is never revived, because a new body would slip past the worker's
+ * "exact text already in the thread" guard and could double send.
+ */
+export function isDeadTouch(t: { channel: string; status: string; externalMessageId: string | null }): boolean {
+  if (t.status === "CANCELLED") return true;
+  return t.status === "FAILED" && t.externalMessageId === null && t.channel === "EMAIL";
+}
 const startOfOperatorDay = (now: Date) => localTimeToUtc(localParts(now, OUTREACH.operatorTimezone).ymd, 0, 0, OUTREACH.operatorTimezone);
 
 type LeadWithProfile = Prisma.OutreachLeadGetPayload<{ include: { consultantProfile: { select: { userId: true; rawEmail: true } } } }>;
@@ -190,7 +200,7 @@ export const prismaRepo: OutreachRepo = {
     const existing = await prisma.outreachTouch.findUnique({ where: { idempotencyKey } });
     if (existing) {
       // UNCERTAIN (ambiguous send) is deliberately not dead: like SENT/SCHEDULED it blocks any re-send.
-      const dead = existing.status === "CANCELLED" || (existing.status === "FAILED" && existing.externalMessageId === null);
+      const dead = isDeadTouch(existing);
       if (!dead) return { id: existing.id, created: false, status: existing.status, body: existing.body };
       // Compare-and-set: of two overlapping runs only one wins the dead row.
       const won = await prisma.outreachTouch.updateMany({

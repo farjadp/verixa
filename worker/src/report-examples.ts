@@ -4,6 +4,7 @@ import type { WorkerReport } from "./types";
 export const REPORT_EXAMPLES: readonly WorkerReport[] = [
   { type: "TOUCH_RESULT", touchId: "t1", status: "SENT", externalMessageId: "ext-1" },
   { type: "TOUCH_RESULT", touchId: "t2", status: "FAILED", error: "boom" },
+  { type: "TOUCH_RESULT", touchId: "t3", status: "UNCERTAIN", error: "click timed out after typing" },
   { type: "INVITE_ACCEPTED", leadId: "l1" },
   { type: "REPLY", channel: "LINKEDIN", handle: "jane-doe", body: "Thanks, tell me more" },
   { type: "REPLY", channel: "EMAIL", email: "jane@example.com", body: "Not interested" },

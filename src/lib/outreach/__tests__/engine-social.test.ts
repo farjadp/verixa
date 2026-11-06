@@ -106,6 +106,19 @@ describe("buildSocialTasks + applyReport", () => {
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({ includeTerminal: true }));
   });
 
+  it("UNCERTAIN holds the touch, alerts the founder, and never re-hands or revives it", async () => {
+    const lead = xLead();
+    const { deps, touches } = setup([lead], { subject: null, body: "Hi Ana, your listing is live." });
+    deps.alert = vi.fn(async () => {});
+    const [task] = await buildSocialTasks(deps, "X");
+    const r = await applyReport(deps, { type: "TOUCH_RESULT", touchId: task.touchId, status: "UNCERTAIN", error: "click timed out" }, { haltChannel: vi.fn() });
+    expect(r.ok).toBe(true);
+    expect([...touches.values()][0].status).toBe("UNCERTAIN");
+    expect(deps.alert).toHaveBeenCalledTimes(1);
+    expect(lead.state).toBe("BACKLOG");
+    expect(await buildSocialTasks(deps, "X")).toEqual([]);
+  });
+
   it("drops matches below 0.8 confidence and scores the rest", async () => {
     const { deps, created } = setup([], {});
     const signals = { postedAboutMarketing: true, soloOrSmallFirm: true, activeLast21Days: true, socialProfileComplete: true, hadProfileViews30d: false };
@@ -159,6 +172,11 @@ describe("buildSocialTasks + applyReport", () => {
     expect((await applyReport(deps, { type: "TOUCH_RESULT", touchId: "tc", status: "SENT" }, { haltChannel: vi.fn() })).ok).toBe(false);
     expect((await applyReport(deps, { type: "TOUCH_RESULT", touchId: "te", status: "SENT" }, { haltChannel: vi.fn() })).ok).toBe(false);
     expect(lead.state).toBe("BACKLOG");
+  });
+
+  it("accepts UNCERTAIN as a TOUCH_RESULT status", () => {
+    expect(workerReportSchema.safeParse({ type: "TOUCH_RESULT", touchId: "t", status: "UNCERTAIN", error: "x" }).success).toBe(true);
+    expect(workerReportSchema.safeParse({ type: "TOUCH_RESULT", touchId: "t", status: "MAYBE" }).success).toBe(false);
   });
 
   it("requires email or handle on REPLY reports", () => {

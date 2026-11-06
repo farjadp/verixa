@@ -123,6 +123,15 @@ describe.skipIf(!enabled)("outreach repo — real Postgres", () => {
     expect((await repo.createTouch(touchInput(lead3.id))).created).toBe(false);
   });
 
+  it("createTouch: a FAILED social touch is never revived (CANCELLED still is)", async () => {
+    const lead = await mkLead((await mkProfile()).id, { channel: "X" });
+    const t = await repo.createTouch(touchInput(lead.id, { channel: "X" }));
+    await repo.updateTouch(t.id, { status: "FAILED", error: "no Connect option" });
+    expect((await repo.createTouch(touchInput(lead.id, { channel: "X", body: "new body" }))).created).toBe(false);
+    await repo.updateTouch(t.id, { status: "CANCELLED" });
+    expect((await repo.createTouch(touchInput(lead.id, { channel: "X", body: "new body" }))).created).toBe(true);
+  });
+
   it("createTouch: dry-run rows are keyed per day", async () => {
     const lead = await mkLead((await mkProfile()).id);
     const d1 = await repo.createTouch(touchInput(lead.id, { status: "DRY_RUN", dryRunDay: "2026-11-10" }));

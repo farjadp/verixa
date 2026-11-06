@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ApiError, type Api } from "./api";
+import { DefiniteFailure } from "./adapters/guard";
 import type { AdapterResult, ChannelAdapter } from "./adapters/types";
 import { runChannel, type RunnerDeps, type RunnerState } from "./runner";
 import type { WorkerReport, WorkerStatus, WorkerTask } from "./types";
@@ -189,13 +190,27 @@ describe("runChannel", () => {
     expect(state.hasAction("t1")).toBe(true);
   });
 
-  it("reports FAILED when the adapter throws and continues with the next task", async () => {
+  it("an unexpected error during the send is ambiguous: reports UNCERTAIN, never FAILED, and continues", async () => {
     const send = vi.fn().mockRejectedValueOnce(new Error("boom")).mockResolvedValue(ok({ externalMessageId: "m2" }));
     const s = setup([task(1), task(2)], { adapter: { sendMessage: send } });
     const r = await runChannel("LINKEDIN", s.deps);
-    expect(s.reports[0]).toMatchObject({ type: "TOUCH_RESULT", touchId: "t1", status: "FAILED", error: "boom" });
+    expect(s.reports[0]).toMatchObject({ type: "TOUCH_RESULT", touchId: "t1", status: "UNCERTAIN", error: "boom" });
     expect(s.reports[1]).toMatchObject({ touchId: "t2", status: "SENT" });
     expect(r).toMatchObject({ sent: 1, failed: 1 });
+  });
+
+  it("a failure before any write action is FAILED (definitely not sent)", async () => {
+    const s = setup([task(1, { kind: "INVITE", step: 1 })], { adapter: { invite: vi.fn(async () => { throw new DefiniteFailure("no Connect option"); }) } });
+    await runChannel("LINKEDIN", s.deps);
+    expect(s.reports[0]).toMatchObject({ type: "TOUCH_RESULT", status: "FAILED", error: "no Connect option" });
+  });
+
+  it("a failing thread check sends nothing and reports nothing (the touch stays queued for the next run)", async () => {
+    const s = setup([task(1), task(2)], { adapter: { hasSentText: vi.fn().mockRejectedValueOnce(new Error("page crashed")).mockResolvedValue(ok(false)) } });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
+    expect(s.reports.map((x) => (x as { touchId?: string }).touchId)).toEqual(["t2"]);
+    expect(r.failed).toBe(1);
   });
 
   it("truncates long error text to the schema limit", async () => {

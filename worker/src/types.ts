@@ -41,7 +41,7 @@ export interface WorkerStatus {
 }
 
 export type WorkerReport =
-  | { type: "TOUCH_RESULT"; touchId: string; status: "SENT" | "FAILED"; externalMessageId?: string; error?: string }
+  | { type: "TOUCH_RESULT"; touchId: string; status: "SENT" | "FAILED" | "UNCERTAIN"; externalMessageId?: string; error?: string }
   | { type: "INVITE_ACCEPTED"; leadId: string }
   | { type: "REPLY"; channel: ReportChannel; handle?: string; email?: string; body: string }
   | { type: "LEAD_MATCHED"; consultantProfileId: string; channel: SocialChannel; handle: string; matchConfidence: number; timezone: string; signals: Signals }

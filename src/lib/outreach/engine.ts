@@ -352,7 +352,7 @@ const signalsSchema = z.object({
 });
 
 export const workerReportSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("TOUCH_RESULT"), touchId: z.string(), status: z.enum(["SENT", "FAILED"]), externalMessageId: z.string().optional(), error: z.string().max(500).optional() }),
+  z.object({ type: z.literal("TOUCH_RESULT"), touchId: z.string(), status: z.enum(["SENT", "FAILED", "UNCERTAIN"]), externalMessageId: z.string().optional(), error: z.string().max(500).optional() }),
   z.object({ type: z.literal("INVITE_ACCEPTED"), leadId: z.string() }),
   z.object({ type: z.literal("REPLY"), channel: channelEnum, handle: z.string().optional(), email: z.string().email().optional(), body: z.string().max(8000) })
     .refine((r) => Boolean(r.email || r.handle), { message: "email or handle required" }),
@@ -385,7 +385,13 @@ export async function applyReport(
       if (touch.status === "DRY_RUN") return { ok: true, detail: "dry run" };
       if (touch.status !== "QUEUED") return { ok: false, detail: `touch is ${touch.status}, not QUEUED` };
       if (r.status === "FAILED") {
+        // Definitely not sent. For social channels the row is never revived, so a changed body can never double send.
         await deps.repo.updateTouch(touch.id, { status: "FAILED", error: r.error });
+        return { ok: true };
+      }
+      if (r.status === "UNCERTAIN") {
+        await deps.repo.updateTouch(touch.id, { status: "UNCERTAIN", error: r.error });
+        await raise(deps, `${touch.channel} send outcome unknown`, [`The ${touch.channel} message for touch ${touch.id} may or may not have gone out: ${r.error ?? "no detail"}`, "Check the conversation by hand. The touch is held as UNCERTAIN and will not be retried."]);
         return { ok: true };
       }
       await deps.repo.updateTouch(touch.id, { status: "SENT", externalMessageId: r.externalMessageId, sentAt: deps.now() });

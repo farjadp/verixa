@@ -8,7 +8,7 @@ import type { WorkerReport, WorkerStatus, WorkerTask } from "./types";
 const MONDAY_9AM = new Date("2026-11-09T14:00:00Z"); // 09:00 Toronto
 const SATURDAY = new Date("2026-11-14T14:00:00Z");
 
-const task = (n: number, over: Partial<WorkerTask> = {}): WorkerTask => ({ touchId: `t${n}`, leadId: `l${n}`, kind: "TOUCH", step: 2, handle: `h${n}`, body: `hello ${n}`, dryRun: false, ...over });
+const task = (n: number, over: Partial<WorkerTask> = {}): WorkerTask => ({ touchId: `t${n}`, leadId: `l${n}`, kind: "TOUCH", step: 2, handle: `h${n}`, body: `hello ${n}`, dryRun: false, timezone: "America/Toronto", ...over });
 const ok = <T,>(value: T): AdapterResult<T> => ({ status: "ok", value });
 
 function memState(): RunnerState {
@@ -243,6 +243,23 @@ describe("runChannel", () => {
     const r = await runChannel("LINKEDIN", s.deps);
     expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
     expect(r.outcome).toBe("window_closed");
+  });
+
+  it("skips a task whose lead is outside the send window in the lead's own timezone, and carries on", async () => {
+    // 14:00Z is 09:00 Toronto but 06:00 Vancouver.
+    const s = setup([task(1, { timezone: "America/Vancouver" }), task(2)]);
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
+    expect(s.adapter.sendMessage).toHaveBeenCalledWith("h2", "hello 2");
+    expect(r).toMatchObject({ sent: 1, skipped: 1, outcome: "completed" });
+    expect(s.sleep).not.toHaveBeenCalled(); // a skipped task earns no gap
+  });
+
+  it("skips a task with an invalid timezone", async () => {
+    const s = setup([task(1, { timezone: "Mars/Base" })]);
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+    expect(r.skipped).toBe(1);
   });
 
   it("enforces a local daily action cap of 5", async () => {

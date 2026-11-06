@@ -297,6 +297,8 @@ export interface WorkerTask {
   handle: string;
   body: string;
   dryRun: boolean;
+  /** The lead's IANA zone; the worker only sends inside the send window there as well. */
+  timezone: string;
 }
 
 export async function buildSocialTasks(deps: EngineDeps, channel: "LINKEDIN" | "X"): Promise<WorkerTask[]> {
@@ -327,7 +329,7 @@ export async function buildSocialTasks(deps: EngineDeps, channel: "LINKEDIN" | "
     if (!current.enabled || !current.channels[channel] || (current.dryRun && !settings.dryRun)) break;
 
     if (existing) {
-      out.push({ touchId: existing.id, leadId: lead.id, kind: t.kind, step: t.step, handle: lead.externalHandle!, body: existing.body, dryRun: false });
+      out.push({ touchId: existing.id, leadId: lead.id, kind: t.kind, step: t.step, handle: lead.externalHandle!, body: existing.body, dryRun: false, timezone: lead.timezone });
       continue;
     }
     const msg = await composeWithRetry(deps, lead, t.step, offer);
@@ -340,7 +342,7 @@ export async function buildSocialTasks(deps: EngineDeps, channel: "LINKEDIN" | "
     });
     if (touch.status !== "QUEUED" && touch.status !== "DRY_RUN") continue; // already sent or failed
     if (touch.created) newlyCreated++;
-    out.push({ touchId: touch.id, leadId: lead.id, kind: t.kind, step: t.step, handle: lead.externalHandle!, body: touch.body, dryRun: touch.status === "DRY_RUN" });
+    out.push({ touchId: touch.id, leadId: lead.id, kind: t.kind, step: t.step, handle: lead.externalHandle!, body: touch.body, dryRun: touch.status === "DRY_RUN", timezone: lead.timezone });
   }
   return out;
 }

@@ -13,6 +13,7 @@ export interface WorkerTask {
   handle: string;
   body: string;
   dryRun: boolean;
+  timezone: string;
 }
 
 export interface Candidate {

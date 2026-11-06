@@ -13,7 +13,7 @@ export const candidate = (n: number, over: Partial<Candidate> = {}): Candidate =
   consultantProfileId: `c${n}`, fullName: "Jose Alvarez", company: null, city: "Toronto", province: "ON", licenseNumber: "R1", timezone: "America/Toronto", ...over,
 });
 
-export const task = (n: number, over: Partial<WorkerTask> = {}): WorkerTask => ({ touchId: `t${n}`, leadId: `l${n}`, kind: "TOUCH", step: 2, handle: `h${n}`, body: `hello ${n}`, dryRun: false, ...over });
+export const task = (n: number, over: Partial<WorkerTask> = {}): WorkerTask => ({ touchId: `t${n}`, leadId: `l${n}`, kind: "TOUCH", step: 2, handle: `h${n}`, body: `hello ${n}`, dryRun: false, timezone: "America/Toronto", ...over });
 
 export function memState() {
   const actions: { day: string; channel: string; touchId: string }[] = [];

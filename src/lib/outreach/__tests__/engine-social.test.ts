@@ -65,7 +65,7 @@ describe("buildSocialTasks + applyReport", () => {
     const lead = xLead();
     const { deps } = setup([lead], { subject: null, body: "Hi Ana, your listing is live." });
     const [task] = await buildSocialTasks(deps, "X");
-    expect(task).toMatchObject({ leadId: "X1", kind: "TOUCH", step: 1, handle: "ana_rcic", dryRun: false });
+    expect(task).toMatchObject({ leadId: "X1", kind: "TOUCH", step: 1, handle: "ana_rcic", dryRun: false, timezone: TOR });
     expect(task.body).toContain("Not relevant?");
     expect(await buildSocialTasks(deps, "X")).toEqual([task]); // same queued touch, not a new one
     await applyReport(deps, { type: "TOUCH_RESULT", touchId: task.touchId, status: "SENT", externalMessageId: "dm1" }, { haltChannel: vi.fn() });

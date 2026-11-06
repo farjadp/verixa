@@ -46,6 +46,14 @@ export function haltFromResult(r: Exclude<AdapterResult<unknown>, { status: "ok"
     : { reason: "ADAPTER_BROKEN", detail: r.screenshot ? `${r.detail} (screenshot: ${r.screenshot})` : r.detail };
 }
 
+function inLeadWindow(now: Date, tz: string): boolean {
+  try {
+    return inSendWindow(now, tz);
+  } catch {
+    return false; // unknown zone: do not guess
+  }
+}
+
 /**
  * Executes one channel's tasks. Verixa decides what to send; this only carries it out, and stops at the first sign of trouble.
  * Order for every live task: gap, window check, kill-switch check, checkpoint check, crash-resend guard, action, report.
@@ -92,6 +100,11 @@ export async function runChannel(channel: SocialChannel, deps: RunnerDeps): Prom
 
     for (const task of tasks) {
       if (task.dryRun) {
+        result.skipped++;
+        continue;
+      }
+      if (!inLeadWindow(deps.now(), task.timezone)) {
+        deps.log(`${task.touchId}: outside the send window in ${task.timezone}, skipped`);
         result.skipped++;
         continue;
       }

@@ -48,3 +48,10 @@ dev.db
 
 # backups
 /backups/
+
+# outreach worker (local Mac process)
+!worker/.env.example
+worker/.env
+worker/.state/
+worker/node_modules/
+worker/.profile/

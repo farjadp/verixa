@@ -53,6 +53,9 @@ async function raise(deps: EngineDeps, subject: string, lines: string[]): Promis
   }
 }
 
+/** How much of a reply the founder's "lead is in conversation" alert quotes. */
+const CONVERSATION_ALERT_BODY_CHARS = 300;
+
 /** Extra planned leads to try when some are skipped (failed compose, no email, full window). */
 const SKIP_HEADROOM = 13;
 
@@ -448,7 +451,19 @@ export async function applyReport(
       }
       const isNew = await deps.repo.recordReply({ leadId: lead.id, body: r.body, label, confidence });
       if (!isNew) return { ok: true, detail: "duplicate reply ignored" };
+      const before = lead.state;
       const applied = await apply(deps, lead, { type: "REPLY", label });
+      if (applied && before !== "CONVERSATION" && lead.state === "CONVERSATION") {
+        // raise() swallows alert failures, so a broken alert never fails the report.
+        await raise(deps, `Outreach reply: ${r.channel} lead is in conversation`, [
+          `Channel: ${r.channel}`,
+          `Lead: ${lead.id}`,
+          `Contact: ${r.email ?? r.handle ?? "unknown"}`,
+          `Label: ${label} (confidence ${confidence.toFixed(2)})`,
+          `Reply: ${r.body.trim().slice(0, CONVERSATION_ALERT_BODY_CHARS)}`,
+          `Admin: ${deps.appUrl}/dashboard/admin/outreach`,
+        ]);
+      }
       // Never ok:false here: a reply that cannot move the lead is still recorded, and failing would stall the worker's batch.
       return { ok: true, detail: applied ? undefined : `recorded; lead is ${lead.state}` };
     }

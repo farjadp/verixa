@@ -274,3 +274,61 @@ describe("buildSocialTasks + applyReport", () => {
     expect(touches.get("X1:1")!.status).toBe("QUEUED");
   });
 });
+
+describe("founder alert when a lead enters CONVERSATION", () => {
+  const hooks = { haltChannel: vi.fn(async () => {}) };
+  const live = () => ({ ...xLead(), state: "TOUCH_1" as const, touchCount: 1 });
+
+  it.each(["positive", "question"])("a %s reply alerts once with channel, lead, contact, label, body and admin URL", async (label) => {
+    const lead = live();
+    const { deps } = setup([lead], { label, confidence: 0.92 });
+    const alert = vi.fn(async (_s: string, _l: string[]) => {});
+    deps.alert = alert;
+    const body = `Sounds good, tell me more. ${"y".repeat(400)}`;
+    const r = await applyReport(deps, { type: "REPLY", channel: "X", handle: "ana_rcic", body }, hooks);
+    expect(r.ok).toBe(true);
+    expect(lead.state).toBe("CONVERSATION");
+    expect(alert).toHaveBeenCalledTimes(1);
+    const text = alert.mock.calls[0][1].join("\n");
+    for (const s of ["X", "X1", "ana_rcic", label, "0.92", body.slice(0, 300), "https://getverixa.com/dashboard/admin/outreach"]) expect(text).toContain(s);
+    expect(text).not.toContain(body.slice(0, 301));
+  });
+
+  it("a duplicate reply does not alert again", async () => {
+    const lead = live();
+    const { deps } = setup([lead], { label: "positive", confidence: 0.9 });
+    const alert = vi.fn(async () => {});
+    deps.alert = alert;
+    await applyReport(deps, { type: "REPLY", channel: "X", handle: "ana_rcic", body: "sounds good" }, hooks);
+    await applyReport(deps, { type: "REPLY", channel: "X", handle: "ana_rcic", body: "sounds good" }, hooks);
+    expect(alert).toHaveBeenCalledTimes(1);
+  });
+
+  it("a new reply from a lead already in CONVERSATION does not alert", async () => {
+    const lead = { ...xLead(), state: "CONVERSATION" as const, touchCount: 1 };
+    const { deps } = setup([lead], { label: "positive", confidence: 0.9 });
+    const alert = vi.fn(async () => {});
+    deps.alert = alert;
+    await applyReport(deps, { type: "REPLY", channel: "X", handle: "ana_rcic", body: "one more thing" }, hooks);
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  it.each([["negative", 0.95], ["auto_reply", 0.95]])("a %s reply does not alert", async (label, confidence) => {
+    const lead = live();
+    const { deps } = setup([lead], { label, confidence });
+    const alert = vi.fn(async () => {});
+    deps.alert = alert;
+    await applyReport(deps, { type: "REPLY", channel: "X", handle: "ana_rcic", body: "away until Monday" }, hooks);
+    expect(lead.state).not.toBe("CONVERSATION");
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  it("an alert failure does not fail the report", async () => {
+    const lead = live();
+    const { deps } = setup([lead], { label: "positive", confidence: 0.9 });
+    deps.alert = vi.fn(async () => { throw new Error("smtp down"); });
+    const r = await applyReport(deps, { type: "REPLY", channel: "X", handle: "ana_rcic", body: "sounds good" }, hooks);
+    expect(r).toEqual({ ok: true, detail: undefined });
+    expect(lead.state).toBe("CONVERSATION");
+  });
+});

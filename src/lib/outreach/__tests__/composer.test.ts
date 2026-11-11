@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { OutreachConfigError } from "../email";
 import type { Llm } from "@/lib/content-pipeline/types";
-import { ComposeRejectedError, ESCAPE_LINE, INVITE_ESCAPE_LINE, composeMessage, extractNumbers, type ComposeInput } from "../composer";
+import { ComposeRejectedError, ESCAPE_LINE, INVITE_ESCAPE_LINE, composeMessage, socialSuffix, extractNumbers, type ComposeInput } from "../composer";
 
 const fakeLlm = (out: { subject: string | null; body: string }): Llm => ({ json: async () => out as never });
 
@@ -9,6 +10,11 @@ const base: ComposeInput = {
   profileUrl: "https://getverixa.com/consultant/R123456", claimUrl: "https://getverixa.com/claim/R123456",
   profileViews30d: 21, offer: null,
 };
+
+const senderEnv = { OUTREACH_SENDER_LEGAL_NAME: "VisaRoads Inc.", NEXT_PUBLIC_APP_URL: "https://www.getverixa.com" } as unknown as NodeJS.ProcessEnv;
+const SENDER_LINE = "Farjad, Verixa (VisaRoads Inc.) · https://www.getverixa.com";
+
+beforeAll(() => { process.env.OUTREACH_SENDER_LEGAL_NAME = "VisaRoads Inc."; });
 
 describe("composeMessage", () => {
   it("returns subject + body for email without an escape line (the footer handles it)", async () => {
@@ -34,13 +40,54 @@ describe("composeMessage", () => {
 
   it("appends the escape line on social channels", async () => {
     const m = await composeMessage(fakeLlm({ subject: null, body: "Hi Sara, quick note: https://getverixa.com/consultant/R123456" }), { ...base, channel: "X", step: 2 });
-    expect(m.body.endsWith(ESCAPE_LINE)).toBe(true);
+    expect(m.body).toContain(ESCAPE_LINE);
     expect(m.subject).toBeNull();
+  });
+
+  it("adds the legal sender line after the escape line on DMs and invites", async () => {
+    const dm = await composeMessage(fakeLlm({ subject: null, body: "Hi Sara, quick note: https://getverixa.com/consultant/R123456" }), { ...base, channel: "LINKEDIN", step: 2 }, senderEnv);
+    expect(dm.body.endsWith(`${ESCAPE_LINE}\n${SENDER_LINE}`)).toBe(true);
+    const x = await composeMessage(fakeLlm({ subject: null, body: "Hi Sara, quick note: https://getverixa.com/consultant/R123456" }), { ...base, channel: "X", step: 2 }, senderEnv);
+    expect(x.body.endsWith(`${ESCAPE_LINE}\n${SENDER_LINE}`)).toBe(true);
+    const invite = await composeMessage(fakeLlm({ subject: null, body: "Hi Sara, your CICC listing: https://getverixa.com/consultant/R123456" }), { ...base, channel: "LINKEDIN" }, senderEnv);
+    expect(invite.body.endsWith(`${INVITE_ESCAPE_LINE}\n${SENDER_LINE}`)).toBe(true);
+  });
+
+  it("does not add the sender line to email bodies (the footer carries it)", async () => {
+    const m = await composeMessage(fakeLlm({ subject: "Hi", body: "Hi Sara: https://getverixa.com/consultant/R123456" }), base, senderEnv);
+    expect(m.body).not.toContain(SENDER_LINE);
+  });
+
+  it("accepts an invite body at the full budget and keeps the note within 300 chars", async () => {
+    const url = "https://getverixa.com/consultant/R123456";
+    const budget = 300 - socialSuffix("LINKEDIN", 1, senderEnv).length;
+    const body = `Hi Sara ${"a".repeat(budget - url.length - 9)} ${url}`;
+    expect(body.length).toBe(budget);
+    const m = await composeMessage(fakeLlm({ subject: null, body }), { ...base, channel: "LINKEDIN" }, senderEnv);
+    expect(m.body.length).toBe(300);
+    await expect(composeMessage(fakeLlm({ subject: null, body: `a${body}` }), { ...base, channel: "LINKEDIN" }, senderEnv)).rejects.toThrow(ComposeRejectedError);
+  });
+
+  it("tells the model the reduced invite budget", async () => {
+    let prompt = "";
+    const llm: Llm = { json: async (_s, _n, _sys, user) => { prompt = user; return { subject: null, body: "Hi https://getverixa.com/consultant/R123456" } as never; } };
+    await composeMessage(llm, { ...base, channel: "LINKEDIN" }, senderEnv);
+    expect(prompt).toContain(`under ${300 - socialSuffix("LINKEDIN", 1, senderEnv).length} characters`);
+  });
+
+  it("fails with a config error, before calling the model, when the legal name is unset on social", async () => {
+    let called = false;
+    const llm: Llm = { json: async () => { called = true; return { subject: null, body: "x" } as never; } };
+    for (const name of [undefined, "  "]) {
+      await expect(composeMessage(llm, { ...base, channel: "X", step: 2 }, { OUTREACH_SENDER_LEGAL_NAME: name } as unknown as NodeJS.ProcessEnv)).rejects.toThrow(OutreachConfigError);
+      await expect(composeMessage(llm, { ...base, channel: "LINKEDIN" }, {} as NodeJS.ProcessEnv)).rejects.toThrow(/OUTREACH_SENDER_LEGAL_NAME/);
+    }
+    expect(called).toBe(false);
   });
 
   it("keeps LinkedIn invite notes within 300 chars", async () => {
     const ok = await composeMessage(fakeLlm({ subject: null, body: "Hi Sara, your CICC listing: https://getverixa.com/consultant/R123456" }), { ...base, channel: "LINKEDIN" });
-    expect(ok.body.endsWith(INVITE_ESCAPE_LINE)).toBe(true);
+    expect(ok.body).toContain(INVITE_ESCAPE_LINE);
     expect(ok.body.length).toBeLessThanOrEqual(300);
     await expect(composeMessage(fakeLlm({ subject: null, body: "x".repeat(290) }), { ...base, channel: "LINKEDIN" })).rejects.toThrow(ComposeRejectedError);
   });

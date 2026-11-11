@@ -5,6 +5,7 @@ const env = {
   OUTREACH_FROM_EMAIL: "Farjad from Verixa <farjad@outreach.example.test>",
   OUTREACH_MAILING_ADDRESS: "1 Test St, Newmarket, ON L3Y 0A0, Canada",
   OUTREACH_REPLY_TO: "farjad@example.test",
+  OUTREACH_SENDER_LEGAL_NAME: "VisaRoads <Inc.>",
 } as unknown as NodeJS.ProcessEnv;
 
 describe("buildOutreachEmail", () => {
@@ -21,8 +22,17 @@ describe("buildOutreachEmail", () => {
     expect(m.html).toContain("Hi &lt;Sara&gt;,<br>line two");
   });
 
-  it("refuses to build without sender, address or reply-to", () => {
-    for (const k of ["OUTREACH_FROM_EMAIL", "OUTREACH_MAILING_ADDRESS", "OUTREACH_REPLY_TO"] as const) {
+  it("names the legal sender entity in text and html footers, html-escaped", () => {
+    const m = buildOutreachEmail({ to: "rcic@firm.ca", subject: "s", body: "b" }, { ...env, OUTREACH_SENDER_LEGAL_NAME: "VisaRoads Inc." });
+    expect(m.text).toContain("Farjad · Verixa (getverixa.com), operated by VisaRoads Inc.\n1 Test St");
+    expect(m.html).toContain("Farjad · Verixa (getverixa.com), operated by VisaRoads Inc.<br>");
+    const escaped = buildOutreachEmail({ to: "rcic@firm.ca", subject: "s", body: "b" }, env);
+    expect(escaped.html).toContain("operated by VisaRoads &lt;Inc.&gt;");
+    expect(escaped.html).not.toContain("<Inc.>");
+  });
+
+  it("refuses to build without sender, address, reply-to or legal name", () => {
+    for (const k of ["OUTREACH_FROM_EMAIL", "OUTREACH_MAILING_ADDRESS", "OUTREACH_REPLY_TO", "OUTREACH_SENDER_LEGAL_NAME"] as const) {
       expect(() => buildOutreachEmail({ to: "a@b.ca", subject: "s", body: "b" }, { ...env, [k]: "" })).toThrow(OutreachConfigError);
     }
   });

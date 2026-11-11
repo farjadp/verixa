@@ -1,5 +1,6 @@
 // src/lib/outreach/__tests__/engine-social.test.ts
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { OutreachConfigError } from "../email";
 import type { Llm } from "@/lib/content-pipeline/types";
 import { applyReport, buildSocialTasks, workerReportSchema, type EngineDeps } from "../engine";
 import type { LeadRow, OutreachRepo } from "../repo";
@@ -66,12 +67,24 @@ const xLead = (): LeadRow => ({
 });
 
 describe("buildSocialTasks + applyReport", () => {
+  beforeEach(() => { vi.stubEnv("OUTREACH_SENDER_LEGAL_NAME", "VisaRoads Inc."); });
+  afterEach(() => { vi.unstubAllEnvs(); });
+
+  it("stops with a config error, and queues nothing, when the legal sender name is unset", async () => {
+    vi.stubEnv("OUTREACH_SENDER_LEGAL_NAME", "");
+    const { deps, touches } = setup([xLead()], { subject: null, body: "unused" });
+    await expect(buildSocialTasks(deps, "X")).rejects.toThrow(OutreachConfigError);
+    await expect(buildSocialTasks(deps, "X")).rejects.toThrow(/OUTREACH_SENDER_LEGAL_NAME/);
+    expect(touches.size).toBe(0);
+  });
+
   it("hands out a queued touch once, and SENT advances the lead", async () => {
     const lead = xLead();
     const { deps } = setup([lead], { subject: null, body: "Hi Ana, your listing is live." });
     const [task] = await buildSocialTasks(deps, "X");
     expect(task).toMatchObject({ leadId: "X1", kind: "TOUCH", step: 1, handle: "ana_rcic", dryRun: false, timezone: TOR });
     expect(task.body).toContain("Not relevant?");
+    expect(task.body).toContain("Farjad, Verixa (VisaRoads Inc.)");
     expect(await buildSocialTasks(deps, "X")).toEqual([task]); // same queued touch, not a new one
     await applyReport(deps, { type: "TOUCH_RESULT", touchId: task.touchId, status: "SENT", externalMessageId: "dm1" }, { haltChannel: vi.fn() });
     expect(lead.state).toBe("TOUCH_1");

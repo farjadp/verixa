@@ -5,7 +5,7 @@ import { isActiveDay, localParts, localTimeToUtc } from "./calendar";
 import { classifyReply, isObviousOptOut } from "./classifier";
 import { ComposeRejectedError, composeMessage } from "./composer";
 import { OUTREACH } from "./config";
-import type { BuiltEmail } from "./email";
+import { OutreachConfigError, type BuiltEmail } from "./email";
 import { heldFollowUpsLine, isInboxReadStale } from "./health";
 import type { FoundingOffer } from "./offer";
 import type { LeadRow, OutreachRepo } from "./repo";
@@ -145,6 +145,8 @@ export async function composeWithRetry(deps: EngineDeps, lead: LeadRow, step: St
       const m = await composeMessage(deps.llm, input);
       return { ...m, email: ctx.email };
     } catch (e) {
+      // Missing config affects every lead: stop the whole run with a clear error instead of skipping leads forever.
+      if (e instanceof OutreachConfigError) throw e;
       if (!(e instanceof ComposeRejectedError) || attempt === 1) {
         console.warn(`[outreach] compose failed for lead ${lead.id}: ${(e as Error).message}`);
         return null;

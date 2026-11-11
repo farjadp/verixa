@@ -3,7 +3,7 @@ import { buildOneClickUnsubscribeUrl, buildUnsubscribeUrl } from "@/lib/unsubscr
 
 export class OutreachConfigError extends Error {
   constructor(missing: string) {
-    super(`Outreach email is not configured: ${missing} is unset.`);
+    super(`Outreach is not configured: ${missing} is unset.`);
     this.name = "OutreachConfigError";
   }
 }
@@ -28,7 +28,7 @@ export interface BuiltEmail {
 
 const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-function required(env: NodeJS.ProcessEnv, key: string): string {
+export function required(env: NodeJS.ProcessEnv, key: string): string {
   const v = env[key]?.trim();
   if (!v) throw new OutreachConfigError(key);
   return v;
@@ -38,12 +38,14 @@ export function buildOutreachEmail(input: { to: string; subject: string; body: s
   const from = required(env, "OUTREACH_FROM_EMAIL");
   const address = required(env, "OUTREACH_MAILING_ADDRESS");
   const replyTo = required(env, "OUTREACH_REPLY_TO");
+  const legalName = required(env, "OUTREACH_SENDER_LEGAL_NAME");
   const unsubscribeUrl = buildUnsubscribeUrl(input.to);
-  const footer = `--\nFarjad · Verixa (getverixa.com)\n${address}\nDon't want these emails? Unsubscribe: ${unsubscribeUrl}`;
+  const identity = `Farjad · Verixa (getverixa.com), operated by ${legalName}`;
+  const footer = `--\n${identity}\n${address}\nDon't want these emails? Unsubscribe: ${unsubscribeUrl}`;
   const text = `${input.body}\n\n${footer}`;
   const html =
     `<div>${escapeHtml(input.body).replace(/\n/g, "<br>")}</div>` +
-    `<p style="color:#6b7280;font-size:12px">--<br>Farjad · Verixa (getverixa.com)<br>${escapeHtml(address)}<br>` +
+    `<p style="color:#6b7280;font-size:12px">--<br>${escapeHtml(identity)}<br>${escapeHtml(address)}<br>` +
     `Don't want these emails? <a href="${escapeHtml(unsubscribeUrl)}">Unsubscribe</a></p>`;
   return {
     from, to: input.to, replyTo, subject: input.subject, text, html,

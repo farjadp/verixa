@@ -186,7 +186,7 @@ describe.skipIf(!enabled)("outreach repo — real Postgres", () => {
     for (const x of [claimed, noEmail, inactive, usa, noProv, hasLead, suppressed, unsub]) expect(ids.has(x.id)).toBe(false);
     const okRow = got.find((c: { consultantProfileId: string }) => c.consultantProfileId === ok.id);
     expect(okRow).toMatchObject({ timezone: "America/Vancouver", profileViews30d: 2 });
-  });
+  }, 30_000); // reads every eligible profile on a copy of live data; production samples OUTREACH.discoverySampleSize
 
   it("negativeStats: distinct people across negative replies, user_request unsubscribes (contacted only) and complaints", async () => {
     const since = new Date(Date.now() - 3_600_000);

@@ -4,7 +4,11 @@ import type { Step } from "./types";
 export const OUTREACH = {
   activeWeekdays: [1, 2, 3, 4] as readonly number[], // Mon–Thu; 0 = Sunday
   newLeadsPerChannelPerDay: 8,
+  /** LinkedIn and X. Mirrored by MAX_ACTIONS_PER_DAY in worker/src/runner.ts. */
   touchesPerChannelPerDay: 5,
+  /** Email sends per operator day, follow-ups included (founder decision, Nov 2026). */
+  emailTouchesPerDay: 10,
+  emailNewLeadsPerDay: 10,
   maxTouchesPerPerson: 3,
   waitActiveDaysAfterTouch: { 1: 3, 2: 5, 3: 5 } as Record<Step, number>,
   autoReplyDelayActiveDays: 3,

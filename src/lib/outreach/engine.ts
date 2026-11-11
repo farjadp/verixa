@@ -6,6 +6,7 @@ import { classifyReply, isObviousOptOut } from "./classifier";
 import { ComposeRejectedError, composeMessage } from "./composer";
 import { ALERT_UNSET_MESSAGE, OUTREACH } from "./config";
 import { OutreachConfigError, type BuiltEmail } from "./email";
+import { buildIntroEmail } from "./intro-email";
 import { heldFollowUpsLine, isInboxReadStale } from "./health";
 import type { FoundingOffer } from "./offer";
 import type { LeadRow, OutreachRepo } from "./repo";
@@ -123,7 +124,7 @@ export async function runMaintenance(deps: EngineDeps, channel: Channel): Promis
 
 export async function discoverEmailLeads(deps: EngineDeps): Promise<number> {
   const now = deps.now();
-  const remaining = OUTREACH.newLeadsPerChannelPerDay - (await deps.repo.countLeadsCreatedToday("EMAIL", now));
+  const remaining = OUTREACH.emailNewLeadsPerDay - (await deps.repo.countLeadsCreatedToday("EMAIL", now));
   if (remaining <= 0) return 0;
   const candidates = await deps.repo.findDiscoveryCandidates(OUTREACH.discoverySampleSize);
   const scored = candidates
@@ -152,6 +153,8 @@ export async function composeWithRetry(deps: EngineDeps, lead: LeadRow, step: St
   if (!ctx) return null;
   const { profileUrl, claimUrl } = profileUrls(deps.appUrl, ctx.licenseNumber, lead.channel);
   const input = { channel: lead.channel, step, firstName: ctx.firstName, city: ctx.city, profileUrl, claimUrl, profileViews30d: ctx.profileViews30d, offer };
+  // Touch 1 by email is the fixed, approved template: no model call, nothing to reject.
+  if (lead.channel === "EMAIL" && step === 1) return { ...buildIntroEmail(input), email: ctx.email };
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const m = await composeMessage(deps.llm, input);
@@ -215,7 +218,7 @@ export async function planEmailDay(deps: EngineDeps): Promise<EmailDayResult> {
   const leads = (await deps.repo.listLeads("EMAIL")).filter((l) => !l.profileClaimed && !l.suppressed);
   const offer = await deps.getOffer();
   const sentToday = await deps.repo.countTouchesToday("EMAIL", now);
-  const capacity = Math.max(0, OUTREACH.touchesPerChannelPerDay - sentToday);
+  const capacity = Math.max(0, OUTREACH.emailTouchesPerDay - sentToday);
 
   // A follow-up to someone whose reply we have not read could land on top of an opt-out: hold step >= 2 until the inbox is read.
   const inboxReadAt = await deps.inboxReadAt();
@@ -256,7 +259,7 @@ export async function planEmailDay(deps: EngineDeps): Promise<EmailDayResult> {
     }
 
     // An overlapping run may have taken capacity since we computed it; re-read right before claiming a lead.
-    if ((await deps.repo.countTouchesToday("EMAIL", deps.now())) >= OUTREACH.touchesPerChannelPerDay) break;
+    if ((await deps.repo.countTouchesToday("EMAIL", deps.now())) >= OUTREACH.emailTouchesPerDay) break;
     const at = nextSlot(lead.timezone);
     if (!at) continue; // window already full for this timezone today
     const touch = await deps.repo.createTouch({ leadId: lead.id, channel: "EMAIL", step: task.step, cycle, subject: msg.subject, body: msg.body, status: "QUEUED" });
@@ -265,7 +268,7 @@ export async function planEmailDay(deps: EngineDeps): Promise<EmailDayResult> {
     let id: string;
     let built: BuiltEmail;
     try {
-      built = deps.email.build({ to: email, subject: msg.subject, body: msg.body });
+      built = deps.email.build({ to: email, subject: msg.subject, body: msg.body, ...("html" in msg && msg.html ? { html: msg.html } : {}) });
     } catch (e) {
       await deps.repo.updateTouch(touch.id, { status: "FAILED", error: (e as Error).message.slice(0, 500) });
       result.failed++;

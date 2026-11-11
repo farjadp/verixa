@@ -4,7 +4,7 @@ import type { Llm } from "@/lib/content-pipeline/types";
 import { isActiveDay, localParts, localTimeToUtc } from "./calendar";
 import { classifyReply, isObviousOptOut } from "./classifier";
 import { ComposeRejectedError, composeMessage } from "./composer";
-import { OUTREACH } from "./config";
+import { ALERT_UNSET_MESSAGE, OUTREACH } from "./config";
 import { OutreachConfigError, type BuiltEmail } from "./email";
 import { heldFollowUpsLine, isInboxReadStale } from "./health";
 import type { FoundingOffer } from "./offer";
@@ -31,6 +31,8 @@ export interface EngineDeps {
   appUrl: string;
   /** When the worker last read the email inbox successfully (null = never). Email follow-ups are held while it is stale. */
   inboxReadAt: () => Promise<Date | null>;
+  /** False when OUTREACH_ALERT_EMAIL is unset: no work is sent or handed out, whatever the flags say. */
+  alertConfigured: boolean;
   /** Founder alert; optional so tests and callers without alerting still work. */
   alert?: (subject: string, lines: string[]) => Promise<void>;
 }
@@ -46,6 +48,16 @@ export function isDefiniteRejection(e: unknown): boolean {
   if ((e as { code?: unknown } | null)?.code === "invalid_idempotent_request") return true;
   const code = (e as { statusCode?: unknown } | null)?.statusCode;
   return typeof code === "number" && code >= 400 && code < 500 && code !== 409;
+}
+
+let alertUnsetLogged = false;
+function alertGuardBlocks(deps: EngineDeps): boolean {
+  if (deps.alertConfigured) return false;
+  if (!alertUnsetLogged) {
+    alertUnsetLogged = true;
+    console.warn(`[outreach] ${ALERT_UNSET_MESSAGE}`);
+  }
+  return true;
 }
 
 async function raise(deps: EngineDeps, subject: string, lines: string[]): Promise<void> {
@@ -193,6 +205,7 @@ export async function planEmailDay(deps: EngineDeps): Promise<EmailDayResult> {
   const result: EmailDayResult = { status: "ok", scheduled: 0, dryRun: 0, failed: 0 };
   const settings = await deps.settings();
   if (!settings.enabled || !settings.channels.EMAIL) return { ...result, status: "disabled" };
+  if (alertGuardBlocks(deps)) return { ...result, status: "disabled", detail: ALERT_UNSET_MESSAGE };
 
   await runMaintenance(deps, "EMAIL");
   const now = deps.now();
@@ -335,7 +348,7 @@ export interface WorkerTask {
 
 export async function buildSocialTasks(deps: EngineDeps, channel: "LINKEDIN" | "X"): Promise<WorkerTask[]> {
   const settings = await deps.settings();
-  if (!settings.enabled || !settings.channels[channel]) return [];
+  if (!settings.enabled || !settings.channels[channel] || alertGuardBlocks(deps)) return [];
   await runMaintenance(deps, channel);
   const now = deps.now();
   const leads = (await deps.repo.listLeads(channel)).filter((l) => !l.profileClaimed && !l.suppressed && l.externalHandle);

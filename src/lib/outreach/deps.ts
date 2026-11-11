@@ -2,7 +2,7 @@ import { createOpenAiLlm } from "@/lib/content-pipeline/llm";
 import type { Llm } from "@/lib/content-pipeline/types";
 import { sendEmail } from "@/lib/mailer";
 import { addCalendarDays } from "./calendar";
-import { OUTREACH } from "./config";
+import { OUTREACH, isAlertConfigured } from "./config";
 import { buildOutreachEmail, cancelOutreachEmail, sendOutreachEmail } from "./email";
 import { cancelScheduledEmails, type EngineDeps } from "./engine";
 import { checkHealth } from "./health";
@@ -39,6 +39,7 @@ export function realDeps(): EngineDeps {
     appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://www.getverixa.com",
     alert: (subject, lines) => alertFounder(subject, lines),
     inboxReadAt: getInboxReadAt,
+    alertConfigured: isAlertConfigured(),
   };
 }
 

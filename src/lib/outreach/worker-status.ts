@@ -10,15 +10,19 @@ export interface WorkerStatus {
   invitedLeads: { leadId: string; handle: string }[];
 }
 
-/** What the worker may do right now. A halted channel has its flag switched off, so it reads as disabled. */
+/**
+ * What the worker may do right now. A halted channel has its flag switched off, so it reads as disabled.
+ * Without a configured founder alert address nothing runs, whatever the flags say.
+ */
 export function computeWorkerStatus(
   settings: OutreachSettings,
   channel: "LINKEDIN" | "X",
   invited: readonly { id: string; externalHandle: string | null }[],
+  alertConfigured: boolean,
 ): WorkerStatus {
   const leads = invited.filter((l) => l.externalHandle).map((l) => ({ leadId: l.id, handle: l.externalHandle as string }));
   return {
-    enabled: settings.enabled && settings.channels[channel],
+    enabled: alertConfigured && settings.enabled && settings.channels[channel],
     dryRun: settings.dryRun,
     invitedHandles: [...new Set(leads.map((l) => l.handle))],
     invitedLeads: leads,

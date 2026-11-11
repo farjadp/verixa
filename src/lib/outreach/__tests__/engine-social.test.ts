@@ -57,6 +57,7 @@ function setup(leads: LeadRow[], llmOut: unknown, elig: Elig = OK_ELIG) {
     email: { build: vi.fn(), send: vi.fn(), cancel: vi.fn() },
     suppress: vi.fn(async () => {}),
     inboxReadAt: async () => null,
+    alertConfigured: true,
   };
   return { deps, touches, replies, created };
 }
@@ -69,6 +70,13 @@ const xLead = (): LeadRow => ({
 describe("buildSocialTasks + applyReport", () => {
   beforeEach(() => { vi.stubEnv("OUTREACH_SENDER_LEGAL_NAME", "VisaRoads Inc."); });
   afterEach(() => { vi.unstubAllEnvs(); });
+
+  it("hands out no work when founder alerts are not configured, even with flags on", async () => {
+    const { deps, touches } = setup([xLead()], { subject: null, body: "unused" });
+    deps.alertConfigured = false;
+    expect(await buildSocialTasks(deps, "X")).toEqual([]);
+    expect(touches.size).toBe(0);
+  });
 
   it("stops with a config error, and queues nothing, when the legal sender name is unset", async () => {
     vi.stubEnv("OUTREACH_SENDER_LEGAL_NAME", "");

@@ -26,3 +26,10 @@ export const OUTREACH = {
   autoReplyMinConfidence: 0.9,
   linkedinInviteNoteMax: 300,
 } as const;
+
+/** Outreach must not run while founder alerts would be dropped: they carry opt-outs, halts and send failures. */
+export function isAlertConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+  return Boolean(env.OUTREACH_ALERT_EMAIL?.trim());
+}
+
+export const ALERT_UNSET_MESSAGE = "OUTREACH_ALERT_EMAIL is unset; outreach is treated as disabled so alerts are not silently dropped.";

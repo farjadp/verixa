@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
 import { localParts, localTimeToUtc } from "@/lib/outreach/calendar";
-import { OUTREACH } from "@/lib/outreach/config";
+import { OUTREACH, isAlertConfigured } from "@/lib/outreach/config";
 import { realDeps } from "@/lib/outreach/deps";
 import { cancelScheduledEmails } from "@/lib/outreach/engine";
 import { getHeartbeat, getOutreachSettings, setOutreachFlag, type OutreachFlag, type OutreachSettings } from "@/lib/outreach/settings";
@@ -81,6 +81,8 @@ export async function toggleOutreachFlag(flag: OutreachFlag, value: boolean): Pr
   const f = flagSchema.safeParse(flag);
   const v = z.boolean().safeParse(value);
   if (!f.success || !v.success) throw new Error("Invalid flag or value");
+  // Founder alerts carry opt-outs and halts; never switch sending on while they would be dropped.
+  if (f.data === "enabled" && v.data && !isAlertConfigured()) throw new Error("Set OUTREACH_ALERT_EMAIL before enabling outreach");
   await setOutreachFlag(f.data, v.data);
   let cancelFailed = 0;
   // Turning sending off must also pull back emails already handed to Resend.

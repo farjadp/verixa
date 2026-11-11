@@ -75,6 +75,7 @@ function deps(repo: OutreachRepo, over: Partial<EngineDeps> = {}): EngineDeps {
     email: { build: (i) => ({ from: "f", to: i.to, replyTo: "r", subject: i.subject, text: i.body, html: i.body, headers: {} }), send: vi.fn(async () => ({ id: `re_${n++}` })), cancel: vi.fn(async () => {}) },
     suppress: vi.fn(async () => {}),
     inboxReadAt: async () => new Date("2026-11-04T15:00:00Z"),
+    alertConfigured: true,
     ...over,
   };
 }
@@ -485,5 +486,20 @@ describe("planEmailDay holds follow-ups while the inbox is unread", () => {
     const res = await planEmailDay(deps(repo, { inboxReadAt: async () => FRESH }));
     expect(res).toEqual({ status: "ok", scheduled: 1, dryRun: 0, failed: 0 });
     expect(touches.map((t) => [t.leadId, t.step])).toEqual([["F1", 2]]);
+  });
+});
+
+describe("planEmailDay without founder alerts configured", () => {
+  it("treats outreach as disabled even when the flags are on, and composes/sends nothing", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const repo = { listLeads: vi.fn(), countTouchesToday: vi.fn() } as unknown as OutreachRepo;
+    const d = deps(repo, { alertConfigured: false });
+    const res = await planEmailDay(d);
+    expect(res.status).toBe("disabled");
+    expect(res.detail).toMatch(/OUTREACH_ALERT_EMAIL/);
+    expect(repo.listLeads).not.toHaveBeenCalled();
+    expect(d.email.send).not.toHaveBeenCalled();
+    expect(warn.mock.calls.some((c) => String(c[0]).includes("OUTREACH_ALERT_EMAIL"))).toBe(true);
+    warn.mockRestore();
   });
 });

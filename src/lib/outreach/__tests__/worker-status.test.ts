@@ -10,16 +10,21 @@ const settings = (o: Partial<OutreachSettings> & { li?: boolean; x?: boolean } =
 
 describe("computeWorkerStatus", () => {
   it("is enabled only when global and channel flags are both on", () => {
-    expect(computeWorkerStatus(settings(), "LINKEDIN", []).enabled).toBe(true);
-    expect(computeWorkerStatus(settings({ enabled: false }), "LINKEDIN", []).enabled).toBe(false);
-    expect(computeWorkerStatus(settings({ li: false }), "LINKEDIN", []).enabled).toBe(false);
-    expect(computeWorkerStatus(settings({ li: false }), "X", []).enabled).toBe(true);
-    expect(computeWorkerStatus(settings({ x: false }), "X", []).enabled).toBe(false);
+    expect(computeWorkerStatus(settings(), "LINKEDIN", [], true).enabled).toBe(true);
+    expect(computeWorkerStatus(settings({ enabled: false }), "LINKEDIN", [], true).enabled).toBe(false);
+    expect(computeWorkerStatus(settings({ li: false }), "LINKEDIN", [], true).enabled).toBe(false);
+    expect(computeWorkerStatus(settings({ li: false }), "X", [], true).enabled).toBe(true);
+    expect(computeWorkerStatus(settings({ x: false }), "X", [], true).enabled).toBe(false);
+  });
+
+  it("is disabled when founder alerts are not configured, whatever the flags say", () => {
+    expect(computeWorkerStatus(settings(), "LINKEDIN", [], false).enabled).toBe(false);
+    expect(computeWorkerStatus(settings(), "X", [], false).enabled).toBe(false);
   });
 
   it("passes dryRun through", () => {
-    expect(computeWorkerStatus(settings({ dryRun: true }), "X", []).dryRun).toBe(true);
-    expect(computeWorkerStatus(settings({ dryRun: false }), "X", []).dryRun).toBe(false);
+    expect(computeWorkerStatus(settings({ dryRun: true }), "X", [], true).dryRun).toBe(true);
+    expect(computeWorkerStatus(settings({ dryRun: false }), "X", [], true).dryRun).toBe(false);
   });
 
   it("returns handles of the invited leads, deduped, skipping nulls, plus lead ids", () => {
@@ -29,7 +34,7 @@ describe("computeWorkerStatus", () => {
       { id: "L2", externalHandle: null },
       { id: "L4", externalHandle: "c" },
     ];
-    const st = computeWorkerStatus(settings(), "LINKEDIN", invited);
+    const st = computeWorkerStatus(settings(), "LINKEDIN", invited, true);
     expect(st.invitedHandles).toEqual(["a", "c"]);
     expect(st.invitedLeads).toEqual([{ leadId: "L1", handle: "a" }, { leadId: "L1b", handle: "a" }, { leadId: "L4", handle: "c" }]);
   });

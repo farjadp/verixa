@@ -39,6 +39,8 @@ export interface OutreachRepo {
   getSendCheck(touchId: string): Promise<{ touchStatus: string; leadState: string; claimed: boolean; suppressed: boolean } | null>;
   getTouch(id: string): Promise<{ id: string; leadId: string; channel: Channel; step: Step; status: string } | null>;
   findTouchByExternalId(externalMessageId: string): Promise<{ id: string; leadId: string; step: Step; sentAt: Date | null } | null>;
+  /** The most recent EMAIL touch whose externalMessageId equals one of the given candidates (exact match). */
+  findEmailTouchByMessageIds(candidates: string[]): Promise<{ id: string; leadId: string } | null>;
   listFutureScheduledEmailTouches(now: Date): Promise<{ id: string; leadId: string; step: Step; externalMessageId: string }[]>;
   /** Idempotent per lead and exact body: returns false when the same reply was already recorded (a replay). */
   recordReply(r: { leadId: string; body: string; label: string; confidence: number }): Promise<boolean>;
@@ -263,6 +265,15 @@ export const prismaRepo: OutreachRepo = {
   async findTouchByExternalId(externalMessageId) {
     const t = await prisma.outreachTouch.findFirst({ where: { externalMessageId }, select: { id: true, leadId: true, step: true, sentAt: true } });
     return t ? { ...t, step: t.step as Step } : null;
+  },
+
+  async findEmailTouchByMessageIds(candidates) {
+    if (candidates.length === 0) return null;
+    return prisma.outreachTouch.findFirst({
+      where: { channel: "EMAIL", externalMessageId: { in: candidates } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, leadId: true },
+    });
   },
 
   async listFutureScheduledEmailTouches(now) {

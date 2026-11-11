@@ -2,7 +2,7 @@
 import { z } from "zod";
 import type { Llm } from "@/lib/content-pipeline/types";
 import { isActiveDay, localParts, localTimeToUtc } from "./calendar";
-import { classifyReply } from "./classifier";
+import { classifyReply, isObviousOptOut } from "./classifier";
 import { ComposeRejectedError, composeMessage } from "./composer";
 import { OUTREACH } from "./config";
 import type { BuiltEmail } from "./email";
@@ -356,7 +356,7 @@ const signalsSchema = z.object({
 export const workerReportSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("TOUCH_RESULT"), touchId: z.string(), status: z.enum(["SENT", "FAILED", "UNCERTAIN"]), externalMessageId: z.string().optional(), error: z.string().max(500).optional() }),
   z.object({ type: z.literal("INVITE_ACCEPTED"), leadId: z.string() }),
-  z.object({ type: z.literal("REPLY"), channel: channelEnum, handle: z.string().optional(), email: z.string().email().optional(), body: z.string().max(8000) })
+  z.object({ type: z.literal("REPLY"), channel: channelEnum, handle: z.string().optional(), email: z.string().email().optional(), body: z.string().max(8000), messageIds: z.array(z.string().min(1).max(300)).max(20).optional() })
     .refine((r) => Boolean(r.email || r.handle), { message: "email or handle required" }),
   z.object({ type: z.literal("LEAD_MATCHED"), consultantProfileId: z.string(), channel: z.enum(["LINKEDIN", "X"]), handle: z.string().min(1), matchConfidence: z.number().min(0).max(1), timezone: z.string(), signals: signalsSchema }),
   z.object({ type: z.literal("DMS_CLOSED"), leadId: z.string() }),
@@ -371,6 +371,28 @@ function isValidTimeZone(tz: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Ids we may have stored for the touch a reply answers: the id itself without brackets, and its local part,
+ * since a provider id often appears as `<storedId@domain>` in the RFC Message-ID.
+ */
+export function messageIdCandidates(ids: readonly string[]): string[] {
+  const out = new Set<string>();
+  for (const raw of ids) {
+    const id = raw.trim().replace(/^<+/, "").replace(/>+$/, "").trim();
+    if (!id) continue;
+    out.add(id);
+    const at = id.lastIndexOf("@");
+    if (at > 0) out.add(id.slice(0, at));
+  }
+  return [...out];
+}
+
+async function leadFromThread(deps: EngineDeps, r: Extract<WorkerReport, { type: "REPLY" }>): Promise<LeadRow | null> {
+  if (r.channel !== "EMAIL" || !r.messageIds?.length) return null;
+  const touch = await deps.repo.findEmailTouchByMessageIds(messageIdCandidates(r.messageIds));
+  return touch ? deps.repo.getLead(touch.leadId) : null;
 }
 
 export async function applyReport(
@@ -410,8 +432,14 @@ export async function applyReport(
 
     case "REPLY": {
       // Terminal-state leads are included on purpose: an opt-out from someone already archived must still suppress.
-      const lead = await deps.repo.findLeadByContact({ ...(r.email ? { email: r.email } : { handle: r.handle }), channel: r.channel, includeTerminal: true });
-      if (!lead) return { ok: true, detail: "skipped: no lead for contact" };
+      const lead = (await leadFromThread(deps, r)) ?? (await deps.repo.findLeadByContact({ ...(r.email ? { email: r.email } : { handle: r.handle }), channel: r.channel, includeTerminal: true }));
+      if (!lead) {
+        if (r.channel === "EMAIL" && isObviousOptOut(r.body)) {
+          await raise(deps, "Unmatched opt-out reply", [`From: ${r.email ?? "unknown"}`, `Body: ${r.body.trim().slice(0, 200)}`, "No outreach lead matched this sender or thread. Suppress them by hand if they were contacted."]);
+          return { ok: true, detail: "skipped: no lead for contact (opt-out alerted)" };
+        }
+        return { ok: true, detail: "skipped: no lead for contact" };
+      }
       const { label, confidence } = await classifyReply(deps.llm, r.body);
       // Suppress before recording: if we crash in between, the replay still finds the opt-out to honour (suppress is idempotent).
       if (label === "negative") {

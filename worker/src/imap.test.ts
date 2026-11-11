@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { collectReplies, extractReplyBody, isIgnorableSender, type ImapSource, type ParsedMail } from "./imap";
+import { collectReplies, extractReplyBody, isIgnorableSender, threadMessageIds, type ImapSource, type ParsedMail } from "./imap";
 
 describe("isIgnorableSender", () => {
   const own = ["farjad@getverixa.com"];
@@ -104,5 +104,31 @@ describe("collectReplies", () => {
     expect(r.replies).toEqual([{ email: "c@d.ca", body: "ok" }]);
     r.commit();
     expect(s.stored()).toBe(12);
+  });
+
+  it("passes the thread message ids through with the reply", async () => {
+    const s = setup({ 11: { ...mail("jane@firm.ca", "Yes"), inReplyTo: "<re_abc@resend.dev>", references: ["<first@x.com>", "<re_abc@resend.dev>"] } }, 10);
+    const r = await collectReplies(s.source, s.state, [], s.parse);
+    expect(r.replies).toEqual([{ email: "jane@firm.ca", body: "Yes", messageIds: ["re_abc@resend.dev", "first@x.com"] }]);
+  });
+});
+
+describe("threadMessageIds", () => {
+  it("returns nothing when there are no thread headers", () => {
+    expect(threadMessageIds({})).toEqual([]);
+  });
+  it("puts In-Reply-To first, then References newest first; strips brackets, dedupes, splits a space-separated string", () => {
+    expect(threadMessageIds({ inReplyTo: " <b@x> ", references: "<a@x> <b@x>\n <c@x>" })).toEqual(["b@x", "c@x", "a@x"]);
+  });
+  it("accepts ids without brackets", () => {
+    expect(threadMessageIds({ inReplyTo: "plain-id@x", references: ["<a@x>"] })).toEqual(["plain-id@x", "a@x"]);
+  });
+  it("caps at 20 ids and drops ids over 300 characters", () => {
+    const refs = Array.from({ length: 30 }, (_, i) => `<id${i}@x>`);
+    const long = `<${"a".repeat(301)}@x>`;
+    const out = threadMessageIds({ inReplyTo: long, references: refs });
+    expect(out).toHaveLength(20);
+    expect(out[0]).toBe("id29@x");
+    expect(out.every((id) => id.length <= 300)).toBe(true);
   });
 });

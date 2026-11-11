@@ -14,6 +14,12 @@ const OPT_OUT_ANYWHERE = /(?<!\bdon'?t\s)(?<!\bnot\s)\b(stop (contacting|messagi
 const OPT_OUT_AT_START = /^\s*(no\b|nope\b|not interested|stop\b)/i;
 const OBVIOUS_NO = { test: (t: string) => OPT_OUT_AT_START.test(t) || OPT_OUT_ANYWHERE.test(t) };
 
+/** The deterministic opt-out check the classifier applies before asking the model. */
+export function isObviousOptOut(text: string): boolean {
+  const t = text.trim();
+  return t.length > 0 && OBVIOUS_NO.test(t);
+}
+
 const SYSTEM = `Classify a reply to a cold outreach message to an immigration consultant.
 negative = declines, asks to stop, annoyed. positive = interested, wants to proceed. question = asks something or is unclear. auto_reply = out-of-office or automated.
 Return the label and your confidence 0..1.`;
@@ -21,7 +27,7 @@ Return the label and your confidence 0..1.`;
 export async function classifyReply(llm: Llm, text: string): Promise<{ label: ReplyLabel; confidence: number }> {
   const t = text.trim();
   if (!t) return { label: "question", confidence: 0 };
-  if (OBVIOUS_NO.test(t)) return { label: "negative", confidence: 1 };
+  if (isObviousOptOut(t)) return { label: "negative", confidence: 1 };
   const r = await llm.json(schema, "reply_label", SYSTEM, t.slice(0, 4000));
   if (r.confidence < OUTREACH.classifierMinConfidence) return { label: "question", confidence: r.confidence };
   return r;

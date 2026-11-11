@@ -109,6 +109,12 @@ describe("runWork", () => {
     expect(s.api.heartbeat).toHaveBeenCalled();
   });
 
+  it("passes the thread message ids of an email reply to the report", async () => {
+    const s = setup({ imap: async () => ({ replies: [{ email: "a@b.ca", body: "hi", messageIds: ["re_1@resend.dev"] }], commit: vi.fn() }) });
+    await runWork(s.deps);
+    expect(s.reports).toEqual([{ type: "REPLY", channel: "EMAIL", email: "a@b.ca", body: "hi", messageIds: ["re_1@resend.dev"] }]);
+  });
+
   it("does not commit the IMAP UID when a reply report fails, and exits with ERROR", async () => {
     const commit = vi.fn();
     const s = setup({ imap: async () => ({ replies: [{ email: "a@b.ca", body: "hi" }], commit }) });

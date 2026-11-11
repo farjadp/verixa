@@ -2,6 +2,7 @@ import type { ChannelAdapter } from "../adapters/types";
 import { FatalApiError, isRetryable, type Api } from "../api";
 import { inSendWindow, isActiveDay, type Sleep } from "../timing";
 import { runChannel, type RunnerState } from "../runner";
+import type { EmailReply } from "../imap";
 import type { PendingReplyStore } from "../state";
 import type { SocialChannel } from "../types";
 import { discoverChannel } from "./discover";
@@ -10,7 +11,7 @@ import { runInbox } from "./inbox";
 export const EXIT = { OK: 0, ERROR: 1, HALT: 2, LOCKED: 3, AUTH: 4 } as const;
 
 export interface ImapReplies {
-  replies: { email: string; body: string }[];
+  replies: EmailReply[];
   commit: () => void;
 }
 
@@ -108,7 +109,7 @@ export async function runWork(deps: WorkDeps): Promise<WorkSummary> {
       let allSent = true;
       for (const r of replies) {
         try {
-          await api.report({ type: "REPLY", channel: "EMAIL", email: r.email, body: r.body.slice(0, 8000) });
+          await api.report({ type: "REPLY", channel: "EMAIL", email: r.email, body: r.body.slice(0, 8000), ...(r.messageIds?.length ? { messageIds: r.messageIds } : {}) });
         } catch (e) {
           if (e instanceof FatalApiError) throw e;
           deps.log(`email reply report failed: ${(e as Error).message}`);

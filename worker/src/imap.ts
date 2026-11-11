@@ -5,6 +5,15 @@ export interface ParsedMail {
   from?: { value: { address?: string }[] };
   text?: string | false | null;
   html?: string | false | null;
+  inReplyTo?: string;
+  references?: string | string[];
+}
+
+export interface EmailReply {
+  email: string;
+  body: string;
+  /** In-Reply-To then References (newest first), without angle brackets. Omitted when the mail has neither header. */
+  messageIds?: string[];
 }
 
 /** Thin seam over the mail server so the logic above it can be tested with fakes. */
@@ -19,6 +28,8 @@ export interface UidState {
 }
 
 const MAX_BODY = 8000;
+const MAX_IDS = 20;
+const MAX_ID_LENGTH = 300;
 const IGNORED_LOCAL = /^(mailer-daemon|postmaster|no-?reply|do-?not-?reply|bounces?(\+.*)?)$/i;
 
 /** Own address, bounces and no-reply senders. Verixa handles bounces through the Resend webhook. */
@@ -59,6 +70,27 @@ export function extractReplyBody(mail: Pick<ParsedMail, "text" | "html">): strin
   return out.join("\n").trim().slice(0, MAX_BODY);
 }
 
+function splitIds(v: string | string[] | undefined): string[] {
+  if (!v) return [];
+  return (Array.isArray(v) ? v : [v]).flatMap((s) => s.split(/\s+/));
+}
+
+/**
+ * Message ids of the thread a mail answers, so Verixa can match the reply to the touch it answers rather than only to the sender.
+ * In-Reply-To first, then References newest first (they are listed oldest first). Brackets are stripped; ids over 300 chars are dropped.
+ */
+export function threadMessageIds(mail: Pick<ParsedMail, "inReplyTo" | "references">): string[] {
+  const ordered = [...splitIds(mail.inReplyTo), ...splitIds(mail.references).reverse()];
+  const out: string[] = [];
+  for (const raw of ordered) {
+    const id = raw.trim().replace(/^<+/, "").replace(/>+$/, "").trim();
+    if (!id || id.length > MAX_ID_LENGTH || out.includes(id)) continue;
+    out.push(id);
+    if (out.length === MAX_IDS) break;
+  }
+  return out;
+}
+
 /**
  * Finds replies that arrived since the last committed UID. The first ever run only records a baseline, so old mail is never reported.
  * Call commit() after the replies were delivered to Verixa.
@@ -68,14 +100,14 @@ export async function collectReplies(
   state: UidState,
   ownAddresses: readonly string[],
   parse: (raw: Buffer) => Promise<ParsedMail>,
-): Promise<{ replies: { email: string; body: string }[]; commit: () => void }> {
+): Promise<{ replies: EmailReply[]; commit: () => void }> {
   const last = state.getImapLastUid();
   if (last === null) {
     state.setImapLastUid(await source.currentMaxUid());
     return { replies: [], commit: () => {} };
   }
   const messages = (await source.fetchSince(last)).filter((m) => m.uid > last);
-  const replies: { email: string; body: string }[] = [];
+  const replies: EmailReply[] = [];
   for (const m of messages) {
     let parsed: ParsedMail;
     try {
@@ -87,7 +119,8 @@ export async function collectReplies(
     if (isIgnorableSender(address, ownAddresses)) continue;
     const body = extractReplyBody(parsed);
     if (!body) continue;
-    replies.push({ email: (address as string).trim().toLowerCase(), body });
+    const messageIds = threadMessageIds(parsed);
+    replies.push({ email: (address as string).trim().toLowerCase(), body, ...(messageIds.length ? { messageIds } : {}) });
   }
   const highest = messages.reduce((n, m) => Math.max(n, m.uid), last);
   return { replies, commit: () => { if (highest > last) state.setImapLastUid(highest); } };

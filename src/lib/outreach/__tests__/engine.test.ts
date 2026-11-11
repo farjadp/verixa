@@ -1,7 +1,7 @@
 // src/lib/outreach/__tests__/engine.test.ts
 import { describe, expect, it, vi } from "vitest";
 import type { Llm } from "@/lib/content-pipeline/types";
-import { cancelScheduledEmails, handleEmailEvent, planEmailDay, type EngineDeps } from "../engine";
+import { applyReport, cancelScheduledEmails, handleEmailEvent, planEmailDay, type EngineDeps } from "../engine";
 import type { LeadRow, OutreachRepo } from "../repo";
 import type { LeadSnapshot } from "../types";
 
@@ -44,6 +44,10 @@ function memoryRepo(leads: LeadRow[], opts: MemoryOpts = {}) {
     listQueuedTouches: async () => [],
     getTouch: async () => null,
     findTouchByExternalId: async () => null,
+    findEmailTouchByMessageIds: async (ids) => {
+      const t = touches.find((x) => x.externalMessageId && ids.includes(x.externalMessageId));
+      return t ? { id: t.id, leadId: t.leadId } : null;
+    },
     listFutureScheduledEmailTouches: async (now) => touches.filter((t) => t.externalMessageId && t.scheduledFor! > now && !["CANCELLED", "SENT"].includes(t.status)).map((t) => ({ id: t.id, leadId: t.leadId, step: t.step as 1, externalMessageId: t.externalMessageId! })),
     recordReply: async () => true,
     negativeStats: async () => ({ touches: 0, negatives: 0 }),
@@ -356,5 +360,71 @@ describe("handleEmailEvent", () => {
     repo.updateTouch = async (_id, p) => { updates.push(p); };
     await handleEmailEvent(deps(repo), "re_9", "DELIVERED");
     expect(updates[0]).toEqual({ status: "SENT" });
+  });
+});
+
+describe("applyReport REPLY on EMAIL", () => {
+  const hooks = { haltChannel: vi.fn(async () => {}) };
+  function setup() {
+    const a = { ...backlog("A", 20), state: "TOUCH_1" as const, touchCount: 1 };
+    const b = { ...backlog("B", 20), state: "ARCHIVED" as const, touchCount: 3 };
+    const { repo, touches } = memoryRepo([a, b]);
+    touches.push({ id: "tB", leadId: "B", step: 1, status: "SENT", externalMessageId: "re_9", key: "B:1:0", body: "x" });
+    repo.findLeadByContact = async ({ email }) => (email === "a@firm.ca" ? a : null);
+    const recorded: { leadId: string }[] = [];
+    repo.recordReply = async (r) => { recorded.push(r); return true; };
+    const alert = vi.fn(async () => {});
+    const llm: Llm = { json: (async () => ({ label: "question", confidence: 0.9 })) as never };
+    return { d: deps(repo, { alert, llm }), recorded, alert };
+  }
+
+  it("a thread-header match wins over a different From address (and finds a terminal-state lead)", async () => {
+    const s = setup();
+    const r = await applyReport(s.d, { type: "REPLY", channel: "EMAIL", email: "a@firm.ca", body: "tell me more", messageIds: ["re_9"] }, hooks);
+    expect(r.ok).toBe(true);
+    expect(s.recorded.map((x) => x.leadId)).toEqual(["B"]);
+  });
+
+  it.each([["<re_9>"], ["<re_9@resend.dev>"], ["re_9@resend.dev"], [" <re_9@resend.dev> "]])("tolerates brackets and the stored id as the local part: %s", async (id) => {
+    const s = setup();
+    await applyReport(s.d, { type: "REPLY", channel: "EMAIL", email: "other@x.ca", body: "tell me more", messageIds: ["unrelated@mail.gmail.com", id] }, hooks);
+    expect(s.recorded.map((x) => x.leadId)).toEqual(["B"]);
+  });
+
+  it("falls back to the From address when no header matches", async () => {
+    const s = setup();
+    await applyReport(s.d, { type: "REPLY", channel: "EMAIL", email: "a@firm.ca", body: "tell me more", messageIds: ["nope@mail.gmail.com"] }, hooks);
+    expect(s.recorded.map((x) => x.leadId)).toEqual(["A"]);
+  });
+
+  it("an unmatched opt-out alerts the founder with the sender and the start of the body", async () => {
+    const s = setup();
+    const body = `Please stop emailing me. ${"x".repeat(400)}`;
+    const r = await applyReport(s.d, { type: "REPLY", channel: "EMAIL", email: "stranger@x.ca", body, messageIds: ["nope@x"] }, hooks);
+    expect(r).toEqual({ ok: true, detail: "skipped: no lead for contact (opt-out alerted)" });
+    expect(s.alert).toHaveBeenCalledTimes(1);
+    const [, lines] = s.alert.mock.calls[0] as unknown as [string, string[]];
+    const text = lines.join("\n");
+    expect(text).toContain("stranger@x.ca");
+    expect(text).toContain(body.slice(0, 200));
+    expect(text).not.toContain(body.slice(0, 201));
+    expect(s.recorded).toEqual([]);
+  });
+
+  it("an unmatched reply that is not an opt-out raises no alert", async () => {
+    const s = setup();
+    const r = await applyReport(s.d, { type: "REPLY", channel: "EMAIL", email: "stranger@x.ca", body: "Who is this?" }, hooks);
+    expect(r).toEqual({ ok: true, detail: "skipped: no lead for contact" });
+    expect(s.alert).not.toHaveBeenCalled();
+  });
+});
+
+describe("workerReportSchema messageIds", () => {
+  it("accepts up to 20 ids of up to 300 chars and rejects more", async () => {
+    const { workerReportSchema } = await import("../engine");
+    const base = { type: "REPLY", channel: "EMAIL", email: "a@b.ca", body: "hi" };
+    expect(workerReportSchema.safeParse({ ...base, messageIds: Array.from({ length: 20 }, (_, i) => `id${i}`) }).success).toBe(true);
+    expect(workerReportSchema.safeParse({ ...base, messageIds: Array.from({ length: 21 }, (_, i) => `id${i}`) }).success).toBe(false);
+    expect(workerReportSchema.safeParse({ ...base, messageIds: ["a".repeat(301)] }).success).toBe(false);
   });
 });

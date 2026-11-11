@@ -54,4 +54,45 @@ describe("FileState", () => {
     new FileState(p).setImapLastUid(7);
     expect(JSON.parse(readFileSync(p, "utf8")).imapLastUid).toBe(7);
   });
+
+  it("reads an old state file without pending replies as an empty queue", () => {
+    const p = tmp();
+    new FileState(p).setImapLastUid(3);
+    const raw = JSON.parse(readFileSync(p, "utf8"));
+    delete raw.pendingReplies;
+    writeFileSync(p, JSON.stringify(raw));
+    const s = new FileState(p);
+    expect(s.pendingReplies("LINKEDIN")).toEqual([]);
+    expect(s.getImapLastUid()).toBe(3);
+  });
+
+  it("persists pending replies per channel, deduped by channel + handle + body", () => {
+    const p = tmp();
+    const s = new FileState(p);
+    s.addPendingReply({ channel: "LINKEDIN", handle: "Jane", body: "stop" });
+    s.addPendingReply({ channel: "LINKEDIN", handle: "jane", body: "stop" });
+    s.addPendingReply({ channel: "LINKEDIN", handle: "jane", body: "different" });
+    s.addPendingReply({ channel: "X", handle: "jane", body: "stop" });
+    const again = new FileState(p);
+    expect(again.pendingReplies("LINKEDIN")).toEqual([
+      { channel: "LINKEDIN", handle: "Jane", body: "stop" },
+      { channel: "LINKEDIN", handle: "jane", body: "different" },
+    ]);
+    expect(again.pendingReplies("X")).toEqual([{ channel: "X", handle: "jane", body: "stop" }]);
+  });
+
+  it("removes a pending reply and the removal survives a restart", () => {
+    const p = tmp();
+    const s = new FileState(p);
+    s.addPendingReply({ channel: "X", handle: "a", body: "1" });
+    s.addPendingReply({ channel: "X", handle: "b", body: "2" });
+    s.removePendingReply({ channel: "X", handle: "A", body: "1" });
+    expect(new FileState(p).pendingReplies("X")).toEqual([{ channel: "X", handle: "b", body: "2" }]);
+  });
+
+  it("stores the body truncated to the report limit", () => {
+    const p = tmp();
+    new FileState(p).addPendingReply({ channel: "X", handle: "a", body: "z".repeat(9000) });
+    expect(new FileState(p).pendingReplies("X")[0].body).toHaveLength(8000);
+  });
 });

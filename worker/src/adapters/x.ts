@@ -5,8 +5,8 @@ import { CheckpointError, type ProbeCheck } from "../probe";
 import type { Candidate } from "../types";
 import { looksLikeCheckpoint } from "./checkpoint";
 import { attachPartial, ElementMissing, guarded, need } from "./guard";
-import { xHandleFromHref } from "./parse";
-import type { AdapterResult, ChannelAdapter, InboxEvents, SentInfo } from "./types";
+import { inboundAfterLastOutbound, snapshotUnread, xHandleFromHref, xHandleFromRow, xThreadMessages, type XRawEntry } from "./parse";
+import type { AdapterResult, ChannelAdapter, InboxEvents, SentInfo, ThreadCheck } from "./types";
 
 // X exposes few useful ARIA roles, so some locators use data-testid (X's own stable test hooks). Roles are used wherever they exist.
 const BASE = "https://x.com";
@@ -22,6 +22,22 @@ const sendButton = (page: Page) => page.getByRole("button", { name: /^send$/i })
  */
 async function dmAvailable(page: Page): Promise<boolean> {
   return dmButton(page).waitFor({ state: "visible", timeout: 5000 }).then(() => true, () => false);
+}
+
+const INBOX_CAP = 10;
+
+/** Each DM entry's layout: our messages sit on the right, theirs on the left (and may carry a link to their profile). */
+async function dmEntries(page: Page, handle: string): Promise<XRawEntry[]> {
+  return page.evaluate((h) => {
+    return Array.from(document.querySelectorAll('[data-testid="messageEntry"]')).map((el) => {
+      const box = el.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const content = range.getBoundingClientRect();
+      const partnerLink = Array.from(el.querySelectorAll("a[href]")).some((a) => (a.getAttribute("href") ?? "").replace(/^\//, "").toLowerCase() === h.toLowerCase());
+      return { partnerLink, leftGap: content.left - box.left, rightGap: box.right - content.right, text: (el as HTMLElement).innerText ?? "" };
+    });
+  }, handle);
 }
 
 async function openProfile(page: Page, handle: string): Promise<void> {
@@ -84,15 +100,19 @@ export class XAdapter implements ChannelAdapter {
     });
   }
 
-  hasSentText(handle: string, body: string): Promise<AdapterResult<boolean>> {
+  checkThread(handle: string, body: string): Promise<AdapterResult<ThreadCheck>> {
     return this.run("check thread", async () => {
       await openProfile(this.page, handle);
       const dm = dmButton(this.page);
-      if (!(await dmAvailable(this.page))) return false; // DMs closed: nothing can have been sent
+      if (!(await dmAvailable(this.page))) return { sent: false, inbound: null }; // DMs closed: no thread can exist
       await dm.click();
       await need(composer(this.page), "DM composer");
       await this.page.waitForTimeout(1500);
-      return norm(await this.page.locator("body").innerText()).includes(norm(body));
+      const sent = norm(await this.page.locator("body").innerText()).includes(norm(body));
+      const reply = inboundAfterLastOutbound(xThreadMessages(await dmEntries(this.page, handle)));
+      // Unknown sender: do not guess. A plain error leaves the touch QUEUED (nothing sent, nothing reported) without halting.
+      if (!reply.ok) throw new Error(`thread check: ${reply.detail}`);
+      return { sent, inbound: reply.text };
     });
   }
 
@@ -109,15 +129,23 @@ export class XAdapter implements ChannelAdapter {
     return this.run("read inbox", async () => {
       await visit(this.page, `${BASE}/messages`);
       await need(this.page.locator("main"), "messages page");
-      const unread = this.page.getByTestId("conversation").filter({ has: this.page.locator('[aria-label*="unread" i]') });
-      const n = Math.min(await unread.count(), 10);
-      for (let i = 0; i < n; i++) {
-        const item = unread.nth(i);
-        const handle = /@([A-Za-z0-9_]{1,15})/.exec(await item.innerText())?.[1];
+      // Opening a conversation marks it read and reorders the live list, so take the handles first, then open each by handle.
+      const rows = await this.page.evaluate(() =>
+        Array.from(document.querySelectorAll('[data-testid="conversation"]')).map((c) => ({
+          unread: !!c.querySelector('[aria-label*="unread" i]'),
+          text: (c as HTMLElement).innerText ?? "",
+        })),
+      );
+      const snap = snapshotUnread(rows.map((r) => ({ unread: r.unread, key: xHandleFromRow(r.text) })), INBOX_CAP);
+      if (!snap.ok) throw new ElementMissing(snap.detail);
+      for (const handle of snap.keys) {
+        await visit(this.page, `${BASE}/messages`);
+        await need(this.page.locator("main"), "messages page");
+        const item = this.page.getByTestId("conversation").filter({ hasText: `@${handle}` }).first();
+        await need(item, `conversation with @${handle}`);
         await item.click();
         const last = this.page.getByTestId("messageEntry").last();
         await need(last, "last message in conversation");
-        if (!handle) throw new ElementMissing("@handle in conversation row");
         events.replies.push({ handle, body: (await last.innerText()).trim() });
       }
       return events;

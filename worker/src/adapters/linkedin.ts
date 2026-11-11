@@ -5,8 +5,8 @@ import { CheckpointError, type ProbeCheck } from "../probe";
 import type { Candidate } from "../types";
 import { looksLikeCheckpoint } from "./checkpoint";
 import { attachPartial, DefiniteFailure, ElementMissing, guarded, need } from "./guard";
-import { decideInvite, parseSearchCard, slugFromProfileHref } from "./parse";
-import type { AdapterResult, ChannelAdapter, InboxEvents, SentInfo } from "./types";
+import { decideInvite, inboundAfterLastOutbound, linkedinThreadMessages, linkedinThreadUrl, parseSearchCard, slugFromProfileHref, snapshotUnread, type LinkedInRawEvent } from "./parse";
+import type { AdapterResult, ChannelAdapter, InboxEvents, SentInfo, ThreadCheck } from "./types";
 
 const BASE = "https://www.linkedin.com";
 const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
@@ -34,6 +34,28 @@ async function cardsOnPage(page: Page): Promise<{ handle: string; lines: string[
 async function openProfile(page: Page, handle: string): Promise<void> {
   await visit(page, `${BASE}/in/${encodeURIComponent(handle)}/`);
   await need(page.locator("main"), "profile page");
+}
+
+const INBOX_CAP = 10;
+
+/**
+ * The open conversation's message events, read from the nearest container of the message box that holds list items
+ * (the chat overlay on a profile, or the thread pane). Group headers carry the sender link; LinkedIn marks the other party's events.
+ */
+async function threadEvents(page: Page): Promise<LinkedInRawEvent[]> {
+  return page.evaluate(() => {
+    const box = document.querySelector('[role="textbox"][aria-label*="message" i], [contenteditable="true"][aria-label*="message" i]');
+    let pane: Element | null = box?.parentElement ?? null;
+    while (pane && !pane.querySelector("li")) pane = pane.parentElement;
+    if (!pane) return [];
+    return Array.from(pane.querySelectorAll("li"))
+      .map((li) => ({
+        other: li.className.includes("--other") || !!li.querySelector('[class*="listitem--other"]'),
+        senderHref: li.querySelector<HTMLAnchorElement>('a[href*="/in/"]')?.getAttribute("href") ?? null,
+        text: Array.from(li.querySelectorAll("p")).map((p) => (p as HTMLElement).innerText).join("\n").trim(),
+      }))
+      .filter((e) => e.text);
+  });
 }
 
 /** The Message control is a button or a link depending on the profile. */
@@ -121,15 +143,19 @@ export class LinkedInAdapter implements ChannelAdapter {
     });
   }
 
-  hasSentText(handle: string, body: string): Promise<AdapterResult<boolean>> {
+  checkThread(handle: string, body: string): Promise<AdapterResult<ThreadCheck>> {
     return this.run("check thread", async () => {
       await openProfile(this.page, handle);
       const msg = messageControl(this.page);
-      if ((await msg.count()) === 0) return false; // not connected: nothing can have been sent
+      if ((await msg.count()) === 0) return { sent: false, inbound: null }; // not connected: no thread exists
       await msg.click();
       await need(this.page.getByRole("textbox", { name: /write a message/i }), "message box");
       await this.page.waitForTimeout(1500);
-      return norm(await this.page.locator("body").innerText()).includes(norm(body));
+      const sent = norm(await this.page.locator("body").innerText()).includes(norm(body));
+      const reply = inboundAfterLastOutbound(linkedinThreadMessages(await threadEvents(this.page), handle));
+      // Unknown sender: do not guess. A plain error leaves the touch QUEUED (nothing sent, nothing reported) without halting.
+      if (!reply.ok) throw new Error(`thread check: ${reply.detail}`);
+      return { sent, inbound: reply.text };
     });
   }
 
@@ -156,11 +182,21 @@ export class LinkedInAdapter implements ChannelAdapter {
 
       await visit(this.page, `${BASE}/messaging/`);
       await need(this.page.locator("main"), "messaging page");
-      // Opening an unread conversation marks it read on LinkedIn; that is the only side effect.
-      const unread = this.page.locator("main").getByRole("listitem").filter({ hasText: /unread/i });
-      const n = Math.min(await unread.count(), 10);
-      for (let i = 0; i < n; i++) {
-        await unread.nth(i).click();
+      // Opening an unread conversation marks it read and reorders the live list, so take the thread URLs first, then visit each.
+      const rows = await this.page.evaluate(() => {
+        // The conversation list is the list holding the thread links; without one, every list item is checked (and an unread one fails).
+        const list = document.querySelector('main a[href*="/messaging/thread/"]')?.closest("ul");
+        const items = list ? Array.from(list.children).filter((c) => c.tagName === "LI") : Array.from(document.querySelectorAll("main li"));
+        return items.map((li) => ({
+          unread: /unread/i.test((li as HTMLElement).innerText ?? ""),
+          href: li.querySelector<HTMLAnchorElement>('a[href*="/messaging/thread/"]')?.getAttribute("href") ?? null,
+        }));
+      });
+      const snap = snapshotUnread(rows.map((r) => ({ unread: r.unread, key: linkedinThreadUrl(r.href) })), INBOX_CAP);
+      if (!snap.ok) throw new ElementMissing(snap.detail);
+      for (const url of snap.keys) {
+        await visit(this.page, url);
+        await need(this.page.locator("main"), "conversation page");
         await this.page.waitForTimeout(1200);
         const link = this.page.locator('main a[href*="/in/"]').first();
         const handle = (await link.count()) ? slugFromProfileHref((await link.getAttribute("href")) ?? "") : null;

@@ -41,6 +41,20 @@ describe("runWork", () => {
     expect(seq.indexOf("report:REPLY")).toBeLessThan(seq.indexOf("send"));
   });
 
+  it("a reply left pending by an earlier failed report is resent before this run's sends", async () => {
+    const s = setup({ tasks: [task(1)] });
+    (s.deps.state as ReturnType<typeof memState>).addPendingReply({ channel: "LINKEDIN", handle: "h7", body: "stop" });
+    const seq: string[] = [];
+    (s.api.report as ReturnType<typeof vi.fn>).mockImplementation(async (r: { type: string }) => { seq.push(`report:${r.type}`); });
+    const send = s.adapters.LINKEDIN.sendMessage as ReturnType<typeof vi.fn>;
+    const orig = send.getMockImplementation()!;
+    send.mockImplementation(async (...a: unknown[]) => { seq.push("send"); return orig(...a); });
+    await runWork(s.deps);
+    expect(seq.indexOf("report:REPLY")).toBeGreaterThanOrEqual(0);
+    expect(seq.indexOf("report:REPLY")).toBeLessThan(seq.indexOf("send"));
+    expect((s.deps.state as ReturnType<typeof memState>).pendingReplies("LINKEDIN")).toEqual([]);
+  });
+
   it("an inbox halt skips that channel's tasks; the other channel still runs", async () => {
     const s = setup({ tasks: [task(1)], adapters: { LINKEDIN: { readInbox: vi.fn(async () => ({ status: "checkpoint", detail: "wall" }) as AdapterResult<never>) } } });
     const r = await runWork(s.deps);

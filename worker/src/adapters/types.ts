@@ -15,6 +15,14 @@ export interface SentInfo {
   externalMessageId?: string;
 }
 
+/** What the live thread with one lead shows right before a send. */
+export interface ThreadCheck {
+  /** The thread already contains exactly the text we are about to send (crash-resend guard). */
+  sent: boolean;
+  /** What the lead wrote after our last message (anything they wrote if we never wrote); null when nothing. */
+  inbound: string | null;
+}
+
 export interface InboxEvents {
   /** Handles (from the invitedHandles input) whose connection request was accepted. */
   acceptedHandles: string[];
@@ -27,8 +35,8 @@ export interface ChannelAdapter {
   /** Connection invite with a note. Unsupported channels throw. */
   invite(handle: string, note: string): Promise<AdapterResult<SentInfo>>;
   sendMessage(handle: string, body: string): Promise<AdapterResult<SentInfo>>;
-  /** True when the thread with `handle` already contains exactly `body` (crash-resend guard). */
-  hasSentText(handle: string, body: string): Promise<AdapterResult<boolean>>;
+  /** Opens the thread with `handle`: has `body` already gone out, and has the lead written since our last message? */
+  checkThread(handle: string, body: string): Promise<AdapterResult<ThreadCheck>>;
   readInbox(invitedHandles: string[]): Promise<AdapterResult<InboxEvents>>;
   /** True when the browser is on a checkpoint, captcha, auth wall or login page. */
   detectCheckpoint(): Promise<boolean>;

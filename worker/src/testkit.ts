@@ -2,7 +2,7 @@
 import { vi } from "vitest";
 import type { AdapterResult, ChannelAdapter, InboxEvents } from "./adapters/types";
 import type { Api } from "./api";
-import type { ActionEntry } from "./state";
+import { pendingReplyKey, REPLY_BODY_MAX, type ActionEntry, type PendingReply } from "./state";
 import type { Candidate, WorkerReport, WorkerStatus, WorkerTask } from "./types";
 
 export const MONDAY_9AM = new Date("2026-11-09T14:00:00Z"); // 09:00 Toronto
@@ -18,7 +18,14 @@ export const task = (n: number, over: Partial<WorkerTask> = {}): WorkerTask => (
 export function memState() {
   const actions: { day: string; channel: string; touchId: string }[] = [];
   let uid: number | null = null;
+  let pending: (PendingReply & { key: string })[] = [];
   return {
+    addPendingReply: (r: PendingReply) => {
+      const key = pendingReplyKey(r);
+      if (!pending.some((p) => p.key === key)) pending.push({ ...r, body: r.body.slice(0, REPLY_BODY_MAX), key });
+    },
+    pendingReplies: (ch: PendingReply["channel"]) => pending.filter((p) => p.channel === ch).map(({ channel, handle, body }) => ({ channel, handle, body })),
+    removePendingReply: (r: PendingReply) => { const key = pendingReplyKey(r); pending = pending.filter((p) => p.key !== key); },
     hasAction: (id: string) => actions.some((a) => a.touchId === id),
     recordAction: (day: string, e: ActionEntry) => void actions.push({ day, channel: e.channel, touchId: e.touchId }),
     countActions: (day: string, ch: ActionEntry["channel"]) => actions.filter((a) => a.day === day && a.channel === ch).length,
@@ -54,7 +61,7 @@ export function fakeAdapter(channel: "LINKEDIN" | "X", over: Partial<ChannelAdap
     findProfile: vi.fn(async () => ok([])),
     invite: vi.fn(async () => ok({})),
     sendMessage: vi.fn(async () => ok({ externalMessageId: "m" })),
-    hasSentText: vi.fn(async () => ok(false)),
+    checkThread: vi.fn(async () => ok({ sent: false, inbound: null })),
     readInbox: vi.fn(async (): Promise<AdapterResult<InboxEvents>> => ok({ acceptedHandles: [], replies: [] })),
     detectCheckpoint: vi.fn(async () => false),
     ...over,

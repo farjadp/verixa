@@ -2,6 +2,7 @@ import type { ChannelAdapter } from "../adapters/types";
 import { FatalApiError, isRetryable, type Api } from "../api";
 import { inSendWindow, isActiveDay, type Sleep } from "../timing";
 import { runChannel, type RunnerState } from "../runner";
+import type { PendingReplyStore } from "../state";
 import type { SocialChannel } from "../types";
 import { discoverChannel } from "./discover";
 import { runInbox } from "./inbox";
@@ -16,7 +17,7 @@ export interface ImapReplies {
 export interface WorkDeps {
   api: Api;
   adapters: Record<SocialChannel, ChannelAdapter>;
-  state: RunnerState;
+  state: RunnerState & PendingReplyStore;
   now: () => Date;
   sleep: Sleep;
   rng: () => number;
@@ -87,7 +88,7 @@ export async function runWork(deps: WorkDeps): Promise<WorkSummary> {
     // Inbox before tasks: a reply read this run reaches the server before we send, so leadCheck can refuse.
     // A halt or stop here skips the tasks; a plain error does not, because the runner re-checks each thread before sending.
     try {
-      const i = await runInbox(channel, { api, adapter, now: deps.now, tz: deps.tz, log: deps.log });
+      const i = await runInbox(channel, { api, adapter, pending: deps.state, now: deps.now, tz: deps.tz, log: deps.log });
       note("inbox", i.outcome);
       if (settle(i.outcome) !== "go") continue;
     } catch (e) {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ApiError, type Api } from "./api";
 import { DefiniteFailure } from "./adapters/guard";
-import type { AdapterResult, ChannelAdapter } from "./adapters/types";
+import type { AdapterResult, ChannelAdapter, ThreadCheck } from "./adapters/types";
 import { runChannel, type RunnerDeps, type RunnerState } from "./runner";
 import type { WorkerReport, WorkerStatus, WorkerTask } from "./types";
 
@@ -38,7 +38,7 @@ function setup(tasks: WorkerTask[], opts: { statuses?: Partial<WorkerStatus>[]; 
     findProfile: vi.fn(async () => ok([])),
     invite: vi.fn(async () => { calls.push("invite"); return ok({ externalMessageId: "inv-1" }); }),
     sendMessage: vi.fn(async () => { calls.push("send"); return ok({ externalMessageId: "msg-1" }); }),
-    hasSentText: vi.fn(async () => ok(false)),
+    checkThread: vi.fn(async () => ok({ sent: false, inbound: null })),
     readInbox: vi.fn(async () => ok({ acceptedHandles: [], replies: [] })),
     detectCheckpoint: vi.fn(async () => false),
     ...opts.adapter,
@@ -99,7 +99,7 @@ describe("runChannel", () => {
   it("leaves dryRun tasks completely untouched: no adapter call, no report, no gap", async () => {
     const s = setup([task(1, { dryRun: true }), task(2, { dryRun: true })]);
     const r = await runChannel("LINKEDIN", s.deps);
-    expect(s.adapter.hasSentText).not.toHaveBeenCalled();
+    expect(s.adapter.checkThread).not.toHaveBeenCalled();
     expect(s.adapter.sendMessage).not.toHaveBeenCalled();
     expect(s.adapter.invite).not.toHaveBeenCalled();
     expect(s.adapter.detectCheckpoint).not.toHaveBeenCalled();
@@ -122,7 +122,7 @@ describe("runChannel", () => {
   it("does not act at all when the pre-action check says disabled", async () => {
     const s = setup([task(1)], { statuses: [{}, { enabled: false }] });
     await runChannel("LINKEDIN", s.deps);
-    expect(s.adapter.hasSentText).not.toHaveBeenCalled();
+    expect(s.adapter.checkThread).not.toHaveBeenCalled();
     expect(s.adapter.sendMessage).not.toHaveBeenCalled();
   });
 
@@ -149,8 +149,8 @@ describe("runChannel", () => {
     expect(s.reports[0]).toMatchObject({ type: "CHANNEL_HALT", reason: "CHECKPOINT" });
   });
 
-  it("halts on a checkpoint found by hasSentText", async () => {
-    const s = setup([task(1)], { adapter: { hasSentText: vi.fn(async () => ({ status: "checkpoint", detail: "authwall" }) as AdapterResult<boolean>) } });
+  it("halts on a checkpoint found by the thread check", async () => {
+    const s = setup([task(1)], { adapter: { checkThread: vi.fn(async () => ({ status: "checkpoint", detail: "authwall" }) as AdapterResult<ThreadCheck>) } });
     await runChannel("LINKEDIN", s.deps);
     expect(s.adapter.sendMessage).not.toHaveBeenCalled();
     expect(s.reports[0]).toMatchObject({ type: "CHANNEL_HALT", reason: "CHECKPOINT", detail: "authwall" });
@@ -168,11 +168,47 @@ describe("runChannel", () => {
   });
 
   it("does not resend when the thread already has the text: reports SENT without sending", async () => {
-    const s = setup([task(1)], { adapter: { hasSentText: vi.fn(async () => ok(true)) } });
+    const s = setup([task(1)], { adapter: { checkThread: vi.fn(async () => ok({ sent: true, inbound: null })) } });
     const r = await runChannel("LINKEDIN", s.deps);
     expect(s.adapter.sendMessage).not.toHaveBeenCalled();
     expect(s.reports).toEqual([{ type: "TOUCH_RESULT", touchId: "t1", status: "SENT" }]);
     expect(r.sent).toBe(1);
+  });
+
+  it("a reply in the thread after our last message: nothing is sent, the reply is reported, the touch stays queued", async () => {
+    const s = setup([task(1), task(2)], { adapter: { checkThread: vi.fn().mockResolvedValueOnce(ok({ sent: false, inbound: "please stop" })).mockResolvedValue(ok({ sent: false, inbound: null })) } });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
+    expect(s.adapter.sendMessage).toHaveBeenCalledWith("h2", "hello 2");
+    expect(s.reports[0]).toEqual({ type: "REPLY", channel: "LINKEDIN", handle: "h1", body: "please stop" });
+    expect(s.reports.some((x) => x.type === "TOUCH_RESULT" && x.touchId === "t1")).toBe(false);
+    expect(s.api.leadCheck).toHaveBeenCalledTimes(1);
+    expect(r).toMatchObject({ skipped: 1, sent: 1 });
+  });
+
+  it("truncates a thread reply to the schema limit", async () => {
+    const s = setup([task(1)], { adapter: { checkThread: vi.fn(async () => ok({ sent: false, inbound: "y".repeat(9000) })) } });
+    await runChannel("LINKEDIN", s.deps);
+    expect((s.reports[0] as { body: string }).body).toHaveLength(8000);
+  });
+
+  it("our text already in the thread plus a reply after it: reports SENT, then the reply, never resends", async () => {
+    const s = setup([task(1)], { adapter: { checkThread: vi.fn(async () => ok({ sent: true, inbound: "no thanks" })) } });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+    expect(s.reports).toEqual([
+      { type: "TOUCH_RESULT", touchId: "t1", status: "SENT" },
+      { type: "REPLY", channel: "LINKEDIN", handle: "h1", body: "no thanks" },
+    ]);
+    expect(r.sent).toBe(1);
+  });
+
+  it("a failed thread-reply report stops the run (retryable)", async () => {
+    const s = setup([task(1), task(2)], { reportFails: true, adapter: { checkThread: vi.fn(async () => ok({ sent: false, inbound: "stop" })) } });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+    expect(s.adapter.checkThread).toHaveBeenCalledTimes(1);
+    expect(r.outcome).toBe("error");
   });
 
   it("does not resend a touch already in the local action log", async () => {
@@ -207,7 +243,7 @@ describe("runChannel", () => {
   });
 
   it("a failing thread check sends nothing and reports nothing (the touch stays queued for the next run)", async () => {
-    const s = setup([task(1), task(2)], { adapter: { hasSentText: vi.fn().mockRejectedValueOnce(new Error("page crashed")).mockResolvedValue(ok(false)) } });
+    const s = setup([task(1), task(2)], { adapter: { checkThread: vi.fn().mockRejectedValueOnce(new Error("page crashed")).mockResolvedValue(ok({ sent: false, inbound: null })) } });
     const r = await runChannel("LINKEDIN", s.deps);
     expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
     expect(s.reports.map((x) => (x as { touchId?: string }).touchId)).toEqual(["t2"]);

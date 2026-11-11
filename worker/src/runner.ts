@@ -1,5 +1,5 @@
 import { DefiniteFailure } from "./adapters/guard";
-import type { AdapterResult, ChannelAdapter } from "./adapters/types";
+import type { AdapterResult, ChannelAdapter, ThreadCheck } from "./adapters/types";
 import { FatalApiError, isRetryable, type Api } from "./api";
 import { inSendWindow, localDay, randomGapMs, type Sleep } from "./timing";
 import type { SocialChannel, WorkerReport, WorkerTask } from "./types";
@@ -56,7 +56,7 @@ function inLeadWindow(now: Date, tz: string): boolean {
 
 /**
  * Executes one channel's tasks. Verixa decides what to send; this only carries it out, and stops at the first sign of trouble.
- * Order for every live task: gap, window check, kill-switch check, checkpoint check, crash-resend guard, action, report.
+ * Order for every live task: gap, window check, kill-switch check, checkpoint check, thread check (crash-resend guard + unseen reply), lead check, action, report.
  */
 export async function runChannel(channel: SocialChannel, deps: RunnerDeps): Promise<RunResult> {
   const { api, adapter, state } = deps;
@@ -159,12 +159,13 @@ export async function runChannel(channel: SocialChannel, deps: RunnerDeps): Prom
       return (await reportOrStop({ type: "TOUCH_RESULT", touchId: task.touchId, status: "FAILED", error: `invite note is ${task.body.length} chars; limit ${INVITE_NOTE_MAX}` })) ? "idle" : "stop";
     }
 
-    // Crash-resend guard: local log first, then the live thread.
+    // Crash-resend guard: local log first, then the live thread. The same thread check catches a reply the inbox missed.
     let alreadySent = state.hasAction(task.touchId);
+    let inbound: string | null = null;
     if (!alreadySent) {
-      let seen: AdapterResult<boolean>;
+      let seen: AdapterResult<ThreadCheck>;
       try {
-        seen = await adapter.hasSentText(task.handle, task.body);
+        seen = await adapter.checkThread(task.handle, task.body);
       } catch (e) {
         // Nothing was written, so nothing is reported: the touch stays QUEUED and the next run checks again.
         deps.log(`thread check failed for ${task.touchId}: ${(e as Error).message}`);
@@ -175,11 +176,23 @@ export async function runChannel(channel: SocialChannel, deps: RunnerDeps): Prom
         await halt(haltFrom(seen));
         return "stop";
       }
-      alreadySent = seen.status === "ok" && seen.value;
+      if (seen.status === "ok") {
+        alreadySent = seen.value.sent;
+        inbound = seen.value.inbound;
+      }
     }
+    const reportInbound = async (): Promise<boolean> =>
+      inbound === null || (await reportOrStop({ type: "REPLY", channel, handle: task.handle, body: inbound.slice(0, 8000) }));
     if (alreadySent) {
       result.sent++;
-      return (await reportOrStop({ type: "TOUCH_RESULT", touchId: task.touchId, status: "SENT" })) ? "idle" : "stop";
+      if (!(await reportOrStop({ type: "TOUCH_RESULT", touchId: task.touchId, status: "SENT" }))) return "stop";
+      return (await reportInbound()) ? "idle" : "stop";
+    }
+    if (inbound !== null) {
+      // They wrote since our last message: never send over a reply. The server classifies it and moves the lead; the touch stays QUEUED.
+      deps.log(`${task.touchId}: lead has written since our last message, not sending`);
+      result.skipped++;
+      return (await reportInbound()) ? "idle" : "stop";
     }
 
     // Last-moment re-check of this one person. Fails closed: if Verixa cannot answer, nothing is sent.

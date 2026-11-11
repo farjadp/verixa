@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeSendable, computeWorkerStatus } from "../worker-status";
+import { computeSendable, computeWorkerStatus, toWorkerCandidates } from "../worker-status";
 import type { OutreachSettings } from "../settings";
 
 const settings = (o: Partial<OutreachSettings> & { li?: boolean; x?: boolean } = {}): OutreachSettings => ({
@@ -55,5 +55,24 @@ describe("computeSendable", () => {
     const r = computeSendable({ ...base, ...over });
     expect(r.sendable).toBe(false);
     expect(r.reason).toMatch(reason);
+  });
+});
+
+describe("toWorkerCandidates", () => {
+  const p = (o: Partial<{ province: string | null; country: string | null }> = {}) => ({
+    id: "P1", fullName: "Ana Li", company: null, city: "Vancouver", licenseNumber: "R1",
+    province: o.province === undefined ? "BC" : o.province, country: o.country === undefined ? "Canada" : o.country,
+  });
+
+  it("gives a BC consultant the Vancouver zone derived from the province", () => {
+    expect(toWorkerCandidates([p()])).toEqual([
+      { consultantProfileId: "P1", fullName: "Ana Li", company: null, city: "Vancouver", province: "BC", licenseNumber: "R1", timezone: "America/Vancouver" },
+    ]);
+  });
+
+  it("uses the same rules as email: full province names work, unknown or non-Canadian profiles are dropped", () => {
+    expect(toWorkerCandidates([p({ province: "Alberta", country: null })])[0].timezone).toBe("America/Edmonton");
+    expect(toWorkerCandidates([p({ province: null })])).toEqual([]);
+    expect(toWorkerCandidates([p({ province: "CA", country: "USA" })])).toEqual([]);
   });
 });

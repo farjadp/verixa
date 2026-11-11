@@ -1,5 +1,6 @@
 import type { OutreachSettings } from "./settings";
 import { TERMINAL_STATES } from "./types";
+import { timezoneForProvince } from "./timezone";
 
 export interface WorkerStatus {
   enabled: boolean;
@@ -31,4 +32,25 @@ export function computeSendable(i: { touchStatus: string; leadState: string; cla
   if (i.claimed) return { sendable: false, reason: "profile claimed" };
   if (i.suppressed) return { sendable: false, reason: "person suppressed" };
   return { sendable: true };
+}
+
+export interface CandidateProfile {
+  id: string; fullName: string; company: string | null; city: string | null;
+  province: string | null; country: string | null; licenseNumber: string | null;
+}
+
+export interface WorkerCandidate {
+  consultantProfileId: string; fullName: string; company: string | null; city: string | null;
+  province: string | null; licenseNumber: string | null; timezone: string;
+}
+
+/** Social discovery candidates. The zone comes from the province exactly as for email leads; profiles without one are dropped. */
+export function toWorkerCandidates(profiles: readonly CandidateProfile[]): WorkerCandidate[] {
+  const out: WorkerCandidate[] = [];
+  for (const { id, country, ...rest } of profiles) {
+    const timezone = timezoneForProvince(rest.province, country);
+    if (!timezone) continue;
+    out.push({ consultantProfileId: id, ...rest, timezone });
+  }
+  return out;
 }

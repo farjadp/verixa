@@ -1,0 +1,372 @@
+import { describe, expect, it, vi } from "vitest";
+import { ApiError, type Api } from "./api";
+import { DefiniteFailure } from "./adapters/guard";
+import type { AdapterResult, ChannelAdapter, ThreadCheck } from "./adapters/types";
+import { runChannel, type RunnerDeps, type RunnerState } from "./runner";
+import type { WorkerReport, WorkerStatus, WorkerTask } from "./types";
+
+const MONDAY_9AM = new Date("2026-11-09T14:00:00Z"); // 09:00 Toronto
+const SATURDAY = new Date("2026-11-14T14:00:00Z");
+
+const task = (n: number, over: Partial<WorkerTask> = {}): WorkerTask => ({ touchId: `t${n}`, leadId: `l${n}`, kind: "TOUCH", step: 2, handle: `h${n}`, body: `hello ${n}`, dryRun: false, timezone: "America/Toronto", ...over });
+const ok = <T,>(value: T): AdapterResult<T> => ({ status: "ok", value });
+
+function memState(): RunnerState {
+  const actions: { day: string; channel: string; touchId: string }[] = [];
+  return {
+    hasAction: (id) => actions.some((a) => a.touchId === id),
+    recordAction: (day, e) => void actions.push({ day, channel: e.channel, touchId: e.touchId }),
+    countActions: (day, ch) => actions.filter((a) => a.day === day && a.channel === ch).length,
+  };
+}
+
+function setup(tasks: WorkerTask[], opts: { statuses?: Partial<WorkerStatus>[]; now?: Date; adapter?: Partial<ChannelAdapter>; state?: RunnerState; reportFails?: boolean } = {}) {
+  const statuses = opts.statuses ?? [{}];
+  let si = 0;
+  const reports: WorkerReport[] = [];
+  const calls: string[] = [];
+  const api: Api = {
+    getStatus: vi.fn(async () => { calls.push("status"); const s = statuses[Math.min(si++, statuses.length - 1)]; return { enabled: true, dryRun: false, invitedHandles: [], invitedLeads: [], ...s }; }),
+    getTasks: vi.fn(async () => { calls.push("tasks"); return tasks; }),
+    getCandidates: vi.fn(async () => []),
+    leadCheck: vi.fn(async () => { calls.push("leadcheck"); return { sendable: true }; }),
+    report: vi.fn(async (r: WorkerReport) => { calls.push(`report:${r.type}`); if (opts.reportFails) throw new Error("net down"); reports.push(r); }),
+    heartbeat: vi.fn(async () => { calls.push("heartbeat"); }),
+  };
+  const adapter: ChannelAdapter = {
+    channel: "LINKEDIN",
+    findProfile: vi.fn(async () => ok([])),
+    invite: vi.fn(async () => { calls.push("invite"); return ok({ externalMessageId: "inv-1" }); }),
+    sendMessage: vi.fn(async () => { calls.push("send"); return ok({ externalMessageId: "msg-1" }); }),
+    checkThread: vi.fn(async () => ok({ sent: false, inbound: null })),
+    readInbox: vi.fn(async () => ok({ acceptedHandles: [], replies: [] })),
+    detectCheckpoint: vi.fn(async () => false),
+    ...opts.adapter,
+  };
+  const sleep = vi.fn(async (_ms: number) => { calls.push("sleep"); });
+  const deps: RunnerDeps = { api, adapter, state: opts.state ?? memState(), now: () => opts.now ?? MONDAY_9AM, sleep, rng: () => 0.5, tz: "America/Toronto", log: () => {} };
+  return { deps, api, adapter, reports, calls, sleep };
+}
+
+describe("runChannel", () => {
+  it("does nothing outside the send window but still sends a heartbeat", async () => {
+    const s = setup([task(1)], { now: SATURDAY });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(r.outcome).toBe("outside_window");
+    expect(s.api.getTasks).not.toHaveBeenCalled();
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+    expect(s.api.heartbeat).toHaveBeenCalledTimes(1);
+  });
+
+  it("does nothing when Verixa says the channel is disabled", async () => {
+    const s = setup([task(1)], { statuses: [{ enabled: false }] });
+    expect((await runChannel("LINKEDIN", s.deps)).outcome).toBe("disabled");
+    expect(s.api.getTasks).not.toHaveBeenCalled();
+    expect(s.api.heartbeat).toHaveBeenCalled();
+  });
+
+  it("fails closed when the status check errors", async () => {
+    const s = setup([task(1)]);
+    (s.api.getStatus as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("503"));
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(r.outcome).toBe("error");
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+    expect(s.api.heartbeat).toHaveBeenCalled();
+  });
+
+  it("sends a TOUCH with sendMessage and reports SENT with the external id", async () => {
+    const s = setup([task(1)]);
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).toHaveBeenCalledWith("h1", "hello 1");
+    expect(s.reports).toEqual([{ type: "TOUCH_RESULT", touchId: "t1", status: "SENT", externalMessageId: "msg-1" }]);
+    expect(r).toMatchObject({ outcome: "completed", sent: 1 });
+  });
+
+  it("sends an INVITE with invite()", async () => {
+    const s = setup([task(1, { kind: "INVITE", step: 1, body: "short note" })]);
+    await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.invite).toHaveBeenCalledWith("h1", "short note");
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("fails an over-long invite note without touching the browser", async () => {
+    const s = setup([task(1, { kind: "INVITE", step: 1, body: "x".repeat(301) })]);
+    await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.invite).not.toHaveBeenCalled();
+    expect(s.reports[0]).toMatchObject({ type: "TOUCH_RESULT", status: "FAILED" });
+  });
+
+  it("leaves dryRun tasks completely untouched: no adapter call, no report, no gap", async () => {
+    const s = setup([task(1, { dryRun: true }), task(2, { dryRun: true })]);
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.checkThread).not.toHaveBeenCalled();
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+    expect(s.adapter.invite).not.toHaveBeenCalled();
+    expect(s.adapter.detectCheckpoint).not.toHaveBeenCalled();
+    expect(s.reports).toEqual([]);
+    expect(s.sleep).not.toHaveBeenCalled();
+    expect(r.skipped).toBe(2);
+  });
+
+  it("checks the kill switch right before every action and stops when it flips mid-run", async () => {
+    // status calls: initial, before task1, before task2 (disabled)
+    const s = setup([task(1), task(2), task(3)], { statuses: [{}, {}, { enabled: false }] });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
+    expect(r.outcome).toBe("killswitch");
+    // the status check for task 2 happened after the gap and before any browser action for it
+    const i = s.calls.lastIndexOf("status");
+    expect(s.calls.slice(i)).not.toContain("send");
+  });
+
+  it("does not act at all when the pre-action check says disabled", async () => {
+    const s = setup([task(1)], { statuses: [{}, { enabled: false }] });
+    await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.checkThread).not.toHaveBeenCalled();
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("stops if Verixa flips to dry-run mid-run", async () => {
+    const s = setup([task(1), task(2)], { statuses: [{}, {}, { dryRun: true }] });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
+    expect(r.outcome).toBe("killswitch");
+  });
+
+  it("halts on an adapter checkpoint: reports CHECKPOINT and runs nothing further", async () => {
+    const s = setup([task(1), task(2)], { adapter: { sendMessage: vi.fn(async () => ({ status: "checkpoint", detail: "captcha" }) as AdapterResult<never>) } });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.reports).toEqual([{ type: "CHANNEL_HALT", channel: "LINKEDIN", reason: "CHECKPOINT", detail: "captcha" }]);
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
+    expect(r.outcome).toBe("halted");
+    expect(s.api.heartbeat).toHaveBeenCalled();
+  });
+
+  it("halts when detectCheckpoint is true before acting", async () => {
+    const s = setup([task(1)], { adapter: { detectCheckpoint: vi.fn(async () => true) } });
+    await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+    expect(s.reports[0]).toMatchObject({ type: "CHANNEL_HALT", reason: "CHECKPOINT" });
+  });
+
+  it("halts on a checkpoint found by the thread check", async () => {
+    const s = setup([task(1)], { adapter: { checkThread: vi.fn(async () => ({ status: "checkpoint", detail: "authwall" }) as AdapterResult<ThreadCheck>) } });
+    await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+    expect(s.reports[0]).toMatchObject({ type: "CHANNEL_HALT", reason: "CHECKPOINT", detail: "authwall" });
+  });
+
+  it("halts with ADAPTER_BROKEN and the screenshot path, never retrying", async () => {
+    const s = setup([task(1), task(2)], { adapter: { sendMessage: vi.fn(async () => ({ status: "broken", detail: "send button missing", screenshot: ".state/shots/a.png" }) as AdapterResult<never>) } });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
+    expect(r.outcome).toBe("halted");
+    expect(s.reports).toHaveLength(1);
+    expect(s.reports[0]).toMatchObject({ type: "CHANNEL_HALT", reason: "ADAPTER_BROKEN" });
+    expect((s.reports[0] as { detail: string }).detail).toContain(".state/shots/a.png");
+    expect((s.reports[0] as { detail: string }).detail).toContain("send button missing");
+  });
+
+  it("does not resend when the thread already has the text: reports SENT without sending", async () => {
+    const s = setup([task(1)], { adapter: { checkThread: vi.fn(async () => ok({ sent: true, inbound: null })) } });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+    expect(s.reports).toEqual([{ type: "TOUCH_RESULT", touchId: "t1", status: "SENT" }]);
+    expect(r.sent).toBe(1);
+  });
+
+  it("a reply in the thread after our last message: nothing is sent, the reply is reported, the touch stays queued", async () => {
+    const s = setup([task(1), task(2)], { adapter: { checkThread: vi.fn().mockResolvedValueOnce(ok({ sent: false, inbound: "please stop" })).mockResolvedValue(ok({ sent: false, inbound: null })) } });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
+    expect(s.adapter.sendMessage).toHaveBeenCalledWith("h2", "hello 2");
+    expect(s.reports[0]).toEqual({ type: "REPLY", channel: "LINKEDIN", handle: "h1", body: "please stop" });
+    expect(s.reports.some((x) => x.type === "TOUCH_RESULT" && x.touchId === "t1")).toBe(false);
+    expect(s.api.leadCheck).toHaveBeenCalledTimes(1);
+    expect(r).toMatchObject({ skipped: 1, sent: 1 });
+  });
+
+  it("truncates a thread reply to the schema limit", async () => {
+    const s = setup([task(1)], { adapter: { checkThread: vi.fn(async () => ok({ sent: false, inbound: "y".repeat(9000) })) } });
+    await runChannel("LINKEDIN", s.deps);
+    expect((s.reports[0] as { body: string }).body).toHaveLength(8000);
+  });
+
+  it("our text already in the thread plus a reply after it: reports SENT, then the reply, never resends", async () => {
+    const s = setup([task(1)], { adapter: { checkThread: vi.fn(async () => ok({ sent: true, inbound: "no thanks" })) } });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+    expect(s.reports).toEqual([
+      { type: "TOUCH_RESULT", touchId: "t1", status: "SENT" },
+      { type: "REPLY", channel: "LINKEDIN", handle: "h1", body: "no thanks" },
+    ]);
+    expect(r.sent).toBe(1);
+  });
+
+  it("a failed thread-reply report stops the run (retryable)", async () => {
+    const s = setup([task(1), task(2)], { reportFails: true, adapter: { checkThread: vi.fn(async () => ok({ sent: false, inbound: "stop" })) } });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+    expect(s.adapter.checkThread).toHaveBeenCalledTimes(1);
+    expect(r.outcome).toBe("error");
+  });
+
+  it("does not resend a touch already in the local action log", async () => {
+    const state = memState();
+    state.recordAction("2026-11-09", { channel: "LINKEDIN", touchId: "t1", handle: "h1", kind: "TOUCH" });
+    const s = setup([task(1)], { state });
+    await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+    expect(s.reports).toEqual([{ type: "TOUCH_RESULT", touchId: "t1", status: "SENT" }]);
+  });
+
+  it("records the action locally before reporting", async () => {
+    const state = memState();
+    const s = setup([task(1)], { state });
+    await runChannel("LINKEDIN", s.deps);
+    expect(state.hasAction("t1")).toBe(true);
+  });
+
+  it("an unexpected error during the send is ambiguous: reports UNCERTAIN, never FAILED, and continues", async () => {
+    const send = vi.fn().mockRejectedValueOnce(new Error("boom")).mockResolvedValue(ok({ externalMessageId: "m2" }));
+    const s = setup([task(1), task(2)], { adapter: { sendMessage: send } });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.reports[0]).toMatchObject({ type: "TOUCH_RESULT", touchId: "t1", status: "UNCERTAIN", error: "boom" });
+    expect(s.reports[1]).toMatchObject({ touchId: "t2", status: "SENT" });
+    expect(r).toMatchObject({ sent: 1, failed: 1 });
+  });
+
+  it("a failure before any write action is FAILED (definitely not sent)", async () => {
+    const s = setup([task(1, { kind: "INVITE", step: 1 })], { adapter: { invite: vi.fn(async () => { throw new DefiniteFailure("no Connect option"); }) } });
+    await runChannel("LINKEDIN", s.deps);
+    expect(s.reports[0]).toMatchObject({ type: "TOUCH_RESULT", status: "FAILED", error: "no Connect option" });
+  });
+
+  it("a failing thread check sends nothing and reports nothing (the touch stays queued for the next run)", async () => {
+    const s = setup([task(1), task(2)], { adapter: { checkThread: vi.fn().mockRejectedValueOnce(new Error("page crashed")).mockResolvedValue(ok({ sent: false, inbound: null })) } });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
+    expect(s.reports.map((x) => (x as { touchId?: string }).touchId)).toEqual(["t2"]);
+    expect(r.failed).toBe(1);
+  });
+
+  it("truncates long error text to the schema limit", async () => {
+    const s = setup([task(1)], { adapter: { sendMessage: vi.fn(async () => { throw new Error("e".repeat(900)); }) } });
+    await runChannel("LINKEDIN", s.deps);
+    expect((s.reports[0] as { error: string }).error.length).toBeLessThanOrEqual(500);
+  });
+
+  it("reports DMS_CLOSED and carries on", async () => {
+    const send = vi.fn().mockResolvedValueOnce({ status: "dmsClosed" }).mockResolvedValue(ok({}));
+    const s = setup([task(1), task(2)], { adapter: { sendMessage: send } });
+    await runChannel("LINKEDIN", s.deps);
+    expect(s.reports[0]).toEqual({ type: "DMS_CLOSED", leadId: "l1" });
+    expect(s.reports[1]).toMatchObject({ touchId: "t2", status: "SENT" });
+  });
+
+  it("waits a random 5-13 minute gap between real actions, not before the first or after the last", async () => {
+    const s = setup([task(1), task(2), task(3)]);
+    await runChannel("LINKEDIN", s.deps);
+    expect(s.sleep).toHaveBeenCalledTimes(2);
+    expect(s.sleep).toHaveBeenCalledWith(9 * 60_000); // rng 0.5
+    expect(s.calls.indexOf("sleep")).toBeGreaterThan(s.calls.indexOf("report:TOUCH_RESULT"));
+  });
+
+  it("stops when the send window closes during a gap", async () => {
+    let t = new Date("2026-11-09T17:55:00Z").getTime(); // 12:55 Toronto
+    const s = setup([task(1), task(2)]);
+    s.deps.now = () => new Date(t);
+    s.deps.sleep = vi.fn(async (ms: number) => { t += ms; });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
+    expect(r.outcome).toBe("window_closed");
+  });
+
+  it("skips a task whose lead is outside the send window in the lead's own timezone, and carries on", async () => {
+    // 14:00Z is 09:00 Toronto but 06:00 Vancouver.
+    const s = setup([task(1, { timezone: "America/Vancouver" }), task(2)]);
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
+    expect(s.adapter.sendMessage).toHaveBeenCalledWith("h2", "hello 2");
+    expect(r).toMatchObject({ sent: 1, skipped: 1, outcome: "completed" });
+    expect(s.sleep).not.toHaveBeenCalled(); // a skipped task earns no gap
+  });
+
+  it("skips a task with an invalid timezone", async () => {
+    const s = setup([task(1, { timezone: "Mars/Base" })]);
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+    expect(r.skipped).toBe(1);
+  });
+
+  it("enforces a local daily action cap of 5", async () => {
+    const tasks = [1, 2, 3, 4, 5, 6, 7].map((n) => task(n));
+    const s = setup(tasks);
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(5);
+    expect(r.outcome).toBe("completed");
+  });
+
+  it("stops the run if a SENT report cannot be delivered (the guard prevents a resend next run)", async () => {
+    const s = setup([task(1), task(2)], { reportFails: true });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
+    expect(r.outcome).toBe("error");
+  });
+
+  it("checks the lead right before each send and skips a lead that is no longer sendable", async () => {
+    const s = setup([task(1), task(2)]);
+    (s.api.leadCheck as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ sendable: false, reason: "profile claimed" });
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.api.leadCheck).toHaveBeenCalledWith("t1");
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(1);
+    expect(s.adapter.sendMessage).toHaveBeenCalledWith("h2", "hello 2");
+    expect(r.skipped).toBe(1);
+    expect(s.reports.map((x) => (x as { touchId?: string }).touchId)).toEqual(["t2"]);
+  });
+
+  it("the lead check happens after the thread guard and before the write", async () => {
+    const s = setup([task(1)]);
+    await runChannel("LINKEDIN", s.deps);
+    expect(s.calls.indexOf("leadcheck")).toBeGreaterThan(-1);
+    expect(s.calls.indexOf("leadcheck")).toBeLessThan(s.calls.indexOf("send"));
+  });
+
+  it("fails closed when the lead check errors: nothing is sent", async () => {
+    const s = setup([task(1), task(2)]);
+    (s.api.leadCheck as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new ApiError("down", 503));
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).not.toHaveBeenCalled();
+    expect(r.outcome).toBe("error");
+  });
+
+  it("an already-recorded touch is reported without a lead check", async () => {
+    const state = memState();
+    state.recordAction("2026-11-09", { channel: "LINKEDIN", touchId: "t1", handle: "h1", kind: "TOUCH" });
+    const s = setup([task(1)], { state });
+    await runChannel("LINKEDIN", s.deps);
+    expect(s.api.leadCheck).not.toHaveBeenCalled();
+  });
+
+  it("a rejected (non-retryable) report does not stop the run", async () => {
+    const s = setup([task(1), task(2)]);
+    (s.api.report as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new ApiError("touch is CANCELLED, not QUEUED", 200));
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(s.adapter.sendMessage).toHaveBeenCalledTimes(2);
+    expect(r.outcome).toBe("completed");
+  });
+
+  it("always heartbeats, even when getTasks throws", async () => {
+    const s = setup([task(1)]);
+    (s.api.getTasks as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("500"));
+    const r = await runChannel("LINKEDIN", s.deps);
+    expect(r.outcome).toBe("error");
+    expect(s.api.heartbeat).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failing heartbeat does not mask the result", async () => {
+    const s = setup([task(1)]);
+    (s.api.heartbeat as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("down"));
+    expect((await runChannel("LINKEDIN", s.deps)).outcome).toBe("completed");
+  });
+});

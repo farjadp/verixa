@@ -27,6 +27,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Broadcast emails already sent link to /unsubscribe?email=&token=; forward them to the API (307 keeps POST).
+  async redirects() {
+    return [
+      { source: "/unsubscribe", has: [{ type: "query" as const, key: "token" }], destination: "/api/unsubscribe", permanent: false },
+    ];
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",

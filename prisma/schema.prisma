@@ -87,6 +87,7 @@ model ConsultantProfile {
   // Business Enrichment
   companyEnrichments   ConsultantCompanyEnrichment[]
   enrichmentJobs       CompanyEnrichmentJob[]
+  outreachLead         OutreachLead?
 }
 
 model ConsultationType {
@@ -893,4 +894,77 @@ model ContentImage {
   data      Bytes
   alt       String?
   createdAt DateTime @default(now())
+}
+
+// ============================================================================
+// CONSULTANT OUTREACH (see docs/superpowers/specs/2026-11-05-consultant-outreach-design.md)
+// ============================================================================
+
+model OutreachLead {
+  id                  String            @id @default(cuid())
+  consultantProfileId String            @unique // one person, one channel
+  consultantProfile   ConsultantProfile @relation(fields: [consultantProfileId], references: [id], onDelete: Cascade)
+  channel             String            // LINKEDIN | X | EMAIL
+  state               String            // see src/lib/outreach/types.ts LeadState
+  externalHandle      String?           // LinkedIn profile URL or X handle
+  matchConfidence     Float?
+  score               Int               @default(0)
+  touchCount          Int               @default(0)
+  nextActionAt        DateTime?
+  backlogSince        DateTime?
+  recontactUsed       Boolean           @default(false)
+  timezone            String            @default("America/Toronto")
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  touches OutreachTouch[]
+  replies OutreachReply[]
+
+  @@index([channel, state])
+  @@index([nextActionAt])
+}
+
+model OutreachTouch {
+  id                String       @id @default(cuid())
+  leadId            String
+  lead              OutreachLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  channel           String
+  step              Int          // 1..3
+  subject           String?
+  body              String       @db.Text
+  status            String       // QUEUED | SCHEDULED | SENT | FAILED | CANCELLED | DRY_RUN | UNCERTAIN
+  idempotencyKey    String       @unique // `${leadId}:${step}:${cycle}` (dry runs add `:dry:<ymd>`)
+  externalMessageId String?
+  scheduledFor      DateTime?
+  sentAt            DateTime?
+  error             String?
+  createdAt         DateTime     @default(now())
+
+  @@index([leadId])
+  @@index([externalMessageId])
+  @@index([channel, createdAt])
+}
+
+model OutreachReply {
+  id         String       @id @default(cuid())
+  leadId     String
+  lead       OutreachLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  body       String       @db.Text
+  label      String       // negative | positive | question | auto_reply
+  confidence Float
+  receivedAt DateTime     @default(now())
+
+  @@index([leadId, receivedAt])
+}
+
+model OutreachSuppression {
+  id                  String   @id @default(cuid())
+  consultantProfileId String   @unique
+  email               String?
+  linkedinUrl         String?
+  xHandle             String?
+  reason              String   // negative_reply | unsubscribe | bounced | complained | manual
+  createdAt           DateTime @default(now())
+
+  @@index([email])
 }

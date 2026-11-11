@@ -2,7 +2,7 @@ import {
   LayoutDashboard, BarChart2, Activity, User, LifeBuoy, Megaphone, Mailbox,
   Users, BadgeCheck, MessageSquare, CalendarDays, Tags, Workflow, FileText,
   Share2, Rss, Layers, Sparkles, Zap, CreditCard, Tag, Settings, RefreshCw,
-  Database, Building, type LucideIcon,
+  Database, Building, Send, type LucideIcon,
 } from "lucide-react";
 
 // Single source of truth for the admin information architecture. The sidebar
@@ -34,6 +34,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "Support tickets", href: "/dashboard/admin/disputes", icon: LifeBuoy, hint: "Client and consultant tickets, disputes" },
       { label: "Announcements", href: "/dashboard/admin/announcements", icon: Megaphone, hint: "In-app banner to consultant dashboards" },
       { label: "Email broadcasts", href: "/dashboard/admin/broadcasts", icon: Mailbox, hint: "Email campaigns to the registry" },
+      { label: "Consultant outreach", href: "/dashboard/admin/outreach", icon: Send, hint: "Automated consultant outreach: kill switch, dry run, conversations" },
     ],
   },
   {

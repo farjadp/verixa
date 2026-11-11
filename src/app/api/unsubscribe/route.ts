@@ -15,28 +15,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyUnsubscribeToken } from "@/lib/unsubscribe";
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const email = searchParams.get("email");
-  const token = searchParams.get("token");
-
-  if (!email || !token) {
-    return NextResponse.redirect(new URL("/unsubscribe?status=invalid", req.url));
-  }
-
-  if (!verifyUnsubscribeToken(email, token)) {
-    return NextResponse.redirect(new URL("/unsubscribe?status=invalid", req.url));
-  }
-
+async function unsubscribe(email: string | null, token: string | null): Promise<"invalid" | "success" | "error"> {
+  if (!email || !token || !verifyUnsubscribeToken(email, token)) return "invalid";
   try {
     await (prisma as any).emailUnsubscribe.upsert({
       where: { email: email.toLowerCase() },
       create: { email: email.toLowerCase(), reason: "user_request" },
       update: { reason: "user_request" },
     });
-    return NextResponse.redirect(new URL("/unsubscribe?status=success", req.url));
+    return "success";
   } catch {
-    return NextResponse.redirect(new URL("/unsubscribe?status=error", req.url));
+    return "error";
   }
 }
 
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const status = await unsubscribe(searchParams.get("email"), searchParams.get("token"));
+  return NextResponse.redirect(new URL(`/unsubscribe?status=${status}`, req.url));
+}
+
+// RFC 8058 one-click: body is "List-Unsubscribe=One-Click"; identity comes from the signed URL.
+export async function POST(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const status = await unsubscribe(searchParams.get("email"), searchParams.get("token"));
+  return NextResponse.json({ ok: status === "success" }, { status: status === "invalid" ? 400 : status === "error" ? 500 : 200 });
+}

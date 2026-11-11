@@ -356,7 +356,7 @@ const signalsSchema = z.object({
 export const workerReportSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("TOUCH_RESULT"), touchId: z.string(), status: z.enum(["SENT", "FAILED", "UNCERTAIN"]), externalMessageId: z.string().optional(), error: z.string().max(500).optional() }),
   z.object({ type: z.literal("INVITE_ACCEPTED"), leadId: z.string() }),
-  z.object({ type: z.literal("REPLY"), channel: channelEnum, handle: z.string().optional(), email: z.string().email().optional(), body: z.string().max(8000), messageIds: z.array(z.string().min(1).max(300)).max(20).optional() })
+  z.object({ type: z.literal("REPLY"), channel: channelEnum, handle: z.string().optional(), email: z.string().email().optional(), body: z.string().max(8000), messageIds: z.array(z.string().min(1).max(300)).max(20).optional(), autoReply: z.boolean().optional() })
     .refine((r) => Boolean(r.email || r.handle), { message: "email or handle required" }),
   z.object({ type: z.literal("LEAD_MATCHED"), consultantProfileId: z.string(), channel: z.enum(["LINKEDIN", "X"]), handle: z.string().min(1), matchConfidence: z.number().min(0).max(1), timezone: z.string(), signals: signalsSchema }),
   z.object({ type: z.literal("DMS_CLOSED"), leadId: z.string() }),
@@ -440,7 +440,7 @@ export async function applyReport(
         }
         return { ok: true, detail: "skipped: no lead for contact" };
       }
-      const { label, confidence } = await classifyReply(deps.llm, r.body);
+      const { label, confidence } = await classifyReply(deps.llm, r.body, { autoReply: r.autoReply === true });
       // Suppress before recording: if we crash in between, the replay still finds the opt-out to honour (suppress is idempotent).
       if (label === "negative") {
         const contact = r.channel === "EMAIL" ? { email: r.email } : r.channel === "X" ? { xHandle: r.handle } : { linkedinUrl: r.handle };

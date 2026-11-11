@@ -115,6 +115,12 @@ describe("runWork", () => {
     expect(s.reports).toEqual([{ type: "REPLY", channel: "EMAIL", email: "a@b.ca", body: "hi", messageIds: ["re_1@resend.dev"] }]);
   });
 
+  it("passes the auto-reply flag of an email reply to the report", async () => {
+    const s = setup({ imap: async () => ({ replies: [{ email: "a@b.ca", body: "away", autoReply: true }], commit: vi.fn() }) });
+    await runWork(s.deps);
+    expect(s.reports).toEqual([{ type: "REPLY", channel: "EMAIL", email: "a@b.ca", body: "away", autoReply: true }]);
+  });
+
   it("does not commit the IMAP UID when a reply report fails, and exits with ERROR", async () => {
     const commit = vi.fn();
     const s = setup({ imap: async () => ({ replies: [{ email: "a@b.ca", body: "hi" }], commit }) });

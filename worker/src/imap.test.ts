@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { collectReplies, extractReplyBody, isIgnorableSender, threadMessageIds, type ImapSource, type ParsedMail } from "./imap";
+import { collectReplies, extractReplyBody, isAutoReply, isIgnorableSender, threadMessageIds, type ImapSource, type ParsedMail } from "./imap";
 
 describe("isIgnorableSender", () => {
   const own = ["farjad@getverixa.com"];
@@ -130,5 +130,39 @@ describe("threadMessageIds", () => {
     expect(out).toHaveLength(20);
     expect(out[0]).toBe("id29@x");
     expect(out.every((id) => id.length <= 300)).toBe(true);
+  });
+});
+
+describe("isAutoReply", () => {
+  const h = (entries: [string, unknown][]) => ({ headers: new Map(entries) });
+  it.each<[string, [string, unknown][], boolean]>([
+    ["no headers", [], false],
+    ["Auto-Submitted: auto-replied", [["auto-submitted", "auto-replied"]], true],
+    ["Auto-Submitted parsed as a structured value", [["auto-submitted", { value: "auto-generated", params: {} }]], true],
+    ["Auto-Submitted: no", [["auto-submitted", "no"]], false],
+    ["Auto-Submitted: No (case)", [["auto-submitted", " No "]], false],
+    ["X-Autoreply", [["x-autoreply", "yes"]], true],
+    ["X-Autorespond", [["x-autorespond", "Out of office"]], true],
+    ["Precedence: auto_reply", [["precedence", "auto_reply"]], true],
+    ["Precedence: bulk", [["precedence", "Bulk"]], true],
+    ["Precedence: junk", [["precedence", "junk"]], true],
+    ["Precedence: list", [["precedence", "list"]], false],
+  ])("%s", (_name, entries, expected) => {
+    expect(isAutoReply(h(entries))).toBe(expected);
+  });
+
+  it("is false when the parser gave no header map", () => {
+    expect(isAutoReply({})).toBe(false);
+  });
+});
+
+describe("collectReplies auto-reply flag", () => {
+  it("flags an auto-reply and leaves a human reply unflagged", async () => {
+    const s = setup({
+      11: { ...mail("ooo@firm.ca", "I am away"), headers: new Map([["auto-submitted", "auto-replied"]]) },
+      12: mail("jane@firm.ca", "Yes"),
+    }, 10);
+    const r = await collectReplies(s.source, s.state, [], s.parse);
+    expect(r.replies).toEqual([{ email: "ooo@firm.ca", body: "I am away", autoReply: true }, { email: "jane@firm.ca", body: "Yes" }]);
   });
 });

@@ -428,3 +428,28 @@ describe("workerReportSchema messageIds", () => {
     expect(workerReportSchema.safeParse({ ...base, messageIds: ["a".repeat(301)] }).success).toBe(false);
   });
 });
+
+describe("applyReport REPLY auto-reply header", () => {
+  const hooks = { haltChannel: vi.fn(async () => {}) };
+  async function run(autoReply: boolean | undefined) {
+    const a = { ...backlog("A", 20), state: "TOUCH_1" as const, touchCount: 1 };
+    const { repo } = memoryRepo([a]);
+    repo.findLeadByContact = async () => a;
+    const recorded: { label: string }[] = [];
+    repo.recordReply = async (r) => { recorded.push(r); return true; };
+    const llm: Llm = { json: (async () => ({ label: "auto_reply", confidence: 0.5 })) as never };
+    const { workerReportSchema } = await import("../engine");
+    const report = workerReportSchema.parse({ type: "REPLY", channel: "EMAIL", email: "a@firm.ca", body: "Thanks for your email", ...(autoReply === undefined ? {} : { autoReply }) });
+    await applyReport(deps(repo, { llm }), report, hooks);
+    return recorded.map((r) => r.label);
+  }
+
+  it("keeps a low-confidence auto_reply label when the worker saw an auto-reply header", async () => {
+    expect(await run(true)).toEqual(["auto_reply"]);
+  });
+
+  it("relabels it as question without the header", async () => {
+    expect(await run(undefined)).toEqual(["question"]);
+    expect(await run(false)).toEqual(["question"]);
+  });
+});

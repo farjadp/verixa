@@ -20,5 +20,7 @@ export const OUTREACH = {
   autoPause: { windowDays: 7, minTouches: 13, maxNegativeRate: 0.08 },
   heartbeatStaleHours: 24,
   classifierMinConfidence: 0.7,
+  /** An LLM auto_reply label is trusted only at this confidence, unless the mail had an auto-reply header. */
+  autoReplyMinConfidence: 0.9,
   linkedinInviteNoteMax: 300,
 } as const;

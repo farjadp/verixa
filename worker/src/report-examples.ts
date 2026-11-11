@@ -9,6 +9,7 @@ export const REPORT_EXAMPLES: readonly WorkerReport[] = [
   { type: "REPLY", channel: "LINKEDIN", handle: "jane-doe", body: "Thanks, tell me more" },
   { type: "REPLY", channel: "EMAIL", email: "jane@example.com", body: "Not interested" },
   { type: "REPLY", channel: "EMAIL", email: "jane@example.com", body: "Tell me more", messageIds: ["re_abc@resend.dev", "first@mail.example.com"] },
+  { type: "REPLY", channel: "EMAIL", email: "jane@example.com", body: "I am out of the office until Monday", autoReply: true },
   {
     type: "LEAD_MATCHED", consultantProfileId: "c1", channel: "X", handle: "janedoe", matchConfidence: 0.91, timezone: "America/Toronto",
     signals: { postedAboutMarketing: false, soloOrSmallFirm: true, activeLast21Days: true, socialProfileComplete: true, hadProfileViews30d: false },

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Llm } from "@/lib/content-pipeline/types";
-import { classifyReply } from "../classifier";
+import { classifyReply, isObviousOptOut } from "../classifier";
 
 const llm = (label: string, confidence: number): Llm => ({ json: vi.fn(async () => ({ label, confidence }) as never) });
 
@@ -51,5 +51,63 @@ describe("classifyReply", () => {
 
   it("treats empty replies as question", async () => {
     expect((await classifyReply(llm("positive", 1), "   ")).label).toBe("question");
+  });
+});
+
+describe("short refusals (item 5)", () => {
+  it.each([
+    "No",
+    "no.",
+    "No thanks",
+    "No thank you!",
+    "No, thank you - Ali",
+    "No thanks.\n\nJane",
+    "Nope",
+    "Stop",
+    "STOP.",
+    "Not interested.",
+    "No. Please don't contact me",
+    "Not interested, remove me",
+    "No thanks, not interested",
+    "No, not interested.\n\nBest regards,\nAli Rezaei\nRCIC",
+  ])("treats %j as a deterministic refusal", async (t) => {
+    const l = llm("positive", 1);
+    expect(isObviousOptOut(t)).toBe(true);
+    expect(await classifyReply(l, t)).toEqual({ label: "negative", confidence: 1 });
+    expect(l.json).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "No problem, happy to chat",
+    "No worries, send details",
+    "No rush",
+    "No, I'd like to know more",
+    "Not sure yet",
+    "No problem.\n\nJane",
+    "Nope, sounds good to me",
+    "No thanks needed, tell me more",
+  ])("leaves %j to the model", async (t) => {
+    const l = llm("positive", 0.9);
+    expect(isObviousOptOut(t)).toBe(false);
+    expect(await classifyReply(l, t)).toEqual({ label: "positive", confidence: 0.9 });
+    expect(l.json).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("auto_reply confidence (item 5)", () => {
+  it("relabels a low-confidence auto_reply as question", async () => {
+    expect(await classifyReply(llm("auto_reply", 0.85), "I am away until Monday")).toEqual({ label: "question", confidence: 0.85 });
+  });
+
+  it("accepts a high-confidence auto_reply", async () => {
+    expect(await classifyReply(llm("auto_reply", 0.95), "I am out of office until Monday")).toEqual({ label: "auto_reply", confidence: 0.95 });
+  });
+
+  it("accepts a low-confidence auto_reply when the mail carries an auto-reply header", async () => {
+    expect(await classifyReply(llm("auto_reply", 0.5), "Thanks for your email", { autoReply: true })).toEqual({ label: "auto_reply", confidence: 0.5 });
+  });
+
+  it("does not let the header override another label", async () => {
+    expect(await classifyReply(llm("positive", 0.9), "Tell me more", { autoReply: true })).toEqual({ label: "positive", confidence: 0.9 });
   });
 });

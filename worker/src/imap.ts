@@ -7,6 +7,8 @@ export interface ParsedMail {
   html?: string | false | null;
   inReplyTo?: string;
   references?: string | string[];
+  /** mailparser's header map: lowercase names; values are strings or structured `{ value, params }` objects. */
+  headers?: Map<string, unknown>;
 }
 
 export interface EmailReply {
@@ -14,6 +16,8 @@ export interface EmailReply {
   body: string;
   /** In-Reply-To then References (newest first), without angle brackets. Omitted when the mail has neither header. */
   messageIds?: string[];
+  /** Set only when the mail carried an auto-reply header. */
+  autoReply?: true;
 }
 
 /** Thin seam over the mail server so the logic above it can be tested with fakes. */
@@ -91,6 +95,23 @@ export function threadMessageIds(mail: Pick<ParsedMail, "inReplyTo" | "reference
   return out;
 }
 
+function headerText(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (Array.isArray(v)) return v.map(headerText).join(" ");
+  if (v && typeof v === "object" && typeof (v as { value?: unknown }).value === "string") return (v as { value: string }).value;
+  return "";
+}
+
+/** True for automated mail: Auto-Submitted other than "no", X-Autoreply, X-Autorespond, or Precedence auto_reply/bulk/junk. */
+export function isAutoReply(mail: Pick<ParsedMail, "headers">): boolean {
+  const h = mail.headers;
+  if (!h) return false;
+  const auto = h.has("auto-submitted") ? headerText(h.get("auto-submitted")).trim().toLowerCase() : null;
+  if (auto !== null && auto !== "no") return true;
+  if (h.has("x-autoreply") || h.has("x-autorespond")) return true;
+  return /^(auto_reply|bulk|junk)$/.test(headerText(h.get("precedence")).trim().toLowerCase());
+}
+
 /**
  * Finds replies that arrived since the last committed UID. The first ever run only records a baseline, so old mail is never reported.
  * Call commit() after the replies were delivered to Verixa.
@@ -120,7 +141,7 @@ export async function collectReplies(
     const body = extractReplyBody(parsed);
     if (!body) continue;
     const messageIds = threadMessageIds(parsed);
-    replies.push({ email: (address as string).trim().toLowerCase(), body, ...(messageIds.length ? { messageIds } : {}) });
+    replies.push({ email: (address as string).trim().toLowerCase(), body, ...(messageIds.length ? { messageIds } : {}), ...(isAutoReply(parsed) ? { autoReply: true as const } : {}) });
   }
   const highest = messages.reduce((n, m) => Math.max(n, m.uid), last);
   return { replies, commit: () => { if (highest > last) state.setImapLastUid(highest); } };

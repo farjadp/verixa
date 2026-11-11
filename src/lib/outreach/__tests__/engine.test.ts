@@ -81,16 +81,16 @@ function deps(repo: OutreachRepo, over: Partial<EngineDeps> = {}): EngineDeps {
 }
 
 describe("planEmailDay", () => {
-  it("schedules the top 5 inside 08:00–13:00 local with 5–13 minute gaps and advances state", async () => {
-    const leads = Array.from({ length: 7 }, (_, i) => backlog(`L${i}`, 13 + i));
+  it("schedules the top 10 (email cap) inside 08:00–13:00 local with 5–13 minute gaps and advances state", async () => {
+    const leads = Array.from({ length: 12 }, (_, i) => backlog(`L${i}`, 13 + i));
     const { repo, touches } = memoryRepo(leads);
     const d = deps(repo);
     const res = await planEmailDay(d);
-    expect(res).toEqual({ status: "ok", scheduled: 5, dryRun: 0, failed: 0 });
+    expect(res).toEqual({ status: "ok", scheduled: 10, dryRun: 0, failed: 0 });
     const times = (d.email.send as ReturnType<typeof vi.fn>).mock.calls.map((c) => (c[1] as Date).getTime());
     expect(new Date(times[0]).toISOString()).toBe("2026-11-05T13:07:00.000Z"); // 08:00 + round(0.5*13) min
     for (let i = 1; i < times.length; i++) expect((times[i] - times[i - 1]) / 60000).toBe(9); // 5 + 0.5*8
-    expect(leads.filter((l) => l.state === "TOUCH_1").map((l) => l.id).sort()).toEqual(["L2", "L3", "L4", "L5", "L6"]);
+    expect(leads.filter((l) => l.state === "TOUCH_1").map((l) => l.id).sort()).toEqual(["L10", "L11", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9"]);
     expect(touches.every((t) => t.status === "SCHEDULED")).toBe(true);
   });
 
@@ -105,9 +105,9 @@ describe("planEmailDay", () => {
     for (let i = 1; i < times.length; i++) expect((times[i] - times[i - 1]) / 60000).toBeGreaterThanOrEqual(5);
   });
 
-  it("respects capacity already used today (4 counted -> at most 1 new send)", async () => {
+  it("respects capacity already used today (9 counted -> at most 1 new send)", async () => {
     const leads = Array.from({ length: 6 }, (_, i) => backlog(`L${i}`, 20 + i));
-    const external = { n: 4 };
+    const external = { n: 9 };
     const { repo } = memoryRepo(leads, { external });
     const d = deps(repo);
     expect((await planEmailDay(d)).scheduled).toBe(1);
@@ -116,10 +116,10 @@ describe("planEmailDay", () => {
   it("stops mid-loop when an overlapping run takes the remaining capacity", async () => {
     const leads = Array.from({ length: 8 }, (_, i) => backlog(`L${i}`, 20 + i));
     const external = { n: 0 };
-    const { repo } = memoryRepo(leads, { external, afterCreate: () => { external.n = 4; } });
+    const { repo } = memoryRepo(leads, { external, afterCreate: () => { external.n = 9; } });
     const d = deps(repo);
     const res = await planEmailDay(d);
-    expect(res.scheduled).toBe(1); // 1 ours + 4 from the rival = 5, so the loop stops
+    expect(res.scheduled).toBe(1); // 1 ours + 9 from the rival = 10, so the loop stops
     expect(d.email.send).toHaveBeenCalledTimes(1);
   });
 
@@ -501,5 +501,21 @@ describe("planEmailDay without founder alerts configured", () => {
     expect(d.email.send).not.toHaveBeenCalled();
     expect(warn.mock.calls.some((c) => String(c[0]).includes("OUTREACH_ALERT_EMAIL"))).toBe(true);
     warn.mockRestore();
+  });
+});
+
+describe("touch 1 by email uses the fixed intro template", () => {
+  it("sends the branded intro without calling the model", async () => {
+    const leads = [backlog("L1", 20)];
+    const { repo } = memoryRepo(leads);
+    const llmJson = vi.fn(async () => { throw new Error("model must not be called for touch 1"); });
+    const build = vi.fn((i: { to: string; subject: string; body: string; html?: string }) => ({ from: "f", to: i.to, replyTo: "r", subject: i.subject, text: i.body, html: i.html ?? i.body, headers: {} }));
+    const d = deps(repo, { llm: { json: llmJson as never } });
+    d.email = { ...d.email, build };
+    expect((await planEmailDay(d)).scheduled).toBe(1);
+    expect(llmJson).not.toHaveBeenCalled();
+    const built = build.mock.calls[0][0];
+    expect(built.subject).toBe("Your CICC listing is on Verixa, Sam");
+    expect(built.html).toContain("Claim your profile");
   });
 });

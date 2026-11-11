@@ -20,13 +20,43 @@ function setup(over: { adapters?: Partial<Record<"LINKEDIN" | "X", Parameters<ty
 }
 
 describe("runWork", () => {
-  it("runs discover -> tasks -> inbox for each channel in order, then heartbeats", async () => {
+  it("runs discover -> inbox -> tasks for each channel in order, then heartbeats", async () => {
     const s = setup({ tasks: [task(1)] });
     const r = await runWork(s.deps);
-    expect(s.order.filter((o) => o.startsWith("LINKEDIN"))).toEqual(["LINKEDIN:findProfile", "LINKEDIN:sendMessage", "LINKEDIN:readInbox"]);
-    expect(s.order.indexOf("X:findProfile")).toBeGreaterThan(s.order.indexOf("LINKEDIN:readInbox"));
+    expect(s.order.filter((o) => o.startsWith("LINKEDIN"))).toEqual(["LINKEDIN:findProfile", "LINKEDIN:readInbox", "LINKEDIN:sendMessage"]);
+    expect(s.order.indexOf("X:findProfile")).toBeGreaterThan(s.order.indexOf("LINKEDIN:sendMessage"));
     expect(r.exitCode).toBe(EXIT.OK);
     expect(s.api.heartbeat).toHaveBeenCalled();
+  });
+
+  it("a reply read this run is reported before any send on that channel", async () => {
+    const s = setup({ tasks: [task(1)], adapters: { LINKEDIN: { readInbox: vi.fn(async () => ok({ acceptedHandles: [], replies: [{ handle: "h9", body: "yes please" }] })) } } });
+    const seq: string[] = [];
+    (s.api.report as ReturnType<typeof vi.fn>).mockImplementation(async (r: { type: string }) => { seq.push(`report:${r.type}`); });
+    const send = s.adapters.LINKEDIN.sendMessage as ReturnType<typeof vi.fn>;
+    const orig = send.getMockImplementation()!;
+    send.mockImplementation(async (...a: unknown[]) => { seq.push("send"); return orig(...a); });
+    await runWork(s.deps);
+    expect(seq.indexOf("report:REPLY")).toBeGreaterThanOrEqual(0);
+    expect(seq.indexOf("report:REPLY")).toBeLessThan(seq.indexOf("send"));
+  });
+
+  it("an inbox halt skips that channel's tasks; the other channel still runs", async () => {
+    const s = setup({ tasks: [task(1)], adapters: { LINKEDIN: { readInbox: vi.fn(async () => ({ status: "checkpoint", detail: "wall" }) as AdapterResult<never>) } } });
+    const r = await runWork(s.deps);
+    expect(s.order).toContain("LINKEDIN:readInbox");
+    expect(s.order).not.toContain("LINKEDIN:sendMessage");
+    expect(s.order).toContain("X:sendMessage");
+    expect(r.channels.LINKEDIN.halted).toBe(true);
+    expect(r.exitCode).toBe(EXIT.HALT);
+  });
+
+  it("a plain inbox error marks the channel errored but its tasks still run", async () => {
+    const s = setup({ tasks: [task(1)], adapters: { LINKEDIN: { readInbox: vi.fn(async () => { throw new Error("boom"); }) } } });
+    const r = await runWork(s.deps);
+    expect(s.order).toContain("LINKEDIN:sendMessage");
+    expect(r.channels.LINKEDIN.errored).toBe(true);
+    expect(r.exitCode).toBe(EXIT.ERROR);
   });
 
   it("fetches candidates once", async () => {
@@ -46,10 +76,11 @@ describe("runWork", () => {
     expect(r.channels.LINKEDIN.halted).toBe(true);
   });
 
-  it("halt during the task run skips that channel's inbox", async () => {
+  it("halt during the task run is a HALT exit (inbox already ran before tasks)", async () => {
     const s = setup({ tasks: (ch) => (ch === "X" ? [task(1)] : []), adapters: { X: { sendMessage: vi.fn(async () => ({ status: "broken", detail: "gone", screenshot: "s.png" }) as AdapterResult<never>) } } });
     const r = await runWork(s.deps);
-    expect(s.order).not.toContain("X:readInbox");
+    expect(s.order.indexOf("X:readInbox")).toBeLessThan(s.order.indexOf("X:sendMessage"));
+    expect(r.channels.X.halted).toBe(true);
     expect(r.exitCode).toBe(EXIT.HALT);
   });
 

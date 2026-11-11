@@ -35,7 +35,7 @@ export interface WorkSummary {
 
 const CHANNELS: SocialChannel[] = ["LINKEDIN", "X"];
 
-/** One full pass: per channel discover -> run tasks -> inbox, then email replies, then a final heartbeat. Stops a channel at its first halt. */
+/** One full pass: per channel discover -> inbox -> run tasks, then email replies, then a final heartbeat. Stops a channel at its first halt. */
 export async function runWork(deps: WorkDeps): Promise<WorkSummary> {
   const { api } = deps;
   const summary: WorkSummary = {
@@ -84,19 +84,21 @@ export async function runWork(deps: WorkDeps): Promise<WorkSummary> {
       }
     }
 
-    const r = await runChannel(channel, { api, adapter, state: deps.state, now: deps.now, sleep: deps.sleep, rng: deps.rng, tz: deps.tz, log: deps.log });
-    note("tasks", r.outcome);
-    if (settle(r.outcome) !== "go") continue;
-
+    // Inbox before tasks: a reply read this run reaches the server before we send, so leadCheck can refuse.
+    // A halt or stop here skips the tasks; a plain error does not, because the runner re-checks each thread before sending.
     try {
       const i = await runInbox(channel, { api, adapter, now: deps.now, tz: deps.tz, log: deps.log });
       note("inbox", i.outcome);
-      settle(i.outcome);
+      if (settle(i.outcome) !== "go") continue;
     } catch (e) {
       if (e instanceof FatalApiError) throw e;
       deps.log(`${channel} inbox threw: ${(e as Error).message}`);
       ch.errored = true;
     }
+
+    const r = await runChannel(channel, { api, adapter, state: deps.state, now: deps.now, sleep: deps.sleep, rng: deps.rng, tz: deps.tz, log: deps.log });
+    note("tasks", r.outcome);
+    settle(r.outcome);
   }
 
   if (deps.imap) {

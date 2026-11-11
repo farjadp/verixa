@@ -10,6 +10,8 @@ export interface OutreachSettings {
 
 const PREFIX = "outreach.";
 const HEARTBEAT = "outreach.worker.lastHeartbeat";
+/** Set only by a heartbeat whose run read the IMAP inbox successfully. The plain heartbeat is no proof of that. */
+const INBOX_READ = "outreach.worker.lastInboxReadAt";
 const flagKey = (f: OutreachFlag) => (f === "enabled" || f === "dryRun" ? `${PREFIX}${f}` : `${PREFIX}${f.toLowerCase()}.enabled`);
 
 export async function getOutreachSettings(): Promise<OutreachSettings> {
@@ -29,14 +31,24 @@ export async function setOutreachFlag(f: OutreachFlag, value: boolean): Promise<
   await prisma.platformSetting.upsert({ where: { key }, create: { key, value: String(value) }, update: { value: String(value) } });
 }
 
-export async function recordHeartbeat(now: Date): Promise<void> {
-  const value = now.toISOString();
-  await prisma.platformSetting.upsert({ where: { key: HEARTBEAT }, create: { key: HEARTBEAT, value }, update: { value } });
+async function writeTime(key: string, at: Date): Promise<void> {
+  const value = at.toISOString();
+  await prisma.platformSetting.upsert({ where: { key }, create: { key, value }, update: { value } });
 }
 
-export async function getHeartbeat(): Promise<Date | null> {
-  const row = await prisma.platformSetting.findUnique({ where: { key: HEARTBEAT } });
+async function readTime(key: string): Promise<Date | null> {
+  const row = await prisma.platformSetting.findUnique({ where: { key } });
   if (!row) return null;
   const d = new Date(row.value);
   return Number.isNaN(d.getTime()) ? null : d;
 }
+
+export async function recordHeartbeat(now: Date, opts: { inboxRead?: boolean } = {}): Promise<void> {
+  await writeTime(HEARTBEAT, now);
+  if (opts.inboxRead) await writeTime(INBOX_READ, now);
+}
+
+export const getHeartbeat = (): Promise<Date | null> => readTime(HEARTBEAT);
+
+/** When the worker last read the email inbox successfully; null if never (or unreadable). */
+export const getInboxReadAt = (): Promise<Date | null> => readTime(INBOX_READ);

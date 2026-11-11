@@ -8,7 +8,7 @@ import { cancelScheduledEmails, type EngineDeps } from "./engine";
 import { checkHealth } from "./health";
 import { getFoundingOfferForOutreach } from "./offer";
 import { prismaRepo } from "./repo";
-import { getHeartbeat, getOutreachSettings, setOutreachFlag } from "./settings";
+import { getHeartbeat, getInboxReadAt, getOutreachSettings, setOutreachFlag } from "./settings";
 import { suppress } from "./suppression";
 import type { Channel } from "./types";
 
@@ -38,6 +38,7 @@ export function realDeps(): EngineDeps {
     suppress,
     appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://www.getverixa.com",
     alert: (subject, lines) => alertFounder(subject, lines),
+    inboxReadAt: getInboxReadAt,
   };
 }
 
@@ -78,10 +79,10 @@ export async function haltChannel(c: Channel, reason: string, detail: string): P
 
 export async function runHealth(): Promise<{ alerts: string[]; paused: boolean }> {
   const now = new Date();
-  const [settings, heartbeat, stats] = await Promise.all([
-    getOutreachSettings(), getHeartbeat(), prismaRepo.negativeStats(addCalendarDays(now, -OUTREACH.autoPause.windowDays)),
+  const [settings, heartbeat, inboxReadAt, stats] = await Promise.all([
+    getOutreachSettings(), getHeartbeat(), getInboxReadAt(), prismaRepo.negativeStats(addCalendarDays(now, -OUTREACH.autoPause.windowDays)),
   ]);
-  const { alerts, pause } = checkHealth({ now, settings, heartbeat, stats });
+  const { alerts, pause } = checkHealth({ now, settings, heartbeat, stats, inboxReadAt });
   let stuck = 0;
   if (pause) await setOutreachFlag("enabled", false);
   // Backstop, independent of checkHealth: whenever sending is off, retry pulling back anything still scheduled.

@@ -55,6 +55,7 @@ function setup(leads: LeadRow[], llmOut: unknown, elig: Elig = OK_ELIG) {
     getOffer: async () => null,
     email: { build: vi.fn(), send: vi.fn(), cancel: vi.fn() },
     suppress: vi.fn(async () => {}),
+    inboxReadAt: async () => null,
   };
   return { deps, touches, replies, created };
 }

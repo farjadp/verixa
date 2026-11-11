@@ -134,7 +134,8 @@ export async function runWork(deps: WorkDeps): Promise<WorkSummary> {
   }
 
   try {
-    await api.heartbeat();
+    // Verixa holds email follow-ups unless a recent heartbeat proves the inbox was read and every reply delivered.
+    await api.heartbeat({ imapOk: summary.imap === "ok" });
   } catch (e) {
     if (e instanceof FatalApiError) throw e;
     deps.log(`final heartbeat failed: ${(e as Error).message}`);

@@ -115,6 +115,25 @@ describe("runWork", () => {
     expect(s.reports).toEqual([{ type: "REPLY", channel: "EMAIL", email: "a@b.ca", body: "hi", messageIds: ["re_1@resend.dev"] }]);
   });
 
+  it("the final heartbeat says imapOk only when the inbox was read and every reply delivered", async () => {
+    const ok = setup({ imap: async () => ({ replies: [{ email: "a@b.ca", body: "hi" }], commit: vi.fn() }) });
+    await runWork(ok.deps);
+    expect(ok.api.heartbeat).toHaveBeenCalledWith({ imapOk: true });
+
+    const failed = setup({ imap: async () => { throw new Error("auth failed"); } });
+    await runWork(failed.deps);
+    expect(failed.api.heartbeat).toHaveBeenCalledWith({ imapOk: false });
+
+    const undelivered = setup({ imap: async () => ({ replies: [{ email: "a@b.ca", body: "hi" }], commit: vi.fn() }) });
+    (undelivered.api.report as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new ApiError("500", 500));
+    await runWork(undelivered.deps);
+    expect(undelivered.api.heartbeat).toHaveBeenCalledWith({ imapOk: false });
+
+    const none = setup({});
+    await runWork(none.deps);
+    expect(none.api.heartbeat).toHaveBeenCalledWith({ imapOk: false });
+  });
+
   it("passes the auto-reply flag of an email reply to the report", async () => {
     const s = setup({ imap: async () => ({ replies: [{ email: "a@b.ca", body: "away", autoReply: true }], commit: vi.fn() }) });
     await runWork(s.deps);

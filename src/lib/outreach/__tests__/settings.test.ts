@@ -12,7 +12,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-import { getHeartbeat, getOutreachSettings, recordHeartbeat, setOutreachFlag } from "../settings";
+import { getHeartbeat, getInboxReadAt, getOutreachSettings, recordHeartbeat, setOutreachFlag } from "../settings";
 
 describe("outreach settings", () => {
   beforeEach(() => store.clear());
@@ -49,5 +49,23 @@ describe("outreach settings", () => {
     const t = new Date("2026-11-05T15:00:00Z");
     await recordHeartbeat(t);
     expect(await getHeartbeat()).toEqual(t);
+  });
+
+  it("records the inbox read time only when the heartbeat says the inbox was read", async () => {
+    const t1 = new Date("2026-11-05T15:00:00Z");
+    await recordHeartbeat(t1);
+    expect(await getHeartbeat()).toEqual(t1);
+    expect(await getInboxReadAt()).toBeNull();
+    await recordHeartbeat(t1, { inboxRead: true });
+    expect(await getInboxReadAt()).toEqual(t1);
+    const t2 = new Date("2026-11-05T16:00:00Z");
+    await recordHeartbeat(t2, { inboxRead: false });
+    expect(await getHeartbeat()).toEqual(t2);
+    expect(await getInboxReadAt()).toEqual(t1);
+  });
+
+  it("treats a malformed inbox read time as never", async () => {
+    store.set("outreach.worker.lastInboxReadAt", "garbage");
+    expect(await getInboxReadAt()).toBeNull();
   });
 });

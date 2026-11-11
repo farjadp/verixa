@@ -1,20 +1,35 @@
-import { addCalendarDays, isActiveDay } from "./calendar";
+import { addActiveDays, addCalendarDays, isActiveDay } from "./calendar";
 import { OUTREACH } from "./config";
 import type { OutreachSettings } from "./settings";
 
-export function checkHealth({ now, settings, heartbeat, stats }: {
-  now: Date; settings: OutreachSettings; heartbeat: Date | null; stats: { touches: number; negatives: number };
+/**
+ * True when the worker has not read the inbox successfully within the last `inboxReadMaxActiveDays` active days
+ * (operator timezone). Email follow-ups are held then, since a reply we have not seen could be an opt-out.
+ */
+export function isInboxReadStale(inboxReadAt: Date | null, now: Date): boolean {
+  if (!inboxReadAt) return true;
+  return addActiveDays(inboxReadAt, OUTREACH.inboxReadMaxActiveDays, OUTREACH.operatorTimezone).getTime() < now.getTime();
+}
+
+export function heldFollowUpsLine(inboxReadAt: Date | null): string {
+  return `Email follow-ups held: inbox not read since ${inboxReadAt?.toISOString() ?? "never"}. Check IMAP on the Mac worker.`;
+}
+
+export function checkHealth({ now, settings, heartbeat, stats, inboxReadAt }: {
+  now: Date; settings: OutreachSettings; heartbeat: Date | null; stats: { touches: number; negatives: number }; inboxReadAt: Date | null;
 }): { alerts: string[]; pause: boolean } {
   const alerts: string[] = [];
   if (!settings.enabled) return { alerts, pause: false };
 
-  const socialOn = settings.channels.LINKEDIN || settings.channels.X;
+  // The worker also reads the email inbox, so a stale heartbeat matters for every channel.
+  const anyChannelOn = settings.channels.LINKEDIN || settings.channels.X || settings.channels.EMAIL;
   const staleMs = OUTREACH.heartbeatStaleHours * 3_600_000;
   // Both today and yesterday must be active days, else the first run after a rest day always looks stale.
   const tz = OUTREACH.operatorTimezone;
-  if (socialOn && isActiveDay(now, tz) && isActiveDay(addCalendarDays(now, -1), tz) && (!heartbeat || now.getTime() - heartbeat.getTime() > staleMs)) {
+  if (anyChannelOn && isActiveDay(now, tz) && isActiveDay(addCalendarDays(now, -1), tz) && (!heartbeat || now.getTime() - heartbeat.getTime() > staleMs)) {
     alerts.push(`Worker heartbeat is stale (last: ${heartbeat?.toISOString() ?? "never"}). Check the Mac worker.`);
   }
+  if (settings.channels.EMAIL && isInboxReadStale(inboxReadAt, now)) alerts.push(heldFollowUpsLine(inboxReadAt));
 
   const { minTouches, maxNegativeRate } = OUTREACH.autoPause;
   const pause = stats.touches >= minTouches && stats.negatives / stats.touches > maxNegativeRate;

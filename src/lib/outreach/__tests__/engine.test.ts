@@ -74,6 +74,7 @@ function deps(repo: OutreachRepo, over: Partial<EngineDeps> = {}): EngineDeps {
     getOffer: async () => null,
     email: { build: (i) => ({ from: "f", to: i.to, replyTo: "r", subject: i.subject, text: i.body, html: i.body, headers: {} }), send: vi.fn(async () => ({ id: `re_${n++}` })), cancel: vi.fn(async () => {}) },
     suppress: vi.fn(async () => {}),
+    inboxReadAt: async () => new Date("2026-11-04T15:00:00Z"),
     ...over,
   };
 }
@@ -451,5 +452,38 @@ describe("applyReport REPLY auto-reply header", () => {
   it("relabels it as question without the header", async () => {
     expect(await run(undefined)).toEqual(["question"]);
     expect(await run(false)).toEqual(["question"]);
+  });
+});
+
+describe("planEmailDay holds follow-ups while the inbox is unread", () => {
+  const due = (id: string): LeadRow => ({ ...backlog(id, 20), state: "TOUCH_1", touchCount: 1, nextActionAt: new Date("2026-11-04T05:00:00Z") });
+  const FRESH = new Date("2026-11-04T15:00:00Z"); // Wed: within 2 active days of Thu
+  const STALE = new Date("2026-11-02T15:00:00Z"); // Mon: 3 active days before Thu
+
+  it.each([["never read", null], ["read on Monday", STALE]])("holds step 2 when the inbox was %s, still sends step 1", async (_n, readAt) => {
+    const leads = [due("F1"), backlog("B1", 10)];
+    const { repo, touches } = memoryRepo(leads);
+    const d = deps(repo, { inboxReadAt: async () => readAt });
+    const res = await planEmailDay(d);
+    expect(res).toMatchObject({ status: "ok", scheduled: 1, followUpsHeld: 1 });
+    expect(res.detail).toMatch(/inbox not read since/);
+    expect(touches.map((t) => [t.leadId, t.step])).toEqual([["B1", 1]]);
+    expect(leads[0].state).toBe("TOUCH_1");
+  });
+
+  it("held follow-ups do not crowd out new leads", async () => {
+    const leads = [...Array.from({ length: 20 }, (_, i) => due(`F${i}`)), backlog("B1", 10)];
+    const { repo, touches } = memoryRepo(leads);
+    const res = await planEmailDay(deps(repo, { inboxReadAt: async () => null }));
+    expect(res).toMatchObject({ scheduled: 1, followUpsHeld: 20 });
+    expect(touches.map((t) => t.leadId)).toEqual(["B1"]);
+  });
+
+  it("sends step 2 when the inbox was read recently", async () => {
+    const leads = [due("F1")];
+    const { repo, touches } = memoryRepo(leads);
+    const res = await planEmailDay(deps(repo, { inboxReadAt: async () => FRESH }));
+    expect(res).toEqual({ status: "ok", scheduled: 1, dryRun: 0, failed: 0 });
+    expect(touches.map((t) => [t.leadId, t.step])).toEqual([["F1", 2]]);
   });
 });

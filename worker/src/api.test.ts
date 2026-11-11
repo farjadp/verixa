@@ -51,6 +51,14 @@ describe("api client", () => {
     expect(f.mock.calls[0][0]).toBe("https://v.test/api/outreach/worker/heartbeat");
   });
 
+  it("heartbeat sends imapOk as a JSON body when given, and no body otherwise", async () => {
+    const f = fakeFetch(200, { ok: true });
+    await make(f).heartbeat({ imapOk: true });
+    expect(JSON.parse(String(f.mock.calls[0][1]?.body))).toEqual({ imapOk: true });
+    await make(f).heartbeat();
+    expect(f.mock.calls[1][1]?.body).toBeUndefined();
+  });
+
   it("non-2xx throws ApiError with status", async () => {
     const err = await make(fakeFetch(500, { ok: false, error: "db down" })).getTasks("X").catch((e) => e);
     expect(err).toBeInstanceOf(ApiError);

@@ -6,6 +6,7 @@ import { classifyReply, isObviousOptOut } from "./classifier";
 import { ComposeRejectedError, composeMessage } from "./composer";
 import { OUTREACH } from "./config";
 import type { BuiltEmail } from "./email";
+import { heldFollowUpsLine, isInboxReadStale } from "./health";
 import type { FoundingOffer } from "./offer";
 import type { LeadRow, OutreachRepo } from "./repo";
 import { planTasks, type Task } from "./scheduler";
@@ -28,6 +29,8 @@ export interface EngineDeps {
   };
   suppress: (profileId: string, reason: string, contact?: { email?: string | null; linkedinUrl?: string | null; xHandle?: string | null }) => Promise<void>;
   appUrl: string;
+  /** When the worker last read the email inbox successfully (null = never). Email follow-ups are held while it is stale. */
+  inboxReadAt: () => Promise<Date | null>;
   /** Founder alert; optional so tests and callers without alerting still work. */
   alert?: (subject: string, lines: string[]) => Promise<void>;
 }
@@ -174,26 +177,45 @@ function slotAllocator(deps: EngineDeps) {
   };
 }
 
-export async function planEmailDay(deps: EngineDeps) {
-  const result = { status: "ok" as "disabled" | "rest_day" | "ok", scheduled: 0, dryRun: 0, failed: 0 };
+export interface EmailDayResult {
+  status: "disabled" | "rest_day" | "ok";
+  scheduled: number;
+  dryRun: number;
+  failed: number;
+  /** Present only when follow-ups were held because the inbox has not been read recently. */
+  followUpsHeld?: number;
+  detail?: string;
+}
+
+export async function planEmailDay(deps: EngineDeps): Promise<EmailDayResult> {
+  const result: EmailDayResult = { status: "ok", scheduled: 0, dryRun: 0, failed: 0 };
   const settings = await deps.settings();
-  if (!settings.enabled || !settings.channels.EMAIL) return { ...result, status: "disabled" as const };
+  if (!settings.enabled || !settings.channels.EMAIL) return { ...result, status: "disabled" };
 
   await runMaintenance(deps, "EMAIL");
   const now = deps.now();
-  if (!isActiveDay(now, OUTREACH.operatorTimezone)) return { ...result, status: "rest_day" as const };
+  if (!isActiveDay(now, OUTREACH.operatorTimezone)) return { ...result, status: "rest_day" };
 
   await discoverEmailLeads(deps);
   const leads = (await deps.repo.listLeads("EMAIL")).filter((l) => !l.profileClaimed && !l.suppressed);
   const offer = await deps.getOffer();
   const sentToday = await deps.repo.countTouchesToday("EMAIL", now);
   const capacity = Math.max(0, OUTREACH.touchesPerChannelPerDay - sentToday);
-  const tasks = planTasks({ channel: "EMAIL", leads, now, sentToday, offerAvailable: offer !== null, activeDayOnly: true, limit: capacity + SKIP_HEADROOM });
+
+  // A follow-up to someone whose reply we have not read could land on top of an opt-out: hold step >= 2 until the inbox is read.
+  const inboxReadAt = await deps.inboxReadAt();
+  const holdFollowUps = isInboxReadStale(inboxReadAt, now);
+  const isFollowUpState = (l: LeadRow) => l.state === "TOUCH_1" || l.state === "TOUCH_2";
+  const plan = (ls: LeadRow[], limit: number) => planTasks({ channel: "EMAIL", leads: ls, now, sentToday, offerAvailable: offer !== null, activeDayOnly: true, limit });
+  // Held follow-ups are left out of the plan so they cannot crowd new leads out of the day's slots.
+  const tasks = plan(holdFollowUps ? leads.filter((l) => !isFollowUpState(l)) : leads, capacity + SKIP_HEADROOM);
+  let followUpsHeld = holdFollowUps ? plan(leads.filter(isFollowUpState), leads.length).filter((t) => t.kind === "TOUCH" && t.step >= 2).length : 0;
   const nextSlot = slotAllocator(deps);
   const today = localParts(now, OUTREACH.operatorTimezone).ymd;
 
   for (const task of tasks) {
     if (task.kind !== "TOUCH") continue;
+    if (holdFollowUps && task.step >= 2) { followUpsHeld++; continue; } // backstop; the plan above already excludes them
     if (result.scheduled + result.dryRun >= capacity) break;
     const lead = leads.find((l) => l.id === task.leadId)!;
     const msg = await composeWithRetry(deps, lead, task.step, offer);
@@ -268,6 +290,11 @@ export async function planEmailDay(deps: EngineDeps) {
       console.error(`[outreach] state update failed after send for lead ${lead.id}: ${(e as Error).message}`);
     }
     result.scheduled++;
+  }
+  if (followUpsHeld > 0) {
+    const detail = heldFollowUpsLine(inboxReadAt);
+    console.warn(`[outreach] ${followUpsHeld} email follow-up(s) held. ${detail}`);
+    return { ...result, followUpsHeld, detail };
   }
   return result;
 }

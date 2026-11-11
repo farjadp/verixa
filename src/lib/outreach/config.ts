@@ -19,6 +19,8 @@ export const OUTREACH = {
   operatorTimezone: "America/Toronto",
   autoPause: { windowDays: 7, minTouches: 13, maxNegativeRate: 0.08 },
   heartbeatStaleHours: 24,
+  /** Email follow-ups (step >= 2) are held unless the worker read the inbox within this many active days. */
+  inboxReadMaxActiveDays: 2,
   classifierMinConfidence: 0.7,
   /** An LLM auto_reply label is trusted only at this confidence, unless the mail had an auto-reply header. */
   autoReplyMinConfidence: 0.9,

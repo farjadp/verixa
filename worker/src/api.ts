@@ -29,7 +29,8 @@ export interface Api {
   /** Last-moment check before one send. */
   leadCheck(touchId: string): Promise<{ sendable: boolean; reason?: string }>;
   report(r: WorkerReport): Promise<void>;
-  heartbeat(): Promise<void>;
+  /** `imapOk` (final heartbeat of a work run) tells Verixa the inbox was read; omit it for liveness-only heartbeats. */
+  heartbeat(status?: { imapOk: boolean }): Promise<void>;
 }
 
 export interface ApiOptions {
@@ -77,8 +78,8 @@ export function createApi(opts: ApiOptions): Api {
     async report(r) {
       await call("report", { method: "POST", body: r });
     },
-    async heartbeat() {
-      await call("heartbeat", { method: "POST" });
+    async heartbeat(status) {
+      await call("heartbeat", { method: "POST", ...(status ? { body: status } : {}) });
     },
   };
 }

@@ -4,6 +4,7 @@
 import { useState, useTransition } from "react";
 import { getOutreachSettingsAction, toggleOutreachFlag, type OutreachDashboard } from "@/actions/outreach.actions";
 import type { OutreachFlag } from "@/lib/outreach/settings";
+import { OUTREACH } from "@/lib/outreach/config";
 
 const TZ = "America/Toronto";
 const dateTimeFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, dateStyle: "medium", timeStyle: "short" });
@@ -64,7 +65,7 @@ export default function OutreachDashboardClient({ initial }: { initial: Outreach
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Consultant outreach</h1>
-          <p className="text-sm text-slate-500">Mon–Thu · 8 found and 5 touches per channel per day · max 3 touches per person</p>
+          <p className="text-sm text-slate-500">Mon–Thu · Email: {OUTREACH.emailNewLeadsPerDay} found and {OUTREACH.emailTouchesPerDay} sends per day · LinkedIn/X: {OUTREACH.newLeadsPerChannelPerDay} found and {OUTREACH.touchesPerChannelPerDay} touches per day · max {OUTREACH.maxTouchesPerPerson} touches per person</p>
         </div>
         <p className={`text-sm ${heartbeatAge === null || heartbeatAge > 24 ? "text-amber-700" : "text-slate-500"}`}>
           Worker heartbeat: {heartbeatAge === null ? "never" : `${heartbeatAge}h ago`}

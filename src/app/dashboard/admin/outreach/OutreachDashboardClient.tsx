@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { getOutreachSettingsAction, toggleOutreachFlag, type OutreachDashboard } from "@/actions/outreach.actions";
 import type { OutreachFlag } from "@/lib/outreach/settings";
 import { OUTREACH } from "@/lib/outreach/config";
+import OutreachStatsSection from "./OutreachStatsSection";
 
 const TZ = "America/Toronto";
 const dateTimeFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, dateStyle: "medium", timeStyle: "short" });
@@ -82,6 +83,8 @@ export default function OutreachDashboardClient({ initial }: { initial: Outreach
           <Toggle key={c} label={c} on={settings.channels[c]} disabled={pending} onChange={(v) => flip(c, v)} />
         ))}
       </section>
+
+      <OutreachStatsSection stats={initial.stats} />
 
       <section className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="min-w-full text-sm">

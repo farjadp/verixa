@@ -24,5 +24,5 @@ included) or in the process environment, and it also needs `OUTREACH_IT_CONFIRM_
    OUTREACH_IT_CONFIRM_THROWAWAY=yes npm run test:outreach-db
    ```
 
-4. Expect 9 passing tests. Paste any failure to Claude. The test deletes its own rows (tag `ITOUT-…`).
+4. Expect 10 passing tests. Paste any failure to Claude. The test deletes its own rows (tag `ITOUT-…`).
 5. Delete the Neon branch. Only then push the git branch (a Vercel build runs `prisma migrate deploy`).

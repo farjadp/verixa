@@ -5,7 +5,10 @@ import { addCalendarDays } from "./calendar";
 import { OUTREACH, isAlertConfigured } from "./config";
 import { buildOutreachEmail, cancelOutreachEmail, sendOutreachEmail } from "./email";
 import { cancelScheduledEmails, type EngineDeps } from "./engine";
+import { diagnose } from "./diagnosis";
 import { checkHealth } from "./health";
+import { claimWeeklyReport, loadEmailStats } from "./stats-repo";
+import { buildWeeklyReport, isReportDay } from "./weekly-report";
 import { getFoundingOfferForOutreach } from "./offer";
 import { prismaRepo } from "./repo";
 import { getHeartbeat, getInboxReadAt, getOutreachSettings, setOutreachFlag } from "./settings";
@@ -78,12 +81,13 @@ export async function haltChannel(c: Channel, reason: string, detail: string): P
   }
 }
 
-export async function runHealth(): Promise<{ alerts: string[]; paused: boolean }> {
+export async function runHealth(): Promise<{ alerts: string[]; paused: boolean; findings: number; weekly: boolean }> {
   const now = new Date();
-  const [settings, heartbeat, inboxReadAt, stats] = await Promise.all([
-    getOutreachSettings(), getHeartbeat(), getInboxReadAt(), prismaRepo.negativeStats(addCalendarDays(now, -OUTREACH.autoPause.windowDays)),
+  const [settings, heartbeat, inboxReadAt, stats, input] = await Promise.all([
+    getOutreachSettings(), getHeartbeat(), getInboxReadAt(), prismaRepo.negativeStats(addCalendarDays(now, -OUTREACH.autoPause.windowDays)), loadEmailStats(now),
   ]);
-  const { alerts, pause } = checkHealth({ now, settings, heartbeat, stats, inboxReadAt });
+  const findings = diagnose({ now, input, emailOn: settings.enabled && settings.channels.EMAIL });
+  const { alerts, pause } = checkHealth({ now, settings, heartbeat, stats, inboxReadAt, findings });
   let stuck = 0;
   if (pause) await setOutreachFlag("enabled", false);
   // Backstop, independent of checkHealth: whenever sending is off, retry pulling back anything still scheduled.
@@ -92,5 +96,15 @@ export async function runHealth(): Promise<{ alerts: string[]; paused: boolean }
     if (stuck > 0) alerts.push(cancelFailureLine(stuck));
   }
   if (alerts.length) await alertFounder(pause ? "Auto-paused" : "Health warning", alerts);
-  return { alerts, paused: pause };
+
+  // Monday: the weekly summary, once per ISO week, whenever there was outreach to report on.
+  let weekly = false;
+  if (isReportDay(now) && (settings.enabled || input.touches.length > 0)) {
+    const report = buildWeeklyReport({ now, input, findings });
+    if (await claimWeeklyReport(report.week)) {
+      await alertFounder(report.subject, report.lines);
+      weekly = true;
+    }
+  }
+  return { alerts, paused: pause, findings: findings.length, weekly };
 }

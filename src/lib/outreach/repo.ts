@@ -17,7 +17,11 @@ export interface LeadRow extends SchedulableLead {
 }
 export interface Candidate { consultantProfileId: string; timezone: string; status: string; email: string | null; companyPeerCount: number; profileViews30d: number }
 export interface ComposeContext { email: string | null; firstName: string; city: string | null; licenseNumber: string; profileViews30d: number; consultantProfileId: string; externalHandle: string | null }
-export interface TouchInput { leadId: string; channel: Channel; step: Step; cycle: 0 | 1; subject: string | null; body: string; status: "QUEUED" | "DRY_RUN"; dryRunDay?: string }
+export interface TouchInput { leadId: string; channel: Channel; step: Step; cycle: 0 | 1; subject: string | null; body: string; status: "QUEUED" | "DRY_RUN"; dryRunDay?: string; variant?: string | null }
+export interface TouchPatch {
+  status: string; externalMessageId?: string; error?: string; sentAt?: Date; scheduledFor?: Date;
+  deliveredAt?: Date; bouncedAt?: Date; bounceType?: string | null; bounceReason?: string | null; complainedAt?: Date;
+}
 
 export interface OutreachRepo {
   listLeads(channel?: Channel): Promise<LeadRow[]>;
@@ -31,7 +35,7 @@ export interface OutreachRepo {
   findDiscoveryCandidates(limit: number): Promise<Candidate[]>;
   getComposeContext(leadId: string): Promise<ComposeContext | null>;
   createTouch(t: TouchInput): Promise<{ id: string; created: boolean; status: string; body: string }>;
-  updateTouch(id: string, patch: { status: string; externalMessageId?: string; error?: string; sentAt?: Date; scheduledFor?: Date }): Promise<void>;
+  updateTouch(id: string, patch: TouchPatch): Promise<void>;
   listQueuedTouches(channel: Channel): Promise<{ id: string; leadId: string; step: Step; body: string }[]>;
   /** Leads in state INVITED on a channel. One cheap query: no suppression lookups. */
   listInvitedLeads(channel: Channel): Promise<{ id: string; externalHandle: string | null }[]>;
@@ -108,6 +112,8 @@ export const prismaRepo: OutreachRepo = {
       where: { id },
       data: { state: s.state, channel: s.channel, touchCount: s.touchCount, nextActionAt: s.nextActionAt, backlogSince: s.backlogSince, recontactUsed: s.recontactUsed, timezone: s.timezone },
     });
+    // Claim time for stats: set once, the first time the lead is saved as CLAIMED.
+    if (s.state === "CLAIMED") await prisma.outreachLead.updateMany({ where: { id, claimedAt: null }, data: { claimedAt: new Date() } });
   },
 
   async createLead({ consultantProfileId, snapshot, score, externalHandle, matchConfidence }) {
@@ -212,14 +218,14 @@ export const prismaRepo: OutreachRepo = {
       // Compare-and-set: of two overlapping runs only one wins the dead row.
       const won = await prisma.outreachTouch.updateMany({
         where: { id: existing.id, status: existing.status, externalMessageId: null },
-        data: { status: t.status, subject: t.subject, body: t.body, error: null, scheduledFor: null, sentAt: null },
+        data: { status: t.status, subject: t.subject, body: t.body, error: null, scheduledFor: null, sentAt: null, variant: t.variant ?? null },
       });
       const row = await prisma.outreachTouch.findUniqueOrThrow({ where: { id: existing.id } });
       return { id: row.id, created: won.count === 1, status: row.status, body: row.body };
     }
     try {
       const row = await prisma.outreachTouch.create({
-        data: { leadId: t.leadId, channel: t.channel, step: t.step, subject: t.subject, body: t.body, status: t.status, idempotencyKey },
+        data: { leadId: t.leadId, channel: t.channel, step: t.step, subject: t.subject, body: t.body, status: t.status, idempotencyKey, variant: t.variant ?? null },
       });
       return { id: row.id, created: true, status: row.status, body: row.body };
     } catch (e) {

@@ -10,6 +10,8 @@ import { OUTREACH, isAlertConfigured } from "@/lib/outreach/config";
 import { realDeps } from "@/lib/outreach/deps";
 import { cancelScheduledEmails } from "@/lib/outreach/engine";
 import { getHeartbeat, getOutreachSettings, setOutreachFlag, type OutreachFlag, type OutreachSettings } from "@/lib/outreach/settings";
+import { loadEmailStats } from "@/lib/outreach/stats-repo";
+import { buildOutreachStats, type OutreachStats } from "@/lib/outreach/stats-view";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -24,6 +26,7 @@ export type OutreachDashboard = {
   today: { id: string; channel: string; step: number; status: string; subject: string | null; body: string; scheduledFor: string | null; name: string }[];
   conversations: { leadId: string; name: string; channel: string; label: string; body: string; receivedAt: string; profileUrl: string }[];
   backlog: { leadId: string; name: string; channel: string; score: number }[];
+  stats: OutreachStats;
 };
 
 export async function getOutreachDashboard(): Promise<OutreachDashboard> {
@@ -32,7 +35,7 @@ export async function getOutreachDashboard(): Promise<OutreachDashboard> {
   const dayStart = localTimeToUtc(localParts(now, OUTREACH.operatorTimezone).ymd, 0, 0, OUTREACH.operatorTimezone);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.getverixa.com";
 
-  const [settings, heartbeat, grouped, today, convos, backlog] = await Promise.all([
+  const [settings, heartbeat, grouped, today, convos, backlog, statsInput] = await Promise.all([
     getOutreachSettings(),
     getHeartbeat(),
     prisma.outreachLead.groupBy({ by: ["channel", "state"], _count: { _all: true } }),
@@ -48,6 +51,7 @@ export async function getOutreachDashboard(): Promise<OutreachDashboard> {
       where: { state: "BACKLOG" }, orderBy: { score: "desc" }, take: 21,
       include: { consultantProfile: { select: { fullName: true } } },
     }),
+    loadEmailStats(now),
   ]);
 
   return {
@@ -65,6 +69,7 @@ export async function getOutreachDashboard(): Promise<OutreachDashboard> {
       profileUrl: `${appUrl}/consultant/${encodeURIComponent(l.consultantProfile.licenseNumber)}`,
     })),
     backlog: backlog.map((l) => ({ leadId: l.id, name: l.consultantProfile.fullName, channel: l.channel, score: l.score })),
+    stats: buildOutreachStats(statsInput, now, settings.enabled && settings.channels.EMAIL),
   };
 }
 

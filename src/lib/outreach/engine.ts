@@ -6,6 +6,7 @@ import { classifyReply, isObviousOptOut } from "./classifier";
 import { ComposeRejectedError, composeMessage } from "./composer";
 import { ALERT_UNSET_MESSAGE, OUTREACH } from "./config";
 import { OutreachConfigError, type BuiltEmail } from "./email";
+import { activeExperiment, assignArm, subjectFor, variantKey } from "./experiments";
 import { buildIntroEmail } from "./intro-email";
 import { heldFollowUpsLine, isInboxReadStale } from "./health";
 import type { FoundingOffer } from "./offer";
@@ -154,11 +155,18 @@ export async function composeWithRetry(deps: EngineDeps, lead: LeadRow, step: St
   const { profileUrl, claimUrl } = profileUrls(deps.appUrl, ctx.licenseNumber, lead.channel);
   const input = { channel: lead.channel, step, firstName: ctx.firstName, city: ctx.city, profileUrl, claimUrl, profileViews30d: ctx.profileViews30d, offer };
   // Touch 1 by email is the fixed, approved template: no model call, nothing to reject.
-  if (lead.channel === "EMAIL" && step === 1) return { ...buildIntroEmail(input), email: ctx.email };
+  if (lead.channel === "EMAIL" && step === 1) {
+    const intro = buildIntroEmail(input);
+    // An approved subject-line experiment may swap the subject; the body stays the approved template.
+    const exp = activeExperiment(1);
+    if (!exp) return { ...intro, email: ctx.email, variant: null };
+    const arm = assignArm(exp, lead.id);
+    return { ...intro, subject: subjectFor(arm, ctx.firstName, intro.subject), email: ctx.email, variant: variantKey(exp, arm) };
+  }
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const m = await composeMessage(deps.llm, input);
-      return { ...m, email: ctx.email };
+      return { ...m, email: ctx.email, variant: null };
     } catch (e) {
       // Missing config affects every lead: stop the whole run with a clear error instead of skipping leads forever.
       if (e instanceof OutreachConfigError) throw e;
@@ -253,7 +261,7 @@ export async function planEmailDay(deps: EngineDeps): Promise<EmailDayResult> {
     if (!current.enabled || !current.channels.EMAIL || (current.dryRun && !settings.dryRun)) break;
 
     if (settings.dryRun) {
-      await deps.repo.createTouch({ leadId: lead.id, channel: "EMAIL", step: task.step, cycle, subject: msg.subject, body: msg.body, status: "DRY_RUN", dryRunDay: today });
+      await deps.repo.createTouch({ leadId: lead.id, channel: "EMAIL", step: task.step, cycle, subject: msg.subject, body: msg.body, status: "DRY_RUN", dryRunDay: today, variant: msg.variant ?? null });
       result.dryRun++;
       continue;
     }
@@ -262,7 +270,7 @@ export async function planEmailDay(deps: EngineDeps): Promise<EmailDayResult> {
     if ((await deps.repo.countTouchesToday("EMAIL", deps.now())) >= OUTREACH.emailTouchesPerDay) break;
     const at = nextSlot(lead.timezone);
     if (!at) continue; // window already full for this timezone today
-    const touch = await deps.repo.createTouch({ leadId: lead.id, channel: "EMAIL", step: task.step, cycle, subject: msg.subject, body: msg.body, status: "QUEUED" });
+    const touch = await deps.repo.createTouch({ leadId: lead.id, channel: "EMAIL", step: task.step, cycle, subject: msg.subject, body: msg.body, status: "QUEUED", variant: msg.variant ?? null });
     if (!touch.created) continue; // already handled; never send twice
 
     let id: string;
@@ -550,13 +558,36 @@ export async function applyReport(
   }
 }
 
-export async function handleEmailEvent(deps: EngineDeps, resendId: string, status: "DELIVERED" | "BOUNCED" | "COMPLAINED"): Promise<boolean> {
+/** What the Resend webhook tells us beyond the event type. Stored on the touch for stats and diagnosis. */
+export interface EmailEventDetail {
+  /** Event time from the provider; falls back to now. */
+  at?: Date;
+  /** Permanent = hard, Transient = soft; unknown types stay null ("unclassified"). */
+  bounceType?: "hard" | "soft" | null;
+  bounceReason?: string | null;
+}
+
+/** Maps Resend's `data.bounce.type` to our hard/soft label. */
+export function bounceTypeFrom(raw: unknown): "hard" | "soft" | null {
+  const t = typeof raw === "string" ? raw.toLowerCase() : "";
+  if (t === "permanent") return "hard";
+  if (t === "transient") return "soft";
+  return null;
+}
+
+export async function handleEmailEvent(deps: EngineDeps, resendId: string, status: "DELIVERED" | "BOUNCED" | "COMPLAINED", detail: EmailEventDetail = {}): Promise<boolean> {
   const touch = await deps.repo.findTouchByExternalId(resendId);
   if (!touch) return false;
+  const at = detail.at ?? deps.now();
+  // The email left Resend whatever the outcome: mark it SENT so it is counted and never cancelled.
+  const sent = touch.sentAt ? { status: "SENT" } : { status: "SENT", sentAt: deps.now() };
   if (status === "DELIVERED") {
-    await deps.repo.updateTouch(touch.id, touch.sentAt ? { status: "SENT" } : { status: "SENT", sentAt: deps.now() });
+    await deps.repo.updateTouch(touch.id, { ...sent, deliveredAt: at });
     return true;
   }
+  await deps.repo.updateTouch(touch.id, status === "BOUNCED"
+    ? { ...sent, bouncedAt: at, bounceType: detail.bounceType ?? null, bounceReason: detail.bounceReason?.slice(0, 500) ?? null }
+    : { ...sent, complainedAt: at });
   const lead = await deps.repo.getLead(touch.leadId);
   if (!lead) return true;
   const ctx = await deps.repo.getComposeContext(lead.id);

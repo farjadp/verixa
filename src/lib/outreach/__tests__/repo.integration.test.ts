@@ -71,6 +71,8 @@ describe.skipIf(!enabled)("outreach repo — real Postgres", () => {
     if (!prisma) return;
     await prisma.analyticsEvent.deleteMany({ where: { consultantId: { in: profileIds } } });
     await prisma.emailUnsubscribe.deleteMany({ where: { email: { endsWith: MAIL } } });
+    await prisma.analyticsEvent.deleteMany({ where: { utmCampaign: TAG } });
+    await prisma.outreachRun.deleteMany({ where: { detail: TAG } });
     await prisma.consultantProfile.deleteMany({ where: { id: { in: profileIds } } }); // cascades leads/touches/replies/suppression
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     await prisma.$disconnect();
@@ -232,5 +234,31 @@ describe.skipIf(!enabled)("outreach repo — real Postgres", () => {
     await prisma.consultantProfile.delete({ where: { id: p.id } }); // cascade
     expect(await prisma.outreachTouch.count({ where: { leadId: lead.id } })).toBe(0);
     profileIds.splice(profileIds.indexOf(p.id), 1);
+  });
+
+  it("learning: variant and delivery outcomes persist, claimedAt is set once, the stats loader joins clicks and unsubscribes, runs are logged", async () => {
+    const stats = await import("../stats-repo");
+    const p = await mkProfile();
+    const lead = await mkLead(p.id, { state: "TOUCH_1" });
+    const t = await repo.createTouch(touchInput(lead.id, { variant: "exp:B" }));
+    const bouncedAt = new Date(Date.now() - 3_600_000);
+    await repo.updateTouch(t.id, { status: "SENT", sentAt: new Date(Date.now() - 7_200_000), bouncedAt, bounceType: "hard", bounceReason: "550 no such user" });
+    expect(await prisma.outreachTouch.findUnique({ where: { id: t.id } })).toMatchObject({ variant: "exp:B", bounceType: "hard", bounceReason: "550 no such user" });
+
+    await repo.saveLead(lead.id, snap({ state: "CLAIMED" }));
+    const first = (await prisma.outreachLead.findUnique({ where: { id: lead.id } })).claimedAt;
+    expect(first).toBeInstanceOf(Date);
+    await repo.saveLead(lead.id, snap({ state: "CLAIMED" }));
+    expect((await prisma.outreachLead.findUnique({ where: { id: lead.id } })).claimedAt).toEqual(first);
+
+    await prisma.emailUnsubscribe.create({ data: { email: p.rawEmail, reason: "user_request" } });
+    await prisma.analyticsEvent.create({ data: { eventName: "page_view", utmSource: "outreach", utmMedium: "email", utmCampaign: TAG, metadata: JSON.stringify({ url: `/claim/${p.licenseNumber}?utm_source=outreach` }) } });
+    await stats.recordEmailRun({ status: "ok", scheduled: 3, dryRun: 0, failed: 1, detail: TAG });
+
+    const input = await stats.loadEmailStats(new Date());
+    expect(input.touches.find((x: { id: string }) => x.id === t.id)).toMatchObject({ bounceType: "hard", email: p.rawEmail.toLowerCase() });
+    expect(input.unsubscribes.some((u: { leadId: string }) => u.leadId === lead.id)).toBe(true);
+    expect(input.clicks.find((c: { leadId: string }) => c.leadId === lead.id)?.page).toBe("claim");
+    expect(input.runs.some((r: { detail: string | null; failed: number }) => r.detail === TAG && r.failed === 1)).toBe(true);
   });
 });

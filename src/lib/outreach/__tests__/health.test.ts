@@ -73,3 +73,24 @@ describe("isInboxReadStale", () => {
     expect(isInboxReadStale(new Date("2026-11-05T15:00:00Z"), new Date("2026-11-11T11:00:00Z"))).toBe(true);
   });
 });
+
+describe("checkHealth with diagnosis findings", () => {
+  const f = (over: Partial<import("../diagnosis").Finding>) => ({ id: "x", severity: "warn" as const, title: "T", finding: "F.", fix: "Do X.", pause: false, ...over });
+
+  it("turns warn and critical findings into alert lines and skips info", () => {
+    const r = checkHealth({ now: thu, settings: on, heartbeat: readToday, stats: noStats, inboxReadAt: readToday, findings: [f({ title: "Hard bounces" }), f({ severity: "info", title: "Quiet" })] });
+    expect(r.alerts).toEqual(["[WARN] Hard bounces. F. Fix: Do X."]);
+    expect(r.pause).toBe(false);
+  });
+
+  it("auto-pauses on a pausing finding and says why", () => {
+    const r = checkHealth({ now: thu, settings: on, heartbeat: readToday, stats: noStats, inboxReadAt: readToday, findings: [f({ severity: "critical", title: "1 spam complaint", pause: true })] });
+    expect(r.pause).toBe(true);
+    expect(r.alerts.at(-1)).toMatch(/Auto-paused by: 1 spam complaint/);
+  });
+
+  it("ignores findings while outreach is off", () => {
+    const r = checkHealth({ now: thu, settings: { ...on, enabled: false }, heartbeat: null, stats: noStats, inboxReadAt: null, findings: [f({ pause: true })] });
+    expect(r).toEqual({ alerts: [], pause: false });
+  });
+});

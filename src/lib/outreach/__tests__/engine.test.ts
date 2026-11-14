@@ -1,7 +1,7 @@
 // src/lib/outreach/__tests__/engine.test.ts
 import { describe, expect, it, vi } from "vitest";
 import type { Llm } from "@/lib/content-pipeline/types";
-import { applyReport, cancelScheduledEmails, handleEmailEvent, planEmailDay, type EngineDeps } from "../engine";
+import { applyReport, bounceTypeFrom, cancelScheduledEmails, handleEmailEvent, planEmailDay, type EngineDeps } from "../engine";
 import type { LeadRow, OutreachRepo } from "../repo";
 import type { LeadSnapshot } from "../types";
 
@@ -354,14 +354,40 @@ describe("handleEmailEvent", () => {
     expect(d.suppress).toHaveBeenCalledWith("A", "bounced", { email: "A@firm.ca" });
   });
 
+  it("stores bounce type, reason and event time on the touch, and marks it SENT", async () => {
+    const { repo } = memoryRepo([{ ...backlog("A", 20), state: "TOUCH_1" as const, touchCount: 1 }]);
+    repo.findTouchByExternalId = async () => ({ id: "t9", leadId: "A", step: 1, sentAt: null });
+    const updates: Record<string, unknown>[] = [];
+    repo.updateTouch = async (_id, p) => { updates.push({ ...p }); };
+    const at = new Date("2026-11-05T12:30:00Z");
+    await handleEmailEvent(deps(repo), "re_9", "BOUNCED", { at, bounceType: "hard", bounceReason: "550 mailbox unavailable" });
+    expect(updates[0]).toEqual({ status: "SENT", sentAt: NOW, bouncedAt: at, bounceType: "hard", bounceReason: "550 mailbox unavailable" });
+  });
+
+  it("stores the complaint time", async () => {
+    const { repo } = memoryRepo([{ ...backlog("A", 20), state: "TOUCH_1" as const, touchCount: 1 }]);
+    repo.findTouchByExternalId = async () => ({ id: "t9", leadId: "A", step: 1, sentAt: NOW });
+    const updates: Record<string, unknown>[] = [];
+    repo.updateTouch = async (_id, p) => { updates.push({ ...p }); };
+    await handleEmailEvent(deps(repo), "re_9", "COMPLAINED");
+    expect(updates[0]).toEqual({ status: "SENT", complainedAt: NOW });
+  });
+
+  it("maps Resend bounce types to hard/soft and leaves unknown ones unclassified", () => {
+    expect(bounceTypeFrom("Permanent")).toBe("hard");
+    expect(bounceTypeFrom("Transient")).toBe("soft");
+    expect(bounceTypeFrom("Undetermined")).toBeNull();
+    expect(bounceTypeFrom(undefined)).toBeNull();
+  });
+
   it("does not overwrite an existing sentAt on delivery", async () => {
     const { repo } = memoryRepo([{ ...backlog("A", 20), state: "TOUCH_1" as const, touchCount: 1 }]);
     const sentAt = new Date("2026-11-05T12:00:00Z");
     repo.findTouchByExternalId = async () => ({ id: "t9", leadId: "A", step: 1, sentAt });
     const updates: Record<string, unknown>[] = [];
-    repo.updateTouch = async (_id, p) => { updates.push(p); };
+    repo.updateTouch = async (_id, p) => { updates.push({ ...p }); };
     await handleEmailEvent(deps(repo), "re_9", "DELIVERED");
-    expect(updates[0]).toEqual({ status: "SENT" });
+    expect(updates[0]).toEqual({ status: "SENT", deliveredAt: NOW });
   });
 });
 

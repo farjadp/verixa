@@ -914,6 +914,7 @@ model OutreachLead {
   backlogSince        DateTime?
   recontactUsed       Boolean           @default(false)
   timezone            String            @default("America/Toronto")
+  claimedAt           DateTime?         // first time the lead was seen CLAIMED (stats only)
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
@@ -938,11 +939,34 @@ model OutreachTouch {
   scheduledFor      DateTime?
   sentAt            DateTime?
   error             String?
+  /// A/B arm this touch was sent with (null = no experiment running). See src/lib/outreach/experiments.ts.
+  variant           String?
+  /// Resend webhook outcomes, kept per touch for stats and diagnosis.
+  deliveredAt       DateTime?
+  bouncedAt         DateTime?
+  bounceType        String?      // hard | soft
+  bounceReason      String?
+  complainedAt      DateTime?
   createdAt         DateTime     @default(now())
 
   @@index([leadId])
   @@index([externalMessageId])
   @@index([channel, createdAt])
+}
+
+/// One row per outreach cron run, so "the cron did not run" and compose failures are visible.
+model OutreachRun {
+  id            String   @id @default(cuid())
+  channel       String
+  status        String   // ok | disabled | rest_day | error
+  scheduled     Int      @default(0)
+  dryRun        Int      @default(0)
+  failed        Int      @default(0)
+  followUpsHeld Int      @default(0)
+  detail        String?
+  startedAt     DateTime @default(now())
+
+  @@index([channel, startedAt])
 }
 
 model OutreachReply {

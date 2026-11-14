@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Webhook } from "svix";
-import { handleEmailEvent } from "@/lib/outreach/engine";
+import { bounceTypeFrom, handleEmailEvent } from "@/lib/outreach/engine";
 import { realDeps } from "@/lib/outreach/deps";
 
 // Resend uses Svix to sign all outgoing webhook payloads.
@@ -23,7 +23,7 @@ import { realDeps } from "@/lib/outreach/deps";
 // The svix package handles this correctly — DO NOT try to replicate manually.
 //
 // Setup steps:
-// 1. Resend Dashboard → Webhooks → Add endpoint → https://getverixa.ca/api/webhooks/resend
+// 1. Resend Dashboard → Webhooks → Add endpoint → https://www.getverixa.com/api/webhooks/resend
 // 2. Select events: email.delivered, email.bounced, email.complained
 // 3. Copy the Signing Secret and set RESEND_WEBHOOK_SECRET in your env vars.
 
@@ -79,7 +79,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, skipped: true });
     }
 
-    const isOutreach = await handleEmailEvent(realDeps(), resendId, newStatus as "DELIVERED" | "BOUNCED" | "COMPLAINED");
+    const createdAt = new Date(eventPayload.created_at ?? data?.created_at ?? "");
+    const isOutreach = await handleEmailEvent(realDeps(), resendId, newStatus as "DELIVERED" | "BOUNCED" | "COMPLAINED", {
+      at: Number.isNaN(createdAt.getTime()) ? undefined : createdAt,
+      bounceType: bounceTypeFrom(data?.bounce?.type),
+      bounceReason: typeof data?.bounce?.message === "string" ? data.bounce.message : null,
+    });
     if (isOutreach) return NextResponse.json({ ok: true, outreach: true });
 
     const updated = await (prisma as any).campaignRecipient.updateMany({
